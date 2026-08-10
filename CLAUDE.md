@@ -248,7 +248,7 @@ Both move together after the registration lock lifts.
 |---|---|---|---|
 | **Domain + DNS + Email Routing + R2** | Yes | Cloudflare accounts are separate units and one login can belong to several | Currently on a personal Cloudflare account. After ~2026-10-09 (60-day registration lock) move the zone into a dedicated Cloudflare account owned by the role account |
 | **GitHub repo** | Yes | Repo transfer, instant, no lock | Nothing — currently under `almuwalladyousef-ops`, fine |
-| **Supabase** | Yes | A dedicated account is cleanest; failing that, the organization is the transferable and billable unit | Create a **new Supabase account** signed in with the role account, one org, one project. Pick the region closest to users — changing it later is a data migration, not a setting |
+| **Supabase** | Yes | The **organization** is the transferable and billable unit — projects move between orgs and org ownership hands over. A separate login account is unnecessary | Use the owner's existing Supabase account, but create a dedicated **MarkedFox organization** and put the project in it — never the personal/default org. Invite the role account as Owner. Pick the region closest to users, since changing it later is a data migration, not a setting |
 | **VPS** | Yes, but only cleanly if started right | Moving a server between provider accounts is a snapshot-and-restore or a support ticket, not a setting | Create a **new provider account** under the role account. Hetzner is preferred — monthly billing with no renewal cliff, and cheap on-demand snapshots, which the rollback strategy depends on. Hostinger is acceptable if already paid for, but its advertised price needs a long prepaid term, renewal is typically 2–3× that, and its snapshot allowance is thinner — confirm on-demand snapshots exist before relying on them. Expect possible identity/payment verification taking up to a day, so create the account before it is needed |
 | **Meta app** | Yes | Business portfolio supports multiple admins — add buyer, remove self | App must live inside its own **Business portfolio**, not float loose |
 | **Facebook Page** | Yes | Page admin roles | Page is separate from any personal Page |
@@ -514,7 +514,7 @@ launch burst was absorbed without an outage; paying customers.
 | Domain | $12/year |
 | Legal entity | **$0** — already owned |
 | Every approval and audit | **$0** |
-| VPS while building | **~$5/month** |
+| VPS while building | **~$6/month** — Hetzner CX22 at €4.50 (2 vCPU, 4GB, 40GB, 20TB traffic) plus ~€0.90 for snapshots. Hourly billing, no contract. Billed in EUR, so expect a small foreign-transaction fee |
 | Supabase, R2, transactional email, uptime monitoring, GitHub | **$0** — free tiers |
 | AI keys while testing | ~$0–5/month, pay-per-use |
 | **Total to build** | **$12 once plus ~$5/month** |
