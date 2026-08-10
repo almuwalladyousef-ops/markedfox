@@ -227,6 +227,33 @@ Verification. Confirm on each form rather than assuming.
 
 ---
 
+## Asset separation and transferability
+
+The product is expected to be sold eventually, so its identity is kept separate from
+the owner's personal identity at every layer. Separating now is cheap; retrofitting
+it during a sale is not. The role account `markedfox.usa@gmail.com` is the master
+key — handing it over carries most of the stack with it.
+
+| Asset | Separable | Mechanism | Action |
+|---|---|---|---|
+| **Domain + DNS + Email Routing + R2** | Yes | Cloudflare accounts are separate units and one login can belong to several | Currently on a personal Cloudflare account. After ~2026-10-09 (60-day registration lock) move the zone into a dedicated Cloudflare account owned by the role account |
+| **GitHub repo** | Yes | Repo transfer, instant, no lock | Nothing — currently under `almuwalladyousef-ops`, fine |
+| **Supabase** | Yes | Organization is the transferable and billable unit | Create a dedicated **MarkedFox organization**, project inside it, role account as Owner. Never in a personal/default org |
+| **Hetzner VPS** | Yes | Account-level, or snapshot restored into a new account | Sign up under the role account |
+| **Meta app** | Yes | Business portfolio supports multiple admins — add buyer, remove self | App must live inside its own **Business portfolio**, not float loose |
+| **Facebook Page** | Yes | Page admin roles | Page is separate from any personal Page |
+| **Instagram, TikTok, X** | Yes | Separate logins, hand over credentials | Already separate |
+| **YouTube channel** | Only as a **Brand Account** | Brand Accounts allow adding and removing owners; a channel tied to a personal Google identity does not | **Verify the MarkedFox channel is a Brand Account and convert it now if not** |
+| **Role account Gmail** | Yes — it is the master key | Hand over credentials | 2FA with offline recovery codes |
+| **Stripe** | **No** | Stripe accounts are bound to a legal entity and do not transfer. The buyer opens their own and Stripe runs a support-assisted, PCI-compliant migration of customer and card data | Standard for acquisitions; budget time for it, not a one-click step |
+
+Note that **customers never connect their own Supabase.** This is a single
+multi-tenant database holding every user's rows, including their encrypted OAuth
+tokens. That is why RLS is the entire tenancy story, and why the Supabase
+organization is the single most valuable asset in a sale.
+
+---
+
 ## Pricing
 
 | | **Free** | **Pro $20/mo** | **Studio $49/mo** *(v2)* | **Enterprise** |
