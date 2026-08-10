@@ -253,7 +253,7 @@ Both move together after the registration lock lifts.
 | **Meta app** | Yes | Business portfolio supports multiple admins — add buyer, remove self | App must live inside its own **Business portfolio**, not float loose |
 | **Facebook Page** | Yes | Page admin roles | Page is separate from any personal Page |
 | **Instagram, TikTok, X** | Yes | Separate logins, hand over credentials | Already separate |
-| **YouTube channel** | Only as a **Brand Account** | Brand Accounts allow adding and removing owners; a channel tied to a personal Google identity does not | **Verify the MarkedFox channel is a Brand Account and convert it now if not** |
+| **YouTube channel** | Yes | The channel sits on a dedicated Google account, so the account itself is the product's — hand over the login. A Brand Account would only be needed if the channel were stuck on a personal Google identity | Nothing |
 | **Role account Gmail** | Yes — it is the master key | Hand over credentials | 2FA with offline recovery codes |
 | **Stripe** | **No** | Stripe accounts are bound to a legal entity and do not transfer. The buyer opens their own and Stripe runs a support-assisted, PCI-compliant migration of customer and card data | Standard for acquisitions; budget time for it, not a one-click step |
 
@@ -261,6 +261,18 @@ Note that **customers never connect their own Supabase.** This is a single
 multi-tenant database holding every user's rows, including their encrypted OAuth
 tokens. That is why RLS is the entire tenancy story, and why the Supabase
 organization is the single most valuable asset in a sale.
+
+**The VPS is deliberately disposable and does not need to transfer at all.** Code
+lives in Git, all state lives in Supabase, and media in R2 is deleted after publish.
+The box is only a machine running code it pulled from the repo, so a buyer provisions
+their own server, deploys from the repo, and points DNS at it. Nothing is migrated.
+The same reasoning means R2 buckets never need moving — there is nothing durable in
+them.
+
+**So the only asset that must transfer intact is Supabase.** Everything else either
+moves as an object (GitHub repo, Cloudflare zone), is a login handover (the social
+accounts and the role account), or is disposable (the VPS, R2). This is why creating
+Supabase under the role account matters more than any other account decision here.
 
 ---
 
