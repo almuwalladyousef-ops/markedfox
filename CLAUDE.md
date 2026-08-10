@@ -3,10 +3,10 @@
 **Product name:** MarkedFox · **Domain:** `markedfox.com` · **Repo:** `markedfox`
 (working title of the old personal app was "Content OS" — that name is retired)
 
-> **Copy this file into the new project folder and rename it `CLAUDE.md`.** It is
-> the complete, self-contained context for this build. Memory in Claude Code is
-> keyed to the filesystem path, so a new folder starts with empty memory — this
-> file is the durable context and nothing outside it should be assumed.
+> **This file is the complete, self-contained context for the build.** Memory in
+> Claude Code is keyed to the filesystem path, so a session here starts with empty
+> memory — this file is the durable context and nothing outside it should be
+> assumed. Keep its Phase 0 checklist and Log current as decisions change.
 
 ---
 
@@ -51,7 +51,7 @@ refactor, or preserve.
 - [x] Social handles reserved on Instagram, TikTok, YouTube, X, and Threads
 - [x] Role account created: **`markedfox.usa@gmail.com`** — owns the Meta and
       TikTok developer accounts, and is the login of record for every service
-      (Supabase, Hetzner, Cloudflare, GitHub). Deliberately not a personal address,
+      (Supabase, the VPS provider, Cloudflare, GitHub). Deliberately not a personal address,
       so the whole stack transfers with one handover if the product is sold.
 - [x] Meta developer account created
 - [x] TikTok developer account created under MarkedFox
@@ -81,7 +81,7 @@ refactor, or preserve.
       migrated. Full consolidation is an exit-time task, not a now task.
 - [ ] USPTO search, classes 9 and 42
 - [ ] **File Meta Business Verification** — the longest pole in the plan
-- [ ] Provision Supabase, Cloudflare R2, Hetzner, GitHub repo, AI key
+- [ ] Provision Supabase, Cloudflare R2, the VPS, GitHub repo, AI key
 
 An older personal single-user app exists at `/Volumes/Yousef Disk/Content-Os`
 (GitHub remote `almuwalladyousef-ops/Content-Os`). It is **reference only** and is
@@ -110,10 +110,11 @@ fixes that by construction.
 - **Supabase** — Postgres and Auth. Row Level Security is the tenant-isolation
   mechanism: the database refuses other users' rows, so a route that forgets to
   scope fails closed instead of leaking.
-- **Hetzner VPS** — the only host. Caddy for auto-TLS, `systemd` units for the app
-  and timers for the scheduler.
+- **A single VPS** — the only host. Hetzner preferred (monthly billing, no renewal
+  cliff, cheap on-demand snapshots); Hostinger acceptable if already paid for.
+  Caddy for auto-TLS, `systemd` units for the app and timers for the scheduler.
 - **Cloudflare R2** — media, deleted after publish. Zero egress fees.
-- **No Vercel.** Rollback is Hetzner snapshots plus a standby box that costs
+- **No Vercel.** Rollback is provider snapshots plus a standby box that costs
   nothing until booted. Vercel's free Hobby tier is not licensed for commercial
   use, so it is not an option either.
 - **Nothing runs on a Mac mini.** Home internet and power are not product
@@ -188,7 +189,7 @@ Verification. Confirm on each form rather than assuming.
   whichever Business portfolio is verified, so spinning the product into its own
   LLC later means re-verifying with Meta.
 - **One role account owns everything: `markedfox.usa@gmail.com`.** Meta developer
-  account, TikTok developer account, Supabase, Hetzner, Cloudflare, GitHub, and the
+  account, TikTok developer account, Supabase, the VPS provider, Cloudflare, GitHub, and the
   domain all sit under it. Never a personal address — the entire stack has to
   transfer in a single handover if the product is sold. It carries 2FA with recovery
   codes stored offline, because that inbox controls the Meta app and its Business
@@ -234,12 +235,21 @@ the owner's personal identity at every layer. Separating now is cheap; retrofitt
 it during a sale is not. The role account `markedfox.usa@gmail.com` is the master
 key — handing it over carries most of the stack with it.
 
+**The operating rule: anything not yet created gets created on the role account.**
+Adding the role account as an admin is only the workaround for things already created
+under a personal account. Payment methods do not need separating — a personal card on
+a product account is an entity expense, and a buyer simply swaps the card.
+
+**One deliberate exception:** R2 stays on the same personal Cloudflare account as the
+domain, because an R2 custom domain requires the zone to live in the same account.
+Both move together after the registration lock lifts.
+
 | Asset | Separable | Mechanism | Action |
 |---|---|---|---|
 | **Domain + DNS + Email Routing + R2** | Yes | Cloudflare accounts are separate units and one login can belong to several | Currently on a personal Cloudflare account. After ~2026-10-09 (60-day registration lock) move the zone into a dedicated Cloudflare account owned by the role account |
 | **GitHub repo** | Yes | Repo transfer, instant, no lock | Nothing — currently under `almuwalladyousef-ops`, fine |
-| **Supabase** | Yes | Organization is the transferable and billable unit | Create a dedicated **MarkedFox organization**, project inside it, role account as Owner. Never in a personal/default org |
-| **Hetzner VPS** | Yes | Account-level, or snapshot restored into a new account | Sign up under the role account |
+| **Supabase** | Yes | A dedicated account is cleanest; failing that, the organization is the transferable and billable unit | Create a **new Supabase account** signed in with the role account, one org, one project. Pick the region closest to users — changing it later is a data migration, not a setting |
+| **VPS** | Yes, but only cleanly if started right | Moving a server between provider accounts is a snapshot-and-restore or a support ticket, not a setting | Create a **new provider account** under the role account. Hetzner is preferred — monthly billing with no renewal cliff, and cheap on-demand snapshots, which the rollback strategy depends on. Hostinger is acceptable if already paid for, but its advertised price needs a long prepaid term, renewal is typically 2–3× that, and its snapshot allowance is thinner — confirm on-demand snapshots exist before relying on them. Expect possible identity/payment verification taking up to a day, so create the account before it is needed |
 | **Meta app** | Yes | Business portfolio supports multiple admins — add buyer, remove self | App must live inside its own **Business portfolio**, not float loose |
 | **Facebook Page** | Yes | Page admin roles | Page is separate from any personal Page |
 | **Instagram, TikTok, X** | Yes | Separate logins, hand over credentials | Already separate |
@@ -304,7 +314,7 @@ not out-featuring either incumbent at its own game.
 3. **No code assumes one user, one account per platform, or a shared secret.**
 4. **Payments, login, sessions, and entitlements are foundational** (Phase 2
    schema), not features added later.
-5. **Hetzner snapshots are the rollback** — taken before every deploy, restore
+5. **Provider snapshots are the rollback** — taken before every deploy, restore
    verified once before launch.
 6. **`npm run build` must be green before every commit.**
 
@@ -332,7 +342,7 @@ Verification. Create the new Meta developer account, then the Business portfolio
 then the Business app inside it. **File Meta Business
 Verification immediately** with the Certificate of Formation, EIN letter, and proof
 of business address. Authorize the Meta Developer Tools MCP. Note the TikTok client
-key and secret. Provision Supabase, Cloudflare R2, Hetzner, GitHub, and an AI key.
+key and secret. Provision Supabase, Cloudflare R2, the VPS, GitHub, and an AI key.
 
 **Exit:** `markedfox.com` resolves and the social handles are claimed; the Meta app
 exists under the right account with App ID and secret in hand; Business Verification
@@ -492,7 +502,7 @@ launch burst was absorbed without an outage; paying customers.
 | Domain | $12/year |
 | Legal entity | **$0** — already owned |
 | Every approval and audit | **$0** |
-| Hetzner VPS while building | **~$5/month** |
+| VPS while building | **~$5/month** |
 | Supabase, R2, transactional email, uptime monitoring, GitHub | **$0** — free tiers |
 | AI keys while testing | ~$0–5/month, pay-per-use |
 | **Total to build** | **$12 once plus ~$5/month** |
@@ -543,7 +553,7 @@ schedule; filing early is the only lever we control.
    read-mostly and **cannot create apps**, and the sign-in repeats on every client
    restart.
 5. Provide credentials: Supabase project URL plus anon and service-role keys;
-   Cloudflare R2 account ID, access key, secret, and bucket; Hetzner IP with an SSH
+   Cloudflare R2 account ID, access key, secret, and bucket; VPS IP with an SSH
    public key installed; Meta App ID and secret; TikTok client key and secret; a
    Gemini or Groq API key.
 6. Later: file the TikTok and YouTube audits, which need a demo video but not an
@@ -573,7 +583,7 @@ schedule; filing early is the only lever we control.
   deferred to v2. Readback and LinkScribe cut entirely. Fresh repository confirmed.
   New Meta app under a dedicated role account; the TikTok app stays where it
   is. Pricing settled, which reversed the earlier "every platform is a plain
-  toggle" decision in favour of plan gating. Vercel dropped entirely — Hetzner
+  toggle" decision in favour of plan gating. Vercel dropped entirely — provider
   snapshots are the rollback. Phases reordered around the fact that approvals
   require finished features, so the DM engine moved ahead of burst work and a
   dedicated filing-package phase was added. Entity settled: use the existing family
