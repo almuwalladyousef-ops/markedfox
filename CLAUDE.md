@@ -145,10 +145,13 @@ refactor, or preserve.
       MarkedFox org exists as the exit-time transfer destination)
 - [ ] Provision Cloudflare R2, the VPS, AI key (GitHub repo exists)
 
-An older personal single-user app exists at `/Volumes/Yousef Disk/Content-Os`
-(GitHub remote `almuwalladyousef-ops/Content-Os`). It is **reference only** and is
-not being ported. Three commits in it are worth reading if the equivalent problem
-comes up again:
+An older personal single-user app lives at GitHub remote
+`almuwalladyousef-ops/Content-Os`. It is **reference only** and is not being
+ported. Note that the local checkout the brief used to point at,
+`/Volumes/Yousef Disk/Content-Os`, **no longer exists on disk** (verified
+2026-08-13) — clone from the remote if any of the commits below are needed.
+Three commits in it are worth reading if the equivalent problem comes up
+again:
 
 - `ae98f10` — splitting messages over Instagram's 1000-character limit
 - `8ad6b05` — deduplicating webhook deliveries so nothing sends twice
