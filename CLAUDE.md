@@ -75,10 +75,24 @@ refactor, or preserve.
 - [x] **MarkedFox Business portfolio exists** (`business_id 1350181790431899`),
       audited 2026-08-13. Sole admin is the Facebook profile "Mark Snow" on the
       role account.
+- [ ] **UNBLOCK THE META DEVELOPER ACCOUNT FIRST — everything at Meta is stuck
+      behind it.** As of 2026-08-13 `developers.facebook.com` refuses all
+      access with *"Account confirmation needed — We've noticed unusual
+      activity on this developer account. Please complete the confirmation
+      steps to regain access."* and a **Confirm Account** button. The page
+      title is literally "Developer Platform Blocked User Error". No app can be
+      created, and therefore Business Verification cannot be unblocked either,
+      until the owner completes Meta's identity confirmation.
+      Likely trigger: the account is days old and was signed into from an
+      automated browser during the 2026-08-13 session, on top of several new
+      sign-ins the same week. **Do Meta work from the owner's normal browser
+      from now on** — a fresh developer account is exactly the profile Meta
+      flags, and the app that carries Business Verification is not worth
+      risking to save a few clicks.
 - [ ] **Create the Meta app INSIDE that portfolio** — it holds zero apps today.
-      This is now the gating step for everything else at Meta, because Business
+      This is the gating step for everything else at Meta, because Business
       Verification does not unlock until an app requests permissions that
-      require it (see the build-order section).
+      require it (see the build-order section). Blocked by the item above.
 - [ ] **Add a second admin to the Business portfolio.** Meta's own Security
       Center flags it: one admin means one lockout away from losing the
       portfolio that Business Verification and every Instagram permission
