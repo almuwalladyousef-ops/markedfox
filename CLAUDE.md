@@ -81,7 +81,12 @@ refactor, or preserve.
       migrated. Full consolidation is an exit-time task, not a now task.
 - [ ] USPTO search, classes 9 and 42
 - [ ] **File Meta Business Verification** — the longest pole in the plan
-- [ ] Provision Supabase, Cloudflare R2, the VPS, GitHub repo, AI key
+- [ ] **File for a D-U-N-S number** for the LLC (free, weeks of latency) —
+      required for Apple Developer organization enrollment when the native apps
+      come. Same file-the-slow-things-first logic as Business Verification
+- [x] Provision Supabase (hosted project created 2026-08-12; CLI installed —
+      confirm it sits in a dedicated MarkedFox org, not the personal default)
+- [ ] Provision Cloudflare R2, the VPS, AI key (GitHub repo exists)
 
 An older personal single-user app exists at `/Volumes/Yousef Disk/Content-Os`
 (GitHub remote `almuwalladyousef-ops/Content-Os`). It is **reference only** and is
@@ -223,8 +228,19 @@ Verification. Confirm on each form rather than assuming.
 - **Entitlements live in our own tables.** The payment processor's only job is
   writing to `subscriptions` via webhook. Swapping processors later is one adapter
   file.
-- **PWA now, native apps later.** Native belongs to the post-100 rebuild, along
-  with the 15–30% in-app-purchase tax.
+- **PWA at launch; iOS and Android apps committed, sequenced after the web
+  launch** (decided 2026-08-12). The web app launches to the ~100-user burst
+  first; native follows once there are paying customers. Store IAP takes 15%
+  under $1M/yr versus Stripe's ~4.4% on a $20 ticket, so the web paywall stays
+  the primary sales path — `subscriptions.processor` already accepts `'apple'`
+  and `'google'` beside `'stripe'`, each writing entitlements via its own
+  webhook (Apple Server Notifications V2, Google RTDN). Apple organization
+  enrollment needs a **D-U-N-S number** for the LLC — weeks of latency, so it
+  is filed in Phase 0 beside Meta Business Verification. Apple is $99/yr,
+  Google Play $25 once, both on the role account. No native framework is chosen
+  yet; the scaffold keeps publish/connect/entitlement logic in route handlers
+  and `lib/`, never inlined into React Server Components, so a native client
+  calls the same endpoints.
 
 ---
 
@@ -329,6 +345,9 @@ not out-featuring either incumbent at its own game.
 5. **Provider snapshots are the rollback** — taken before every deploy, restore
    verified once before launch.
 6. **`npm run build` must be green before every commit.**
+7. **Every working session writes a log to `sessions/`** (`YYYY-MM-DD-topic.md`):
+   decisions made, what was built, verification results, open items. The next
+   session reads the latest log before proposing anything.
 
 ---
 
@@ -605,3 +624,29 @@ schedule; filing early is the only lever we control.
   handles reserved on all five platforms, and a single role account
   (`markedfox.usa@gmail.com`) established as the owner of every service so the whole
   stack transfers in one handover.
+- **2026-08-13** — Initial scaffold built and verified (see
+  `sessions/2026-08-12-scaffold.md`): Next.js 16.3 + TypeScript + Tailwind v4,
+  hand-authored with exact pins; `src/` layout with `src/proxy.ts` (Next 16
+  renamed middleware); Supabase wiring (browser/server/service-role clients +
+  session-refresh proxy); fail-loud AES-256-GCM token crypto; the full 9-table
+  migration with RLS on every table, signup trigger, and plan seeds;
+  `canUserDo` as a pure function over an entitlement snapshot; `lib/platforms/`
+  registry with Instagram stubbed. Build/typecheck/lint/31 tests green with
+  zero env vars. Single-owner workspaces for now (multi-seat = future
+  `workspace_members` migration); all limits in `plans.limits` jsonb with
+  `null` = unlimited; **placeholder caps pending owner sign-off** — Free 200 DM
+  sends/mo + 60 video min/mo, Pro 10,000 DM sends/mo + 600 video min/mo.
+  Hosted Supabase project created by owner, CLI installed; migration push +
+  RLS smoke test awaits credentials. Native reversed from "post-100 rebuild"
+  to committed-but-after-web-launch; D-U-N-S filing added to Phase 0.
+  `sessions/` log convention adopted (rule 7).
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
