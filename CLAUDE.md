@@ -355,7 +355,10 @@ not out-featuring either incumbent at its own game.
 6. **`npm run build` must be green before every commit.**
 7. **Every working session writes a log to `sessions/`** (`YYYY-MM-DD-topic.md`):
    decisions made, what was built, verification results, open items. The next
-   session reads the latest log before proposing anything.
+   session reads the latest log before proposing anything. **Handoff briefs for
+   other chats/assistants live in `handoff/`** (`YYYY-MM-DD-topic.md`) — a
+   handoff is written for a different reader than a session log and never
+   contains secrets.
 
 ---
 
