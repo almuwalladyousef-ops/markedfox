@@ -72,8 +72,23 @@ refactor, or preserve.
       would still have account recovery routed to the seller — an unremovable
       takeover path from the buyer's point of view. Fine while one person holds
       both; an exit-time task exactly like the Cloudflare zone move.
-- [ ] Confirm the Meta app sits inside a **Business portfolio** at
-      `business.facebook.com` — verification attaches to the portfolio, not the app
+- [x] **MarkedFox Business portfolio exists** (`business_id 1350181790431899`),
+      audited 2026-08-13. Sole admin is the Facebook profile "Mark Snow" on the
+      role account.
+- [ ] **Create the Meta app INSIDE that portfolio** — it holds zero apps today.
+      This is now the gating step for everything else at Meta, because Business
+      Verification does not unlock until an app requests permissions that
+      require it (see the build-order section).
+- [ ] **Add a second admin to the Business portfolio.** Meta's own Security
+      Center flags it: one admin means one lockout away from losing the
+      portfolio that Business Verification and every Instagram permission
+      attach to. There is no appeal path. A second admin on an account the
+      owner also controls is enough.
+- [ ] Note: the portfolio currently shows *"You can't use this business
+      portfolio to advertise."* MarkedFox does not buy ads, so this is likely
+      harmless, but confirm it is an ads-only restriction and not a wider
+      portfolio limitation before filing anything that depends on the portfolio
+      being in good standing.
 - [ ] **Create the MarkedFox TikTok app.** Verified 2026-08-13 by signing into
       the developer portal: the MarkedFox developer account exists (settings
       show `m***a@gmail.com`) but **contains no apps at all**. The earlier
@@ -101,10 +116,16 @@ refactor, or preserve.
       already on a personal account gets the role account added as admin rather than
       migrated. Full consolidation is an exit-time task, not a now task.
 - [ ] USPTO search, classes 9 and 42
-- [ ] **File Meta Business Verification** — the longest pole in the plan
+- [ ] **File Meta Business Verification** — blocked until the app exists, not
+      filable today. As of 2026-08-13 the portfolio's Security Center reports
+      "Your organization does not need to be verified" and offers no Start
+      Verification control. Still the longest pole once it opens, so create the
+      app first specifically to unblock it.
 - [ ] **File for a D-U-N-S number** for the LLC (free, weeks of latency) —
       required for Apple Developer organization enrollment when the native apps
-      come. Same file-the-slow-things-first logic as Business Verification
+      come. **This is now the only genuinely file-it-in-week-one item left**,
+      since Business Verification turned out to be gated. Blocked on one input
+      that is recorded nowhere in this repo: the LLC's exact legal name.
 - [x] Provision Supabase (hosted project created 2026-08-12; CLI installed;
       stays in the personal default org by owner decision 2026-08-13 — an empty
       MarkedFox org exists as the exit-time transfer destination)
@@ -159,22 +180,39 @@ fixes that by construction.
 - Every audit — Meta, TikTok, YouTube — requires a live privacy policy, terms, a
   marketing page, and a demo video. These are filing prerequisites, not launch
   polish.
-- Meta Business Verification needs only the legal entity, which already exists. It
-  can be filed in week one and it is the longest pole in the plan.
+- ~~Meta Business Verification needs only the legal entity, which already exists.
+  It can be filed in week one and it is the longest pole in the plan.~~
+  **Wrong — corrected 2026-08-13 by reading the live portfolio.** The MarkedFox
+  Business portfolio's Security Center says verbatim: *"Verification for
+  MarkedFox — Your organization does not need to be verified."* There is no
+  Start Verification control to press. Meta gates the flow behind a portfolio
+  that actually holds an app requesting permissions which require verification;
+  an empty portfolio has nothing to verify. So Business Verification **cannot be
+  filed in week one against a bare entity**. The order is: create the app inside
+  the portfolio, request the permissions, and the verification requirement then
+  appears. Re-check the Security Center once the app exists and confirm this
+  reading before planning dates around it.
+
+This removes the one lever the plan claimed to have over the schedule. Filing
+early is still right, but "early" now means *as soon as the app exists and
+requests permissions*, not week one — and that pulls app creation onto the
+critical path ahead of everything else at Meta.
 
 Meanwhile the job queue, burst survival, payments, onboarding, and the PWA need no
 approvals at all. Those are exactly what gets built during the review wait.
 
 ```
-entity (exists) ──> Business Verification (weeks) ──────────────┐
-                                                               │
+entity (exists) ─> portfolio (exists) ─> APP + permission requests ─┐
+                                                                   │
+                             Business Verification unlocks (weeks) ─┤
+                                                                   │
 domain ─> VPS ─> auth ─> schema+RLS ─> adapters ─> DM engine ─> filing package
-                                                               │
-                                                               └─> FILE EVERYTHING
-                                                                        │
-                                        (during the wait) queue, payments, onboarding, PWA
-                                                                        │
-                                                    approvals land ─> beta 10 ─> launch
+                                                                   │
+                                                                   └─> FILE EVERYTHING
+                                                                            │
+                                            (during the wait) queue, payments, onboarding, PWA
+                                                                            │
+                                                        approvals land ─> beta 10 ─> launch
 ```
 
 ---
