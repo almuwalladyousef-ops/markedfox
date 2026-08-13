@@ -22,7 +22,11 @@ Two pillars at launch:
 
 A third pillar — **research & scripting** (Sandcastles-style: watch channels, flag
 videos that outperform their own channel baseline, pull transcripts, generate hooks
-and scripts) — is deliberately deferred to v2, after there are paying customers.
+and scripts) — is built within the launch cycle but sequenced last (owner decision
+2026-08-13, reversing the earlier defer-to-v2 call): it reuses the same platform
+APIs as the publisher and DM engine, so those two are made to work first and
+research follows on their foundations. The Studio tier that carries it is public
+from launch.
 
 **Funnels** land post-launch, built on the same DM engine, and go into the existing
 paid tier rather than creating a new one.
@@ -294,7 +298,7 @@ Supabase under the role account matters more than any other account decision her
 
 ## Pricing
 
-| | **Free** | **Pro $20/mo** | **Studio $49/mo** *(v2)* | **Enterprise** |
+| | **Free** | **Pro $20/mo** | **Studio $49/mo** | **Enterprise** |
 |---|---|---|---|---|
 | Posts | 10/week | Unlimited | Unlimited | Unlimited |
 | Platforms | 3 — Instagram, TikTok, YouTube | All | All | All |
@@ -319,8 +323,11 @@ week — annual converts that week into cash upfront instead of monthly churn ri
    transcode CPU and storage.
 4. **Free gets one DM rule.** Meta rate-limits **per app, not per user** — free
    users burn the same shared budget paying users need.
-5. **Studio $49 does not launch.** Until pillar 3 exists it would be identical to
-   Pro. It publishes the day research ships.
+5. **Studio $49 is public from launch** (owner decision 2026-08-13, reversing the
+   earlier launch-hidden call). Only Enterprise stays hidden. Consequence to
+   manage: until research ships, Studio is Pro at 2.45x the price — research must
+   land before or at launch, or Studio checkout should be held back at the last
+   moment. The `is_public` flag in `plans` makes that a row edit.
 6. **Enterprise is a "Contact us" mailto with zero build.** Limits are rows in the
    `plans` table, so raising a cap for one account is a row edit, never code. No
    SSO, no contracts — none of that is relevant at 100 users.
@@ -640,6 +647,19 @@ schedule; filing early is the only lever we control.
   RLS smoke test awaits credentials. Native reversed from "post-100 rebuild"
   to committed-but-after-web-launch; D-U-N-S filing added to Phase 0.
   `sessions/` log convention adopted (rule 7).
+- **2026-08-13 (later)** — Migration applied to the hosted project
+  (`pktdpxpafycyqiusvyhq`, ca-central-1) via `supabase db push`; RLS smoke
+  test passed 22/22 (`scripts/rls-smoke.mjs`): signup trigger, cross-tenant
+  isolation on all 8 tenant tables, subscriptions write-locked to service
+  role, usage undeletable, plans uneditable, cascade cleanup. `.env.local`
+  written from CLI-fetched keys plus a generated `TOKEN_ENCRYPTION_KEY`; dev
+  server runs session refresh with no warnings. **Studio reversed to public
+  from launch** (owner: research is built alongside the publisher and DM
+  engine since they share the same APIs, sequenced after them; only
+  Enterprise stays hidden) — pillar 3 moved from v2 back into the launch
+  cycle, pricing rule 5 rewritten. Open: the Supabase project sits in the
+  personal default org "Yousef almuwallad", not a dedicated MarkedFox org —
+  transfer via dashboard before launch (asset-separation rule).
 
 <!-- BEGIN:nextjs-agent-rules -->
 

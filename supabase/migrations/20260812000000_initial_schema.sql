@@ -474,8 +474,9 @@ insert into public.plans (id, name, price_monthly_cents, price_annual_cents, is_
   }'
 ),
 (
-  -- Not public until pillar 3 (research) ships — it would be identical to Pro.
-  'studio', 'Studio', 4900, 49000, false,
+  -- Public from launch (owner decision 2026-08-13): research ships alongside
+  -- the publisher and DM engine rather than as v2.
+  'studio', 'Studio', 4900, 49000, true,
   '{
     "posts_per_week": null,
     "platforms": null,
