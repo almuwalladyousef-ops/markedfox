@@ -58,7 +58,8 @@ refactor, or preserve.
       (Supabase, the VPS provider, Cloudflare, GitHub). Deliberately not a personal address,
       so the whole stack transfers with one handover if the product is sold.
 - [x] Meta developer account created
-- [x] TikTok developer account created under MarkedFox
+- [x] TikTok developer account created under MarkedFox (the *account* only —
+      it contains no apps yet; see the app-creation item below)
 - [ ] **2FA on `markedfox.usa@gmail.com`**, recovery codes stored offline, recovery
       email and phone set. That inbox controls the Meta app and its Business
       Verification — losing it means losing weeks of approval progress with no
@@ -73,9 +74,17 @@ refactor, or preserve.
       both; an exit-time task exactly like the Cloudflare zone move.
 - [ ] Confirm the Meta app sits inside a **Business portfolio** at
       `business.facebook.com` — verification attaches to the portfolio, not the app
-- [ ] Resolve the duplicate TikTok app: a pre-existing personal one and the new
-      MarkedFox one both exist. Keep the MarkedFox one unless the old app has a
-      completed Content Posting API audit worth preserving.
+- [ ] **Create the MarkedFox TikTok app.** Verified 2026-08-13 by signing into
+      the developer portal: the MarkedFox developer account exists (settings
+      show `m***a@gmail.com`) but **contains no apps at all**. The earlier
+      "two apps exist, resolve the duplicate" note was wrong — the pre-existing
+      personal app is under a different TikTok login, not this one, so there is
+      nothing here to delete and nothing to choose between. Create the app,
+      then record its client key and secret in `.env.local`.
+- [ ] Separately, check whether the old personal TikTok app has a completed
+      Content Posting API audit worth preserving. This requires signing into
+      that other TikTok account. If it has no audit, ignore it entirely —
+      TikTok offers no transfer path, so it cannot be moved regardless.
 - [ ] Facebook Page for MarkedFox, Instagram account switched to **Business**, and
       the two linked — the Instagram Graph API does not work without this
 - [ ] Cloudflare Email Routing for `admin@` / `hello@` / `support@markedfox.com`
@@ -219,8 +228,11 @@ Verification. Confirm on each form rather than assuming.
   that anchor. Creating the app first and adding it to a portfolio afterward is
   fine; moving an app between two portfolios *after* one is verified is what costs
   weeks.
-- **TikTok developer app stays where it is.** Already on the correct account, and
-  no transfer path exists at TikTok. Only the redirect URI changes.
+- **The TikTok app is created fresh on the MarkedFox developer account.**
+  Corrected 2026-08-13: that account holds no apps, so the earlier "the app
+  already exists on the correct account, only the redirect URI changes" note
+  was mistaken. Nothing needs moving — TikTok offers no transfer path anyway,
+  which is precisely why the app is created on the role account from the start.
 - **X is caption-field only and URLs are blocked server-side.** The URL guard is a
   13x cost control ($0.015 vs $0.20), so it is never a UI-only check.
 - **Platforms are gated by plan.** This is packaging, not economics — every API
