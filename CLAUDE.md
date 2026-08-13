@@ -88,8 +88,9 @@ refactor, or preserve.
 - [ ] **File for a D-U-N-S number** for the LLC (free, weeks of latency) —
       required for Apple Developer organization enrollment when the native apps
       come. Same file-the-slow-things-first logic as Business Verification
-- [x] Provision Supabase (hosted project created 2026-08-12; CLI installed —
-      confirm it sits in a dedicated MarkedFox org, not the personal default)
+- [x] Provision Supabase (hosted project created 2026-08-12; CLI installed;
+      stays in the personal default org by owner decision 2026-08-13 — an empty
+      MarkedFox org exists as the exit-time transfer destination)
 - [ ] Provision Cloudflare R2, the VPS, AI key (GitHub repo exists)
 
 An older personal single-user app exists at `/Volumes/Yousef Disk/Content-Os`
@@ -268,7 +269,7 @@ Both move together after the registration lock lifts.
 |---|---|---|---|
 | **Domain + DNS + Email Routing + R2** | Yes | Cloudflare accounts are separate units and one login can belong to several | Currently on a personal Cloudflare account. After ~2026-10-09 (60-day registration lock) move the zone into a dedicated Cloudflare account owned by the role account |
 | **GitHub repo** | Yes | Repo transfer, instant, no lock | Nothing — currently under `almuwalladyousef-ops`, fine |
-| **Supabase** | Yes | The **organization** is the transferable and billable unit — projects move between orgs and org ownership hands over. A separate login account is unnecessary | Use the owner's existing Supabase account, but create a dedicated **MarkedFox organization** and put the project in it — never the personal/default org. Invite the role account as Owner. Pick the region closest to users, since changing it later is a data migration, not a setting |
+| **Supabase** | Yes | The **organization** is the transferable and billable unit — projects move between orgs and org ownership hands over. A separate login account is unnecessary | **Owner decision 2026-08-13: the project stays in the personal default org.** Moving it is a one-click dashboard transfer, so consolidation is an exit-time task like everything else. An empty **MarkedFox** org (`jxbuzgxqvtrgdecxyszj`) already exists on the account as the ready-made destination for that day. Region is ca-central-1 — changing it later is a data migration, not a setting |
 | **VPS** | Yes, but only cleanly if started right | Moving a server between provider accounts is a snapshot-and-restore or a support ticket, not a setting | Create a **new provider account** under the role account. Hetzner is preferred — monthly billing with no renewal cliff, and cheap on-demand snapshots, which the rollback strategy depends on. Hostinger is acceptable if already paid for, but its advertised price needs a long prepaid term, renewal is typically 2–3× that, and its snapshot allowance is thinner — confirm on-demand snapshots exist before relying on them. Expect possible identity/payment verification taking up to a day, so create the account before it is needed |
 | **Meta app** | Yes | Business portfolio supports multiple admins — add buyer, remove self | App must live inside its own **Business portfolio**, not float loose |
 | **Facebook Page** | Yes | Page admin roles | Page is separate from any personal Page |
