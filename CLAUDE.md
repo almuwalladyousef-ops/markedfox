@@ -62,7 +62,15 @@ refactor, or preserve.
 - [ ] **2FA on `markedfox.usa@gmail.com`**, recovery codes stored offline, recovery
       email and phone set. That inbox controls the Meta app and its Business
       Verification — losing it means losing weeks of approval progress with no
-      appeal path.
+      appeal path. Audited 2026-08-13: 2-Step Verification is **off**; one passkey
+      and one Google-prompt device are registered; recovery phone is **not set**;
+      recovery email is set to `almuwalladyousef@gmail.com` but **unverified**.
+      Backup codes only become available after 2SV is switched on.
+- [ ] **Repoint the role account's recovery email before any sale.** It currently
+      points at the owner's personal inbox, so a buyer receiving the role account
+      would still have account recovery routed to the seller — an unremovable
+      takeover path from the buyer's point of view. Fine while one person holds
+      both; an exit-time task exactly like the Cloudflare zone move.
 - [ ] Confirm the Meta app sits inside a **Business portfolio** at
       `business.facebook.com` — verification attaches to the portfolio, not the app
 - [ ] Resolve the duplicate TikTok app: a pre-existing personal one and the new
@@ -275,7 +283,7 @@ Both move together after the registration lock lifts.
 | **Facebook Page** | Yes | Page admin roles | Page is separate from any personal Page |
 | **Instagram, TikTok, X** | Yes | Separate logins, hand over credentials | Already separate |
 | **YouTube channel** | Yes | The channel sits on a dedicated Google account, so the account itself is the product's — hand over the login. A Brand Account would only be needed if the channel were stuck on a personal Google identity | Nothing |
-| **Role account Gmail** | Yes — it is the master key | Hand over credentials | 2FA with offline recovery codes |
+| **Role account Gmail** | Yes — it is the master key | Hand over credentials | 2FA with offline recovery codes. Also repoint the recovery email and recovery phone away from the owner's personal identity at handover — otherwise the seller keeps a recovery route into the account that carries the whole stack |
 | **Stripe** | **No** | Stripe accounts are bound to a legal entity and do not transfer. The buyer opens their own and Stripe runs a support-assisted, PCI-compliant migration of customer and card data | Standard for acquisitions; budget time for it, not a one-click step |
 
 Note that **customers never connect their own Supabase.** This is a single
