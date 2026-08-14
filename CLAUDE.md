@@ -89,10 +89,14 @@ refactor, or preserve.
       from now on** — a fresh developer account is exactly the profile Meta
       flags, and the app that carries Business Verification is not worth
       risking to save a few clicks.
-- [ ] **Create the Meta app INSIDE that portfolio** — it holds zero apps today.
-      This is the gating step for everything else at Meta, because Business
-      Verification does not unlock until an app requests permissions that
-      require it (see the build-order section). Blocked by the item above.
+- [x] **Meta app created 2026-08-13** — `MarkedFox`, App ID
+      `2137342313486061`, `dev_mode`, compliant, no App Review submission yet.
+      `META_APP_ID` is in `.env.local`; `META_APP_SECRET` still needs pasting
+      from Settings → Basic.
+- [ ] **Verify the app's contact email** — `contact_email_verified` is false.
+- [ ] **Add products and request permissions** — `privileges` is empty, so
+      nothing has been requested yet. Instagram Graph API and Facebook Login
+      first.
 - [ ] **Add a second admin to the Business portfolio.** Meta's own Security
       Center flags it: one admin means one lockout away from losing the
       portfolio that Business Verification and every Instagram permission
@@ -130,11 +134,11 @@ refactor, or preserve.
       already on a personal account gets the role account added as admin rather than
       migrated. Full consolidation is an exit-time task, not a now task.
 - [ ] USPTO search, classes 9 and 42
-- [ ] **File Meta Business Verification** — blocked until the app exists, not
-      filable today. As of 2026-08-13 the portfolio's Security Center reports
-      "Your organization does not need to be verified" and offers no Start
-      Verification control. Still the longest pole once it opens, so create the
-      app first specifically to unblock it.
+- [ ] **File Meta Business Verification — now unblocked and the longest pole.**
+      The app exists as of 2026-08-13 and Meta reports
+      `business_verification_passes: false` against it, so this is finally
+      actionable. Needs the Certificate of Formation, EIN letter, and proof of
+      business address, with the address matching the documents exactly.
 - [ ] **File for a D-U-N-S number** for the LLC (free, weeks of latency) —
       required for Apple Developer organization enrollment when the native apps
       come. **This is now the only genuinely file-it-in-week-one item left**,
@@ -217,8 +221,10 @@ fixes that by construction.
   an empty portfolio has nothing to verify. So Business Verification **cannot be
   filed in week one against a bare entity**. The order is: create the app inside
   the portfolio, request the permissions, and the verification requirement then
-  appears. Re-check the Security Center once the app exists and confirm this
-  reading before planning dates around it.
+  appears. **Confirmed 2026-08-13** once the app existed: the Developer Tools
+  MCP reports `business_verification_passes: false` for App ID
+  `2137342313486061`, so Meta now tracks verification as a named requirement
+  where the empty portfolio had offered nothing at all.
 
 This removes the one lever the plan claimed to have over the schedule. Filing
 early is still right, but "early" now means *as soon as the app exists and
