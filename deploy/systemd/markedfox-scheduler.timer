@@ -1,0 +1,18 @@
+[Unit]
+Description=Run the MarkedFox scheduler every minute
+
+[Timer]
+# Every minute. Scheduled posts are set to the minute, so a coarser tick would
+# publish late; a finer one would only add load for no accuracy gain.
+OnCalendar=*:0/1
+# Catches up a tick missed while the box was down or rebooting for updates,
+# rather than silently skipping whatever was due.
+Persistent=true
+# Without this every droplet in a fleet would fire on the same second. Harmless
+# today with one box, and free insurance if a second is ever added.
+RandomizedDelaySec=5
+AccuracySec=1s
+Unit=markedfox-scheduler.service
+
+[Install]
+WantedBy=timers.target

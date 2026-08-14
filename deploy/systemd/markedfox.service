@@ -1,0 +1,47 @@
+[Unit]
+Description=MarkedFox web application
+Documentation=https://markedfox.com
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=markedfox
+Group=markedfox
+WorkingDirectory=/srv/markedfox/current
+EnvironmentFile=/srv/markedfox/.env.production
+
+# Bound to loopback deliberately: Caddy is the only public listener, so the
+# app cannot be reached except through TLS even if the firewall is wrong.
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=127.0.0.1
+
+ExecStart=/usr/bin/npm run start
+
+# Always come back up — an unhandled rejection at 3am must not mean the site is
+# down until someone notices. StartLimit stops a crash loop from thrashing.
+Restart=always
+RestartSec=3
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# Sandboxing. The app needs its own directory and outbound network, nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths=/srv/markedfox
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=markedfox
+
+[Install]
+WantedBy=multi-user.target

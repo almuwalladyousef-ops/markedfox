@@ -1,0 +1,28 @@
+[Unit]
+Description=MarkedFox scheduler tick — claims and publishes due scheduled posts
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=markedfox
+Group=markedfox
+WorkingDirectory=/srv/markedfox/current
+EnvironmentFile=/srv/markedfox/.env.production
+Environment=NODE_ENV=production
+
+ExecStart=/usr/bin/node scripts/run-scheduler.mjs
+
+# A tick that hangs must not block the next one forever. The timer's
+# Persistent=true means a missed run is caught up after a reboot.
+TimeoutStartSec=300
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/markedfox
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=markedfox-scheduler

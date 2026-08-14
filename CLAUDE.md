@@ -143,7 +143,11 @@ refactor, or preserve.
 - [x] Provision Supabase (hosted project created 2026-08-12; CLI installed;
       stays in the personal default org by owner decision 2026-08-13 — an empty
       MarkedFox org exists as the exit-time transfer destination)
-- [ ] Provision Cloudflare R2, the VPS, AI key (GitHub repo exists)
+- [ ] **Create the DigitalOcean droplet** — `tor1`, `s-1vcpu-2gb`, Ubuntu 24.04,
+      SSH key auth, on an account owned by the role account. The entire server
+      layer is already written and waiting in `deploy/`; this one click unblocks
+      all of Phase 1.
+- [ ] Provision Cloudflare R2 and an AI key (GitHub repo exists)
 
 An older personal single-user app lives at GitHub remote
 `almuwalladyousef-ops/Content-Os`. It is **reference only** and is not being
@@ -175,9 +179,15 @@ fixes that by construction.
 - **Supabase** — Postgres and Auth. Row Level Security is the tenant-isolation
   mechanism: the database refuses other users' rows, so a route that forgets to
   scope fails closed instead of leaking.
-- **A single VPS** — the only host. Hetzner preferred (monthly billing, no renewal
-  cliff, cheap on-demand snapshots); Hostinger acceptable if already paid for.
-  Caddy for auto-TLS, `systemd` units for the app and timers for the scheduler.
+- **A single VPS** — the only host. **DigitalOcean `tor1` (Toronto),
+  `s-1vcpu-2gb`, $12/month** (owner decision 2026-08-13, replacing Hetzner,
+  which refused the signup). The region is chosen for **database** latency:
+  Supabase is in `ca-central-1` (Toronto) and that region is fixed, so a
+  European box would cross the Atlantic on every query. Nothing in North
+  America matches Hetzner's price, so the build cost roughly doubles; 2GB is
+  viable only because Postgres is external. See `deploy/README.md` for the
+  runbook. Caddy for auto-TLS, `systemd` units for the app and timers for the
+  scheduler.
 - **Cloudflare R2** — media, deleted after publish. Zero egress fees.
 - **No Vercel.** Rollback is provider snapshots plus a standby box that costs
   nothing until booted. Vercel's free Hobby tier is not licensed for commercial
@@ -345,7 +355,7 @@ Both move together after the registration lock lifts.
 | **Domain + DNS + Email Routing + R2** | Yes | Cloudflare accounts are separate units and one login can belong to several | Currently on a personal Cloudflare account. After ~2026-10-09 (60-day registration lock) move the zone into a dedicated Cloudflare account owned by the role account |
 | **GitHub repo** | Yes | Repo transfer, instant, no lock | Nothing — currently under `almuwalladyousef-ops`, fine |
 | **Supabase** | Yes | The **organization** is the transferable and billable unit — projects move between orgs and org ownership hands over. A separate login account is unnecessary | **Owner decision 2026-08-13: the project stays in the personal default org.** Moving it is a one-click dashboard transfer, so consolidation is an exit-time task like everything else. An empty **MarkedFox** org (`jxbuzgxqvtrgdecxyszj`) already exists on the account as the ready-made destination for that day. Region is ca-central-1 — changing it later is a data migration, not a setting |
-| **VPS** | Yes, but only cleanly if started right | Moving a server between provider accounts is a snapshot-and-restore or a support ticket, not a setting | Create a **new provider account** under the role account. Hetzner is preferred — monthly billing with no renewal cliff, and cheap on-demand snapshots, which the rollback strategy depends on. Hostinger is acceptable if already paid for, but its advertised price needs a long prepaid term, renewal is typically 2–3× that, and its snapshot allowance is thinner — confirm on-demand snapshots exist before relying on them. Expect possible identity/payment verification taking up to a day, so create the account before it is needed |
+| **VPS** | Yes, but only cleanly if started right | Moving a server between provider accounts is a snapshot-and-restore or a support ticket, not a setting | Create the **DigitalOcean account under the role account**, not a personal login. Region `tor1`, size `s-1vcpu-2gb`. Hetzner was preferred on price but refused the owner's signup, and was in any case the wrong region for a `ca-central-1` database. Weekly backups stay off — the rollback is an on-demand snapshot before each deploy, which `deploy/deploy.sh` takes |
 | **Meta app** | Yes | Business portfolio supports multiple admins — add buyer, remove self | App must live inside its own **Business portfolio**, not float loose |
 | **Facebook Page** | Yes | Page admin roles | Page is separate from any personal Page |
 | **Instagram, TikTok, X** | Yes | Separate logins, hand over credentials | Already separate |
@@ -619,10 +629,10 @@ launch burst was absorbed without an outage; paying customers.
 | Domain | $12/year |
 | Legal entity | **$0** — already owned |
 | Every approval and audit | **$0** |
-| VPS while building | **~$6/month** — Hetzner CX22 at €4.50 (2 vCPU, 4GB, 40GB, 20TB traffic) plus ~€0.90 for snapshots. Hourly billing, no contract. Billed in EUR, so expect a small foreign-transaction fee |
+| VPS while building | **~$12–15/month** — DigitalOcean `s-1vcpu-2gb` in `tor1` at $12, plus a few dollars of on-demand snapshots at $0.06/GiB. Revised up from the original ~$6 Hetzner estimate: Hetzner refused the signup and was the wrong region for a `ca-central-1` database, and nothing in North America matches its pricing |
 | Supabase, R2, transactional email, uptime monitoring, GitHub | **$0** — free tiers |
 | AI keys while testing | ~$0–5/month, pay-per-use |
-| **Total to build** | **$12 once plus ~$5/month** |
+| **Total to build** | **$12 once plus ~$12–20/month** (revised 2026-08-13 from ~$5/month when the VPS moved to DigitalOcean Toronto) |
 | Infra at 100 users | **~$52–99/month** — Supabase Pro $25, VPS $10–17, snapshots $2, R2 $5, email $0–20, AI $10–30 |
 
 Payment processing fees and X costs only appear once there is revenue and users

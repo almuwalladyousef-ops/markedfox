@@ -1,0 +1,35 @@
+# Caddy handles TLS certificates automatically via Let's Encrypt. It needs
+# ports 80 and 443 reachable and DNS already pointing at this droplet — the
+# HTTP-01 challenge fails otherwise.
+#
+# Install to /etc/caddy/Caddyfile, then: sudo systemctl reload caddy
+
+markedfox.com, www.markedfox.com {
+	encode zstd gzip
+
+	# Next.js listens on loopback only. Caddy is the only thing bound to a
+	# public port, so the app is never reachable except through TLS.
+	reverse_proxy 127.0.0.1:3000
+
+	header {
+		# HSTS. Note the two-year max-age and preload: once a browser sees this,
+		# it refuses plain HTTP for the domain for that long. Serving the site
+		# over HTTPS is therefore a commitment, not a toggle.
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Locks down what the page may reach. Kept deliberately tight now, while
+		# there is no third-party script; loosen it deliberately rather than
+		# discovering it is already wide open.
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/markedfox.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}
