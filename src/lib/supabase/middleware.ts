@@ -45,7 +45,31 @@ export async function updateSession(request: NextRequest) {
   // Revalidates the token with the auth server — never trust getSession() in
   // server code. The call also triggers the refresh-token rotation that keeps
   // sessions persistent.
-  await supabase.auth.getClaims();
+  const { data } = await supabase.auth.getClaims();
+  const signedIn = Boolean(data?.claims?.sub);
+
+  // Convenience redirect only. The real guard is requireUser() in each
+  // protected page, and RLS underneath that — a matcher change here must never
+  // be able to expose data.
+  if (!signedIn && isProtectedPath(request.nextUrl.pathname)) {
+    const loginUrl = new URL("/login", request.url);
+    // Round-trips the user back to where they were headed after signing in.
+    loginUrl.searchParams.set(
+      "next",
+      request.nextUrl.pathname + request.nextUrl.search,
+    );
+    return NextResponse.redirect(loginUrl);
+  }
 
   return supabaseResponse;
+}
+
+// Prefix-matched so future sections are covered by adding one entry. Anything
+// not listed is public.
+const PROTECTED_PREFIXES = ["/dashboard"];
+
+function isProtectedPath(pathname: string): boolean {
+  return PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
 }
