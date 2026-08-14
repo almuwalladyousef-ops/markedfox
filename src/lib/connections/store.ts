@@ -1,0 +1,188 @@
+import "server-only";
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import { decryptToken, encryptToken } from "@/lib/crypto";
+import { getPlatform } from "@/lib/platforms/registry";
+import type {
+  ConnectedAccount,
+  ConnectionTokens,
+  Platform,
+} from "@/lib/platforms/types";
+
+// The only code that touches connections' token columns. Tokens are AES-256-GCM
+// envelopes from src/lib/crypto.ts — plaintext never reaches a query, a log, or
+// a return value except through getConnectionTokens.
+//
+// Callers pass their own Supabase client on purpose: routes pass the
+// user-scoped client so RLS applies, background jobs pass the service-role
+// client and are responsible for their own explicit filtering.
+
+export type ConnectionRow = {
+  id: string;
+  user_id: string;
+  workspace_id: string;
+  platform: Platform;
+  platform_account_id: string;
+  platform_account_name: string | null;
+  token_expires_at: string | null;
+  scopes: string[];
+  status: "active" | "expired" | "revoked" | "error";
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+// Every column except the two encrypted ones. Listing queries must never pull
+// ciphertext into result sets that end up serialized to a page.
+const PUBLIC_COLUMNS =
+  "id, user_id, workspace_id, platform, platform_account_id, " +
+  "platform_account_name, token_expires_at, scopes, status, metadata, " +
+  "created_at, updated_at";
+
+export async function saveConnection(
+  supabase: SupabaseClient,
+  input: {
+    userId: string;
+    workspaceId: string;
+    platform: Platform;
+    account: ConnectedAccount;
+    /** Fallback tokens when the account carries no per-account override. */
+    tokens: ConnectionTokens;
+  },
+): Promise<ConnectionRow> {
+  const tokens = input.account.tokens ?? input.tokens;
+
+  const { data, error } = await supabase
+    .from("connections")
+    .upsert(
+      {
+        user_id: input.userId,
+        workspace_id: input.workspaceId,
+        platform: input.platform,
+        platform_account_id: input.account.platformAccountId,
+        platform_account_name: input.account.platformAccountName ?? null,
+        access_token_encrypted: encryptToken(tokens.accessToken),
+        refresh_token_encrypted: tokens.refreshToken
+          ? encryptToken(tokens.refreshToken)
+          : null,
+        token_expires_at: tokens.expiresAt?.toISOString() ?? null,
+        scopes: tokens.scopes ?? [],
+        status: "active",
+        metadata: input.account.metadata ?? {},
+      },
+      // Reconnecting the same account overwrites its tokens instead of failing
+      // the unique constraint — that is what a user retrying a connect expects.
+      { onConflict: "user_id,workspace_id,platform,platform_account_id" },
+    )
+    .select(PUBLIC_COLUMNS)
+    .single();
+
+  if (error) throw error;
+  // No generated DB types yet (Phase 2 adds `supabase gen types`); the select
+  // string defeats inference, so route through unknown.
+  return data as unknown as ConnectionRow;
+}
+
+export async function listConnections(
+  supabase: SupabaseClient,
+  workspaceId: string,
+): Promise<ConnectionRow[]> {
+  const { data, error } = await supabase
+    .from("connections")
+    .select(PUBLIC_COLUMNS)
+    .eq("workspace_id", workspaceId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []) as unknown as ConnectionRow[];
+}
+
+// Decrypted tokens for one connection — the only exit point for plaintext.
+export async function getConnectionTokens(
+  supabase: SupabaseClient,
+  connectionId: string,
+): Promise<{ row: ConnectionRow; tokens: ConnectionTokens }> {
+  const { data, error } = await supabase
+    .from("connections")
+    .select(`${PUBLIC_COLUMNS}, access_token_encrypted, refresh_token_encrypted`)
+    .eq("id", connectionId)
+    .single();
+
+  if (error) throw error;
+
+  const tokens: ConnectionTokens = {
+    accessToken: decryptToken(data.access_token_encrypted),
+    refreshToken: data.refresh_token_encrypted
+      ? decryptToken(data.refresh_token_encrypted)
+      : undefined,
+    expiresAt: data.token_expires_at
+      ? new Date(data.token_expires_at)
+      : undefined,
+    scopes: data.scopes,
+  };
+
+  // Strip the ciphertext columns before the row leaves this module.
+  const row = { ...data } as Record<string, unknown>;
+  delete row.access_token_encrypted;
+  delete row.refresh_token_encrypted;
+  return { row: row as unknown as ConnectionRow, tokens };
+}
+
+export async function markConnectionStatus(
+  supabase: SupabaseClient,
+  connectionId: string,
+  status: ConnectionRow["status"],
+): Promise<void> {
+  const { error } = await supabase
+    .from("connections")
+    .update({ status })
+    .eq("id", connectionId);
+  if (error) throw error;
+}
+
+// Refresh threshold: Meta long-lived tokens last ~60 days and refresh by
+// re-exchange while still valid, so renewing a week early costs nothing and
+// absorbs a scheduler outage of days without any token dying.
+const REFRESH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Server-side refresh — the Phase 2 requirement that background jobs never
+// hold stale tokens and no browser session is ever involved. Returns fresh
+// tokens, refreshing and persisting first when expiry is near.
+export async function getFreshConnectionTokens(
+  supabase: SupabaseClient,
+  connectionId: string,
+): Promise<{ row: ConnectionRow; tokens: ConnectionTokens }> {
+  const { row, tokens } = await getConnectionTokens(supabase, connectionId);
+
+  const needsRefresh =
+    tokens.expiresAt !== undefined &&
+    tokens.expiresAt.getTime() - Date.now() < REFRESH_WINDOW_MS;
+  if (!needsRefresh) return { row, tokens };
+
+  const adapter = getPlatform(row.platform);
+  let fresh: ConnectionTokens;
+  try {
+    fresh = await adapter.refresh(tokens);
+  } catch (error) {
+    // A dead grant is a state change, not a transient failure: record it so
+    // the UI can show "reconnect needed" instead of silently failing publishes.
+    await markConnectionStatus(supabase, connectionId, "expired");
+    throw error;
+  }
+
+  const { error } = await supabase
+    .from("connections")
+    .update({
+      access_token_encrypted: encryptToken(fresh.accessToken),
+      refresh_token_encrypted: fresh.refreshToken
+        ? encryptToken(fresh.refreshToken)
+        : null,
+      token_expires_at: fresh.expiresAt?.toISOString() ?? null,
+      status: "active",
+    })
+    .eq("id", connectionId);
+  if (error) throw error;
+
+  return { row, tokens: fresh };
+}

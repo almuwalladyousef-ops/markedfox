@@ -29,12 +29,22 @@ export interface ConnectionTokens {
   scopes?: string[];
 }
 
+export interface ConnectedAccount {
+  platformAccountId: string;
+  platformAccountName?: string;
+  /** Per-account token override (e.g. Meta Page tokens). Falls back to the
+   *  top-level user tokens when absent. */
+  tokens?: ConnectionTokens;
+  metadata?: Record<string, unknown>;
+}
+
+// One OAuth dance can surface several accounts — a Meta login returns every
+// Page/Instagram pair the user manages, and "many accounts per platform per
+// user" is a hard product requirement. The callback stores one connection row
+// per account.
 export interface ConnectResult {
   tokens: ConnectionTokens;
-  account: {
-    platformAccountId: string;
-    platformAccountName?: string;
-  };
+  accounts: ConnectedAccount[];
 }
 
 export interface MediaRef {

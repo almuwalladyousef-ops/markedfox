@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 
 import { signOut } from "@/lib/auth/actions";
 import { getDefaultWorkspaceId, requireUser } from "@/lib/auth/session";
+import { listConnections } from "@/lib/connections/store";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
+import { listRegisteredPlatforms } from "@/lib/platforms/registry";
 import { PLATFORMS } from "@/lib/platforms/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -35,7 +37,13 @@ export default async function DashboardPage() {
   }
 
   const supabase = await createClient();
-  const snapshot = await getEntitlementSnapshot(supabase, user.id, workspaceId);
+  const [snapshot, connections] = await Promise.all([
+    getEntitlementSnapshot(supabase, user.id, workspaceId),
+    listConnections(supabase, workspaceId),
+  ]);
+  // Only platforms with a real adapter get a Connect link — a link to a stub
+  // would 404 by design.
+  const connectable = new Set(listRegisteredPlatforms().map((a) => a.id));
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-4 py-16 text-neutral-50">
@@ -106,14 +114,33 @@ export default async function DashboardPage() {
               type: "connect_platform",
               platform,
             });
+            const linked = connections.filter((c) => c.platform === platform);
             return (
               <li
                 key={platform}
                 className="flex items-center justify-between gap-4"
               >
-                <span className="capitalize">{platform}</span>
+                <span className="capitalize">
+                  {platform}
+                  {linked.length > 0 ? (
+                    <span className="ml-2 text-xs text-neutral-500">
+                      {linked
+                        .map((c) => c.platform_account_name ?? c.platform_account_id)
+                        .join(", ")}
+                    </span>
+                  ) : null}
+                </span>
                 {decision.allowed ? (
-                  <span className="text-neutral-400">Available</span>
+                  connectable.has(platform) ? (
+                    <a
+                      href={`/api/connect/${platform}/start`}
+                      className="text-neutral-200 underline-offset-4 hover:underline"
+                    >
+                      {linked.length > 0 ? "Connect another" : "Connect"}
+                    </a>
+                  ) : (
+                    <span className="text-neutral-500">Coming soon</span>
+                  )
                 ) : (
                   <span className="text-neutral-600" title={decision.reason}>
                     Locked

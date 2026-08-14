@@ -1,10 +1,187 @@
-import { NotImplementedError } from "./errors";
-import type { PlatformAdapter } from "./types";
+import { requireEnv } from "@/lib/env";
 
-// Phase 3 vertical slice. Instagram Graph API via the Meta Business app:
-// works in Development mode for accounts holding an app role (posts publicly,
-// full API access including messaging) before App Review passes — see the
-// platform reality table in CLAUDE.md.
+import { PlatformApiError, PlatformAuthError } from "./errors";
+import type {
+  ConnectedAccount,
+  ConnectionTokens,
+  PlatformAdapter,
+  PublishResult,
+} from "./types";
+
+// Instagram via the Meta Business app ("Instagram API with Facebook Login").
+// The user signs in with Facebook; we list the Pages they manage and store one
+// connection per linked Instagram Business account. This is the flavor whose
+// permission names (instagram_basic, instagram_content_publish,
+// instagram_manage_messages) match the App Review plan in CLAUDE.md, and it
+// works in Development mode for accounts holding an app role before review.
+//
+// Requires (owner setup, Phase 0/1): a Facebook Page linked to the Instagram
+// Business account, and the callback URL registered as a Valid OAuth Redirect
+// URI on the Meta app once the domain is live.
+
+// Matches the version Meta's own tooling currently issues OAuth against
+// (observed in the Developer Tools MCP sign-in URL, 2026-08).
+const GRAPH_VERSION = "v26.0";
+const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
+
+// instagram_manage_messages is deliberately absent until Phase 4: requesting
+// the hardest permission before the DM engine exists would only invite
+// rejection notes on the app record.
+const OAUTH_SCOPES = [
+  "instagram_basic",
+  "instagram_content_publish",
+  "pages_show_list",
+  "pages_read_engagement",
+  "business_management",
+];
+
+// How long to poll a video container before giving up. Meta transcodes
+// asynchronously; images are usually ready immediately.
+const CONTAINER_POLL_ATTEMPTS = 20;
+const CONTAINER_POLL_DELAY_MS = 3000;
+
+type GraphError = {
+  error?: { message?: string; type?: string; code?: number };
+};
+
+async function graph<T>(
+  path: string,
+  init?: RequestInit & { searchParams?: Record<string, string> },
+): Promise<T> {
+  const url = new URL(`${GRAPH}${path}`);
+  for (const [key, value] of Object.entries(init?.searchParams ?? {})) {
+    url.searchParams.set(key, value);
+  }
+
+  const response = await fetch(url, {
+    method: init?.method ?? "GET",
+    headers: init?.headers,
+    body: init?.body,
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  const body = (await response.json().catch(() => ({}))) as T & GraphError;
+
+  if (!response.ok || body.error) {
+    const err = body.error;
+    const detail = err?.message ?? `HTTP ${response.status}`;
+    // Graph code 190 = invalid/expired token; type OAuthException covers
+    // revoked grants and bad secrets. Those are reconnect-not-retry failures.
+    if (err?.code === 190 || err?.type === "OAuthException") {
+      throw new PlatformAuthError("instagram", detail);
+    }
+    // Rate limits (4, 17, 32, 613) and 5xx are worth retrying with backoff.
+    const retryable =
+      response.status >= 500 || [4, 17, 32, 613].includes(err?.code ?? -1);
+    throw new PlatformApiError("instagram", detail, retryable);
+  }
+
+  return body;
+}
+
+function expiryFrom(expiresInSeconds: number | undefined): Date | undefined {
+  if (!expiresInSeconds) return undefined;
+  return new Date(Date.now() + expiresInSeconds * 1000);
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Exchange whatever token we hold for a fresh long-lived one (~60 days). Works
+// while the current token is still valid, which is why the refresh worker runs
+// well before expiry rather than after.
+async function exchangeForLongLived(token: string): Promise<ConnectionTokens> {
+  const out = await graph<{ access_token: string; expires_in?: number }>(
+    "/oauth/access_token",
+    {
+      searchParams: {
+        grant_type: "fb_exchange_token",
+        client_id: requireEnv("META_APP_ID"),
+        client_secret: requireEnv("META_APP_SECRET"),
+        fb_exchange_token: token,
+      },
+    },
+  );
+  return {
+    accessToken: out.access_token,
+    expiresAt: expiryFrom(out.expires_in),
+    scopes: OAUTH_SCOPES,
+  };
+}
+
+type PageWithInstagram = {
+  id: string;
+  name: string;
+  access_token: string;
+  instagram_business_account?: { id: string; username?: string };
+};
+
+async function listInstagramAccounts(
+  userToken: string,
+): Promise<ConnectedAccount[]> {
+  const accounts: ConnectedAccount[] = [];
+  let path =
+    `/me/accounts?fields=id,name,access_token,` +
+    `instagram_business_account{id,username}&limit=50`;
+
+  // Paginate defensively; most users have one Page, agencies have many.
+  for (let page = 0; page < 10 && path; page++) {
+    const out = await graph<{
+      data: PageWithInstagram[];
+      paging?: { next?: string };
+    }>(path, { searchParams: { access_token: userToken } });
+
+    for (const fbPage of out.data ?? []) {
+      if (!fbPage.instagram_business_account) continue;
+      accounts.push({
+        platformAccountId: fbPage.instagram_business_account.id,
+        platformAccountName: fbPage.instagram_business_account.username,
+        // Page tokens derived from a long-lived user token do not expire, and
+        // Phase 4 webhook/messaging calls need them — store per account.
+        tokens: { accessToken: fbPage.access_token, scopes: OAUTH_SCOPES },
+        metadata: { pageId: fbPage.id, pageName: fbPage.name },
+      });
+    }
+
+    const next = out.paging?.next;
+    path = next ? next.replace(GRAPH, "") : "";
+  }
+
+  return accounts;
+}
+
+// Create a media container and wait until Meta reports it ready to publish.
+async function createContainer(
+  igUserId: string,
+  token: string,
+  params: Record<string, string>,
+): Promise<string> {
+  const container = await graph<{ id: string }>(`/${igUserId}/media`, {
+    method: "POST",
+    searchParams: { ...params, access_token: token },
+  });
+
+  // Images are typically FINISHED instantly; videos transcode. Poll either way
+  // so the code path is one.
+  for (let attempt = 0; attempt < CONTAINER_POLL_ATTEMPTS; attempt++) {
+    const status = await graph<{ status_code?: string }>(`/${container.id}`, {
+      searchParams: { fields: "status_code", access_token: token },
+    });
+    if (status.status_code === "FINISHED") return container.id;
+    if (status.status_code === "ERROR") {
+      throw new PlatformApiError(
+        "instagram",
+        "media container failed processing (check media URL and format)",
+      );
+    }
+    await sleep(CONTAINER_POLL_DELAY_MS);
+  }
+  throw new PlatformApiError(
+    "instagram",
+    "media container not ready after 60s",
+    true,
+  );
+}
+
 export const instagram: PlatformAdapter = {
   id: "instagram",
   displayName: "Instagram",
@@ -16,16 +193,112 @@ export const instagram: PlatformAdapter = {
     schedule: true,
     analytics: true,
   },
-  getAuthorizeUrl() {
-    throw new NotImplementedError("instagram.getAuthorizeUrl");
+
+  getAuthorizeUrl({ redirectUri, state }) {
+    const url = new URL(`https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`);
+    url.searchParams.set("client_id", requireEnv("META_APP_ID"));
+    url.searchParams.set("redirect_uri", redirectUri);
+    url.searchParams.set("state", state);
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("scope", OAUTH_SCOPES.join(","));
+    return url.toString();
   },
-  async connect() {
-    throw new NotImplementedError("instagram.connect");
+
+  async connect({ code, redirectUri }) {
+    // Leg 2: the callback code becomes a short-lived user token.
+    const short = await graph<{ access_token: string; expires_in?: number }>(
+      "/oauth/access_token",
+      {
+        searchParams: {
+          client_id: requireEnv("META_APP_ID"),
+          client_secret: requireEnv("META_APP_SECRET"),
+          redirect_uri: redirectUri,
+          code,
+        },
+      },
+    );
+
+    // Then straight to long-lived (~60 days) — the short token is never stored.
+    const tokens = await exchangeForLongLived(short.access_token);
+    const accounts = await listInstagramAccounts(tokens.accessToken);
+
+    if (accounts.length === 0) {
+      throw new PlatformApiError(
+        "instagram",
+        "No Instagram Business account found. The Facebook login must manage a " +
+          "Page linked to an Instagram Business or Creator account.",
+      );
+    }
+
+    return { tokens, accounts };
   },
-  async refresh() {
-    throw new NotImplementedError("instagram.refresh");
+
+  async refresh(tokens) {
+    return exchangeForLongLived(tokens.accessToken);
   },
-  async publish() {
-    throw new NotImplementedError("instagram.publish");
+
+  async publish({ caption, media, tokens, platformAccountId }) {
+    if (media.length === 0) {
+      throw new PlatformApiError(
+        "instagram",
+        "Instagram requires at least one image or video",
+      );
+    }
+
+    const token = tokens.accessToken;
+    let creationId: string;
+
+    if (media.length === 1) {
+      const item = media[0];
+      creationId = await createContainer(
+        platformAccountId,
+        token,
+        item.type === "video"
+          ? { media_type: "REELS", video_url: item.url, caption }
+          : { image_url: item.url, caption },
+      );
+    } else {
+      // Carousel: one child container per item, then a parent that owns them.
+      const children: string[] = [];
+      for (const item of media.slice(0, 10)) {
+        children.push(
+          await createContainer(
+            platformAccountId,
+            token,
+            item.type === "video"
+              ? {
+                  media_type: "VIDEO",
+                  video_url: item.url,
+                  is_carousel_item: "true",
+                }
+              : { image_url: item.url, is_carousel_item: "true" },
+          ),
+        );
+      }
+      creationId = await createContainer(platformAccountId, token, {
+        media_type: "CAROUSEL",
+        children: children.join(","),
+        caption,
+      });
+    }
+
+    const published = await graph<{ id: string }>(
+      `/${platformAccountId}/media_publish`,
+      {
+        method: "POST",
+        searchParams: { creation_id: creationId, access_token: token },
+      },
+    );
+
+    const result: PublishResult = { platformPostId: published.id };
+    try {
+      const permalink = await graph<{ permalink?: string }>(`/${published.id}`, {
+        searchParams: { fields: "permalink", access_token: token },
+      });
+      if (permalink.permalink) result.url = permalink.permalink;
+    } catch {
+      // The post succeeded; a missing permalink is not worth failing over.
+    }
+    return result;
   },
 };
