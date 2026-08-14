@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "meta": "node scripts/meta.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",
