@@ -17,7 +17,11 @@ Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=HOSTNAME=127.0.0.1
 
-ExecStart=/usr/bin/npm run start
+# next.config.ts sets output: "standalone" — a self-contained server with only
+# the modules it needs. `next start` refuses to serve that layout, so run the
+# emitted server directly. deploy.sh copies public/ and .next/static beside it,
+# which Next deliberately leaves to the deployer.
+ExecStart=/usr/bin/node .next/standalone/server.js
 
 # Always come back up — an unhandled rejection at 3am must not mean the site is
 # down until someone notices. StartLimit stops a crash loop from thrashing.
@@ -36,7 +40,11 @@ ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 ReadWritePaths=/srv/markedfox
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# AF_NETLINK is required: Node's os.networkInterfaces() (which next start
+# calls at boot to print its Network: line) enumerates interfaces over
+# netlink, and without it the process dies with uv_interface_addresses
+# error 97 (EAFNOSUPPORT). Learned on the first real deploy.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 LockPersonality=true
 
 StandardOutput=journal

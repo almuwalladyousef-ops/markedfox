@@ -19,7 +19,6 @@ fi
 
 log "Installing the Caddyfile"
 install -m 644 "${REPO_DIR}/deploy/Caddyfile" /etc/caddy/Caddyfile
-install -d -m 755 -o caddy -g caddy /var/log/caddy
 # Fails loudly on a syntax error rather than reloading into a broken config.
 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 systemctl reload caddy || systemctl restart caddy

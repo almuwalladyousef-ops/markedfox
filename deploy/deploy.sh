@@ -72,6 +72,19 @@ log "Building"
 sudo -u "$APP_USER" npm --prefix "$CURRENT" ci --no-audit --no-fund
 set -a; source "${APP_DIR}/.env.production"; set +a
 sudo -u "$APP_USER" --preserve-env npm --prefix "$CURRENT" run build
+
+# Standalone output does not include static assets or public/ — Next leaves
+# that to the deployer so they can go to a CDN. Here they are served by the
+# same process, so copy them beside server.js.
+log "Assembling standalone output"
+sudo -u "$APP_USER" bash -c "
+  cd '$CURRENT' &&
+  mkdir -p .next/standalone/.next &&
+  rm -rf .next/standalone/.next/static .next/standalone/public &&
+  cp -r .next/static .next/standalone/.next/static &&
+  { [[ -d public ]] && cp -r public .next/standalone/public || true; }
+"
+
 sudo -u "$APP_USER" npm --prefix "$CURRENT" prune --omit=dev
 
 # ── restart ─────────────────────────────────────────────────────────────────

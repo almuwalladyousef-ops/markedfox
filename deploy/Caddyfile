@@ -26,10 +26,10 @@ markedfox.com, www.markedfox.com {
 		-Server
 	}
 
+	# Access logs go to stderr, which systemd captures in the journal alongside
+	# every other service. `journalctl -u caddy` reads them; a file under
+	# /var/log collided with Caddy's own unit sandbox and is not worth fighting.
 	log {
-		output file /var/log/caddy/markedfox.log {
-			roll_size 10MiB
-			roll_keep 5
-		}
+		output stderr
 	}
 }

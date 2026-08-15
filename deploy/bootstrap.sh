@@ -46,6 +46,12 @@ if ! id -u deploy >/dev/null 2>&1; then
   adduser --disabled-password --gecos "" deploy
   usermod -aG sudo deploy
 fi
+# The account has no password (key-only login), so sudo must not ask for one
+# or the account can never escalate. This must land BEFORE root SSH is disabled
+# below — otherwise there is no root path left at all. Learned the hard way.
+echo 'deploy ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/deploy
+chmod 440 /etc/sudoers.d/deploy
+visudo -cf /etc/sudoers.d/deploy
 # Carry over whichever key DigitalOcean installed for root at droplet creation.
 if [[ -f /root/.ssh/authorized_keys ]]; then
   install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
@@ -116,7 +122,9 @@ PubkeyAuthentication yes
 MaxAuthTries 3
 SSHCONF
 sshd -t
-systemctl restart ssh
+# NOTE: sshd is deliberately NOT restarted here. Restarting it kills the very
+# SSH session this script is piped through, and everything after this line
+# would never run. The restart happens as the very last step below.
 
 log "Enabling unattended security upgrades"
 cat > /etc/apt/apt.conf.d/20auto-upgrades <<'AUTOCONF'
@@ -153,3 +161,7 @@ Bootstrap complete. Remaining steps, in order:
 
 Root SSH is now disabled. Log in as `deploy` from here on.
 NEXT
+
+# Last thing, on purpose: apply the SSH hardening. This drops the current
+# session — that is expected, and everything above has already completed.
+systemctl restart ssh
