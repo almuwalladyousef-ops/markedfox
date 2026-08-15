@@ -37,6 +37,16 @@ if [[ $SKIP_SNAPSHOT -eq 1 ]]; then
   warn "Skipping the snapshot. This deploy has no rollback point."
 else
   log "Taking a DigitalOcean snapshot"
+  # doctl is a snap and cannot write its config under /root, so the token is
+  # read from the environment instead: DIGITALOCEAN_ACCESS_TOKEN lives in
+  # /srv/markedfox/.env.production beside the app secrets.
+  set -a; source "${APP_DIR}/.env.production"; set +a
+  export DIGITALOCEAN_ACCESS_TOKEN
+  if [[ -z "${DIGITALOCEAN_ACCESS_TOKEN:-}" ]]; then
+    echo "DIGITALOCEAN_ACCESS_TOKEN is not set in ${APP_DIR}/.env.production." >&2
+    echo "Add it, or re-run with --skip-snapshot if you accept no rollback point." >&2
+    exit 1
+  fi
   if ! command -v doctl >/dev/null 2>&1; then
     echo "doctl is not installed, so no rollback point can be taken." >&2
     echo "Install it, or re-run with --skip-snapshot if you accept that." >&2
