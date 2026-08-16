@@ -1,6 +1,7 @@
 import { requireEnv } from "@/lib/env";
 
 import { PlatformApiError, PlatformAuthError } from "./errors";
+import { pollDelays, pollTotalMs } from "./polling";
 import type {
   ConnectedAccount,
   ConnectionTokens,
@@ -35,10 +36,8 @@ const OAUTH_SCOPES = [
   "business_management",
 ];
 
-// How long to poll a video container before giving up. Meta transcodes
-// asynchronously; images are usually ready immediately.
-const CONTAINER_POLL_ATTEMPTS = 20;
-const CONTAINER_POLL_DELAY_MS = 3000;
+// Container polling lives in ./polling — the schedule and its reasoning are
+// shared with Threads, which publishes the same way.
 
 type GraphError = {
   error?: { message?: string; type?: string; code?: number };
@@ -159,30 +158,43 @@ async function createContainer(
   igUserId: string,
   token: string,
   params: Record<string, string>,
+  hasVideo: boolean,
 ): Promise<string> {
   const container = await graph<{ id: string }>(`/${igUserId}/media`, {
     method: "POST",
     searchParams: { ...params, access_token: token },
   });
 
-  // Images are typically FINISHED instantly; videos transcode. Poll either way
-  // so the code path is one.
-  for (let attempt = 0; attempt < CONTAINER_POLL_ATTEMPTS; attempt++) {
-    const status = await graph<{ status_code?: string }>(`/${container.id}`, {
-      searchParams: { fields: "status_code", access_token: token },
-    });
+  // Images are typically FINISHED on the first check; a video has to be
+  // fetched from our storage and transcoded, which is why the budget differs.
+  const budgetMs = pollTotalMs(hasVideo);
+  const delays = pollDelays(budgetMs);
+
+  for (const delay of delays) {
+    const status = await graph<{ status_code?: string; status?: string }>(
+      `/${container.id}`,
+      { searchParams: { fields: "status_code,status", access_token: token } },
+    );
     if (status.status_code === "FINISHED") return container.id;
-    if (status.status_code === "ERROR") {
+    if (status.status_code === "ERROR" || status.status_code === "EXPIRED") {
+      // Meta's `status` carries a sentence explaining what it disliked —
+      // aspect ratio, duration, codec. Far more use than our own guess.
       throw new PlatformApiError(
         "instagram",
-        "media container failed processing (check media URL and format)",
+        `media container ${status.status_code.toLowerCase()}` +
+          (status.status ? `: ${status.status}` : " (check media URL and format)"),
       );
     }
-    await sleep(CONTAINER_POLL_DELAY_MS);
+    await sleep(delay);
   }
+
+  // Container id included on purpose: without it a timeout can only be
+  // diagnosed by reproducing the whole publish, which is how this limit was
+  // found in the first place.
   throw new PlatformApiError(
     "instagram",
-    "media container not ready after 60s",
+    `media still processing after ${Math.round(budgetMs / 1000)}s ` +
+      `(container ${container.id}) — try posting it again`,
     true,
   );
 }
@@ -280,6 +292,7 @@ export const instagram: PlatformAdapter = {
         item.type === "video"
           ? { media_type: "REELS", video_url: item.url, caption }
           : { image_url: item.url, caption },
+        item.type === "video",
       );
     } else {
       // Carousel: one child container per item, then a parent that owns them.
@@ -296,14 +309,17 @@ export const instagram: PlatformAdapter = {
                   is_carousel_item: "true",
                 }
               : { image_url: item.url, is_carousel_item: "true" },
+            item.type === "video",
           ),
         );
       }
-      creationId = await createContainer(platformAccountId, token, {
-        media_type: "CAROUSEL",
-        children: children.join(","),
-        caption,
-      });
+      // The children are already processed; the parent only groups them.
+      creationId = await createContainer(
+        platformAccountId,
+        token,
+        { media_type: "CAROUSEL", children: children.join(","), caption },
+        false,
+      );
     }
 
     const published = await graph<{ id: string }>(

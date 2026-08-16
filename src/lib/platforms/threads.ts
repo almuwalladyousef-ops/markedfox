@@ -1,6 +1,7 @@
 import { requireEnv } from "@/lib/env";
 
 import { PlatformApiError, PlatformAuthError } from "./errors";
+import { pollDelays, pollTotalMs } from "./polling";
 import type {
   ConnectionTokens,
   PlatformAdapter,
@@ -25,9 +26,9 @@ const AUTH = "https://threads.net/oauth/authorize";
 const OAUTH_SCOPES = ["threads_basic", "threads_content_publish"];
 
 // Threads publishes through a container, like Instagram: create, then publish.
-// Text posts are ready immediately; media needs a moment to process.
-const CONTAINER_POLL_ATTEMPTS = 20;
-const CONTAINER_POLL_DELAY_MS = 3000;
+// Text posts are ready immediately; media has to be fetched and processed, so
+// the polling schedule and its budget are shared with Instagram — see
+// ./polling for why 60s flat was not enough.
 
 type ThreadsError = { error?: { message?: string; code?: number; type?: string } };
 
@@ -235,21 +236,44 @@ export const threadsAdapter: PlatformAdapter = {
       });
     }
 
-    // Media containers need processing time; text is ready at once. Poll either
-    // way so there is one code path.
+    // Media containers need processing time; text is ready at once, so it is
+    // not polled at all.
     if (media.length > 0) {
-      for (let i = 0; i < CONTAINER_POLL_ATTEMPTS; i++) {
-        const status = await threads<{ status?: string }>(`/${containerId}`, {
-          searchParams: { fields: "status", access_token: token },
-        });
-        if (status.status === "FINISHED") break;
+      const hasVideo = media.some((item) => item.type === "video");
+      const budgetMs = pollTotalMs(hasVideo);
+      let ready = false;
+
+      for (const delay of pollDelays(budgetMs)) {
+        const status = await threads<{ status?: string; error_message?: string }>(
+          `/${containerId}`,
+          { searchParams: { fields: "status,error_message", access_token: token } },
+        );
+        if (status.status === "FINISHED") {
+          ready = true;
+          break;
+        }
         if (status.status === "ERROR" || status.status === "EXPIRED") {
           throw new PlatformApiError(
             "threads",
-            `media container ${status.status?.toLowerCase()} (check the media URL and format)`,
+            `media container ${status.status.toLowerCase()}` +
+              (status.error_message
+                ? `: ${status.error_message}`
+                : " (check the media URL and format)"),
           );
         }
-        await sleep(CONTAINER_POLL_DELAY_MS);
+        await sleep(delay);
+      }
+
+      // Publishing an unfinished container fails anyway, and reporting the
+      // timeout names what actually went wrong. The old code fell through the
+      // loop and published regardless.
+      if (!ready) {
+        throw new PlatformApiError(
+          "threads",
+          `media still processing after ${Math.round(budgetMs / 1000)}s ` +
+            `(container ${containerId}) — try posting it again`,
+          true,
+        );
       }
     }
 
