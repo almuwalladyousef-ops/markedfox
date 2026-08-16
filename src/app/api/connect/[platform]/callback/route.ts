@@ -40,7 +40,7 @@ export async function GET(
   if (!user) {
     // Session died mid-dance (cookies cleared, or >10 min on the consent
     // screen). Nothing was stored; start over from a signed-in state.
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL("/login", site));
   }
 
   if (!(PLATFORMS as readonly string[]).includes(platformParam)) {

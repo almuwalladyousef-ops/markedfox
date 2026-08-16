@@ -1,6 +1,7 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { getSiteUrl } from "@/lib/auth/site-url";
 import { safeRedirectPath } from "@/lib/auth/validation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -21,6 +22,10 @@ const VALID_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 export async function GET(request: NextRequest) {
+  // The public origin, never request.url: behind Caddy the app is reached on
+  // 127.0.0.1:3000, so request.url would build localhost links — and these
+  // particular redirects are what a user's email client follows.
+  const site = await getSiteUrl();
   const { searchParams } = request.nextUrl;
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type");
@@ -30,7 +35,7 @@ export async function GET(request: NextRequest) {
 
   if (!tokenHash || !type || !VALID_TYPES.has(type)) {
     return NextResponse.redirect(
-      new URL("/login?error=invalid_link", request.url),
+      new URL("/login?error=invalid_link", site),
     );
   }
 
@@ -44,9 +49,9 @@ export async function GET(request: NextRequest) {
     // Expired or already-used links land here. The login page explains it
     // rather than showing a raw Supabase error.
     return NextResponse.redirect(
-      new URL("/login?error=expired_link", request.url),
+      new URL("/login?error=expired_link", site),
     );
   }
 
-  return NextResponse.redirect(new URL(next, request.url));
+  return NextResponse.redirect(new URL(next, site));
 }

@@ -22,10 +22,13 @@ export async function GET(
 ) {
   const { platform: platformParam } = await params;
 
+  // Public origin, not request.url — see the note in auth/confirm.
+  const site = await getSiteUrl();
+
   const user = await getUser();
   if (!user) {
     return NextResponse.redirect(
-      new URL(`/login?next=${encodeURIComponent(request.nextUrl.pathname)}`, request.url),
+      new URL(`/login?next=${encodeURIComponent(request.nextUrl.pathname)}`, site),
     );
   }
 
@@ -63,7 +66,7 @@ export async function GET(
 
   const nonce = newNonce();
   const state = encodeState({ n: nonce, w: workspaceId });
-  const redirectUri = `${await getSiteUrl()}/api/connect/${platform}/callback`;
+  const redirectUri = `${site}/api/connect/${platform}/callback`;
 
   const response = NextResponse.redirect(
     adapter.getAuthorizeUrl({ redirectUri, state }),
