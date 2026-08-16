@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth/session";
 import { listConnections } from "@/lib/connections/store";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
+import { isMediaStorageConfigured } from "@/lib/media/store";
 import { PLATFORM_LABELS } from "@/lib/platforms/labels";
 import { listContentSpecs } from "@/lib/publish/specs";
 import { createClient } from "@/lib/supabase/server";
@@ -97,6 +98,7 @@ export default async function ComposePage() {
           gates={gates}
           planId={snapshot.planId}
           xLinksAllowed={snapshot.limits.xLinksAllowed}
+          uploadsEnabled={isMediaStorageConfigured()}
           usage={{
             postsToday: snapshot.usage.postsToday,
             postsPerDay: snapshot.limits.postsPerDay,

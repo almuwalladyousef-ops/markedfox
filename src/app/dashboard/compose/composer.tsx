@@ -37,6 +37,8 @@ type Props = {
   gates: Partial<Record<string, PlatformGate>>;
   planId: string;
   xLinksAllowed: boolean;
+  /** R2 is provisioned, so the file picker can be offered. */
+  uploadsEnabled: boolean;
   usage: {
     postsToday: number;
     postsPerDay: number | null;
@@ -45,7 +47,17 @@ type Props = {
   };
 };
 
-type MediaRow = { key: number; url: string; type: MediaRef["type"] };
+type MediaRow = {
+  key: number;
+  url: string;
+  type: MediaRef["type"];
+  /** Set while bytes are in flight, 0–100. */
+  progress?: number;
+  /** Upload failure, shown on the row itself. */
+  error?: string;
+  /** Filename, so an uploaded row reads as the file rather than a long URL. */
+  name?: string;
+};
 
 type Issue = { platform: Platform | null; message: string };
 
@@ -70,6 +82,7 @@ export function Composer({
   gates,
   planId,
   xLinksAllowed,
+  uploadsEnabled,
   usage,
 }: Props) {
   const [caption, setCaption] = useState("");
@@ -95,10 +108,13 @@ export function Composer({
     return Array.from(set);
   }, [selected, accountById]);
 
+  // Rows still uploading have no URL yet, so they are not offered to
+  // validation — an in-flight file must not read as "no media".
   const mediaRefs: MediaRef[] = useMemo(
     () => media.filter((m) => m.url.trim()).map((m) => ({ url: m.url.trim(), type: m.type })),
     [media],
   );
+  const uploading = media.some((m) => m.progress !== undefined);
 
   const captionFor = (platform: Platform) => overrides[platform] ?? caption;
 
@@ -136,8 +152,14 @@ export function Composer({
     if (mode === "schedule" && !scheduledFor) {
       out.push({ platform: null, message: "Pick a date and time." });
     }
+    if (uploading) {
+      out.push({ platform: null, message: "Wait for the upload to finish." });
+    }
+    for (const row of media) {
+      if (row.error) out.push({ platform: null, message: row.error });
+    }
     return out;
-  }, [selectedPlatforms, specs, caption, overrides, mediaRefs, mode, scheduledFor, xLinksAllowed, usage, planId]);
+  }, [selectedPlatforms, specs, caption, overrides, mediaRefs, media, uploading, mode, scheduledFor, xLinksAllowed, usage, planId]);
 
   const canSubmit = selected.length > 0 && issues.length === 0 && !submitting;
 
@@ -152,6 +174,85 @@ export function Composer({
   const updateMedia = (key: number, patch: Partial<MediaRow>) =>
     setMedia((prev) => prev.map((m) => (m.key === key ? { ...m, ...patch } : m)));
   const removeMedia = (key: number) => setMedia((prev) => prev.filter((m) => m.key !== key));
+
+  // Upload straight to R2 with a URL the server signs. The bytes never pass
+  // through our box — see /api/media/upload-url. XMLHttpRequest rather than
+  // fetch purely because it reports progress, which matters for a 200MB video.
+  const uploadFile = (file: File) => {
+    const rowKey = nextKey;
+    setNextKey((k) => k + 1);
+    setMedia((prev) => [
+      ...prev,
+      {
+        key: rowKey,
+        url: "",
+        type: file.type.startsWith("video/") ? "video" : "image",
+        progress: 0,
+        name: file.name,
+      },
+    ]);
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/media/upload-url", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            workspaceId,
+            contentType: file.type,
+            sizeBytes: file.size,
+          }),
+        });
+        const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+        if (!response.ok) {
+          updateMedia(rowKey, {
+            progress: undefined,
+            error: String(body.message ?? "That file was refused."),
+          });
+          return;
+        }
+
+        const { uploadUrl, publicUrl, headers, kind } = body as {
+          uploadUrl: string;
+          publicUrl: string;
+          headers: Record<string, string>;
+          kind: MediaRef["type"];
+        };
+
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("PUT", uploadUrl);
+          for (const [name, value] of Object.entries(headers)) {
+            xhr.setRequestHeader(name, value);
+          }
+          xhr.upload.onprogress = (event) => {
+            if (!event.lengthComputable) return;
+            updateMedia(rowKey, {
+              progress: Math.round((event.loaded / event.total) * 100),
+            });
+          };
+          xhr.onload = () =>
+            xhr.status >= 200 && xhr.status < 300
+              ? resolve()
+              : reject(new Error(`Upload failed (HTTP ${xhr.status}).`));
+          xhr.onerror = () => reject(new Error("Upload failed — check your connection."));
+          xhr.send(file);
+        });
+
+        updateMedia(rowKey, {
+          url: publicUrl,
+          type: kind,
+          progress: undefined,
+          error: undefined,
+        });
+      } catch (error) {
+        updateMedia(rowKey, {
+          progress: undefined,
+          error: error instanceof Error ? error.message : "Upload failed.",
+        });
+      }
+    })();
+  };
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -368,56 +469,115 @@ export function Composer({
 
       {/* media */}
       <section className="rounded-lg border border-neutral-900 p-4">
-        <div className="flex items-baseline justify-between">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-sm font-medium text-neutral-300">Media</h2>
-          <button
-            type="button"
-            onClick={addMedia}
-            className="text-xs text-neutral-300 underline-offset-2 hover:underline"
-          >
-            + Add image or video
-          </button>
+          <div className="flex items-center gap-3">
+            {uploadsEnabled ? (
+              <label className="cursor-pointer text-xs font-medium text-neutral-100 underline-offset-2 hover:underline">
+                + Upload a file
+                <input
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime"
+                  className="sr-only"
+                  onChange={(event) => {
+                    const files = Array.from(event.target.files ?? []);
+                    files.forEach(uploadFile);
+                    // Reset so choosing the same file twice still fires.
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            ) : null}
+            <button
+              type="button"
+              onClick={addMedia}
+              className="text-xs text-neutral-400 underline-offset-2 hover:text-neutral-200 hover:underline"
+            >
+              + Paste a link
+            </button>
+          </div>
         </div>
         <p className="mt-1 text-xs text-neutral-500">
-          Paste a public https link to a JPEG, PNG, or MP4. Instagram needs at least one; the
-          platforms fetch it from that link. Direct upload arrives with the media pipeline.
+          {uploadsEnabled
+            ? "JPEG, PNG, or WebP up to 8MB; MP4 or MOV up to 300MB. Instagram needs at least one item — it has no text-only posts."
+            : "File upload is not switched on yet — paste a public https link to a JPEG, PNG, or MP4. Instagram needs at least one; the platforms fetch it from that link."}
         </p>
         {media.length > 0 ? (
           <ul className="mt-3 flex flex-col gap-2">
-            {media.map((row, index) => (
-              <li key={row.key} className="flex items-center gap-2">
-                <input
-                  type="url"
-                  value={row.url}
-                  placeholder="https://…"
-                  aria-label={`Media ${index + 1} URL`}
-                  onChange={(e) => updateMedia(row.key, { url: e.target.value })}
-                  onBlur={(e) =>
-                    updateMedia(row.key, {
-                      type: VIDEO_EXTENSIONS.test(e.target.value) ? "video" : row.type,
-                    })
-                  }
-                  className="min-w-0 flex-1 rounded-md border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-50 outline-none focus:border-neutral-500"
-                />
-                <select
-                  value={row.type}
-                  aria-label={`Media ${index + 1} type`}
-                  onChange={(e) => updateMedia(row.key, { type: e.target.value as MediaRef["type"] })}
-                  className="rounded-md border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-sm text-neutral-200"
-                >
-                  <option value="image">Image</option>
-                  <option value="video">Video</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => removeMedia(row.key)}
-                  aria-label={`Remove media ${index + 1}`}
-                  className="rounded-md border border-neutral-800 px-2 py-1.5 text-sm text-neutral-400 hover:border-neutral-600"
-                >
-                  ✕
-                </button>
-              </li>
-            ))}
+            {media.map((row, index) => {
+              const isUpload = row.progress !== undefined || Boolean(row.name);
+              return (
+                <li key={row.key} className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    {isUpload ? (
+                      <span className="min-w-0 flex-1 truncate rounded-md border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-300">
+                        {row.name ?? "Uploaded file"}
+                        {row.progress !== undefined ? (
+                          <span className="ml-2 text-xs text-neutral-500">
+                            {row.progress}%
+                          </span>
+                        ) : row.url ? (
+                          <span className="ml-2 text-xs text-emerald-400">ready</span>
+                        ) : null}
+                      </span>
+                    ) : (
+                      <input
+                        type="url"
+                        value={row.url}
+                        placeholder="https://…"
+                        aria-label={`Media ${index + 1} URL`}
+                        onChange={(e) => updateMedia(row.key, { url: e.target.value })}
+                        onBlur={(e) =>
+                          updateMedia(row.key, {
+                            type: VIDEO_EXTENSIONS.test(e.target.value) ? "video" : row.type,
+                          })
+                        }
+                        className="min-w-0 flex-1 rounded-md border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-50 outline-none focus:border-neutral-500"
+                      />
+                    )}
+                    <select
+                      value={row.type}
+                      aria-label={`Media ${index + 1} type`}
+                      disabled={isUpload}
+                      onChange={(e) =>
+                        updateMedia(row.key, { type: e.target.value as MediaRef["type"] })
+                      }
+                      className="rounded-md border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-sm text-neutral-200 disabled:opacity-50"
+                    >
+                      <option value="image">Image</option>
+                      <option value="video">Video</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => removeMedia(row.key)}
+                      aria-label={`Remove media ${index + 1}`}
+                      className="rounded-md border border-neutral-800 px-2 py-1.5 text-sm text-neutral-400 hover:border-neutral-600"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {row.progress !== undefined ? (
+                    <div
+                      className="h-1 w-full overflow-hidden rounded-full bg-neutral-800"
+                      role="progressbar"
+                      aria-valuenow={row.progress}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`Uploading ${row.name ?? "file"}`}
+                    >
+                      <div
+                        className="h-full bg-emerald-500 transition-all"
+                        style={{ width: `${row.progress}%` }}
+                      />
+                    </div>
+                  ) : null}
+                  {row.error ? (
+                    <p className="text-xs text-red-400">{row.error}</p>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         ) : null}
       </section>
