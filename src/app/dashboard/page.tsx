@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 
+import Link from "next/link";
+
 import { signOut } from "@/lib/auth/actions";
 import { requireUser } from "@/lib/auth/session";
 import { listConnections } from "@/lib/connections/store";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
+import { PLATFORM_LABELS as LABELS } from "@/lib/platforms/labels";
 import { listRegisteredPlatforms } from "@/lib/platforms/registry";
-import { PLATFORMS, type Platform } from "@/lib/platforms/types";
+import { PLATFORMS } from "@/lib/platforms/types";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace, listWorkspaces } from "@/lib/workspaces/store";
 
@@ -14,17 +17,6 @@ import { PlatformToggles, type PlatformRow } from "./platform-toggles";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 export const metadata: Metadata = { title: "Dashboard · MarkedFox" };
-
-const LABELS: Record<Platform, string> = {
-  instagram: "Instagram",
-  x: "X",
-  threads: "Threads",
-  facebook: "Facebook",
-  tiktok: "TikTok",
-  youtube: "YouTube",
-  linkedin: "LinkedIn",
-  pinterest: "Pinterest",
-};
 
 // Everything here reads through the user's own client, so RLS is what returns
 // the rows — not a filter this page remembered to apply.
@@ -133,6 +125,21 @@ export default async function DashboardPage({
           Connected {params.connected}.
         </p>
       ) : null}
+
+      <nav className="flex gap-2">
+        <Link
+          href="/dashboard/compose"
+          className="rounded-md bg-neutral-50 px-3 py-2 text-sm font-semibold text-neutral-950 transition hover:bg-white"
+        >
+          Compose a post
+        </Link>
+        <Link
+          href="/dashboard/posts"
+          className="rounded-md border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+        >
+          Posts
+        </Link>
+      </nav>
 
       <section className="rounded-lg border border-neutral-900 p-4">
         <div className="flex items-baseline justify-between">

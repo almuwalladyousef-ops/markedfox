@@ -789,6 +789,40 @@ schedule; filing early is the only lever we control.
   cycle, pricing rule 5 rewritten. Open: the Supabase project sits in the
   personal default org "Yousef almuwallad", not a dedicated MarkedFox org —
   transfer via dashboard before launch (asset-separation rule).
+- **2026-08-14 → 08-16** — Phase 1 closed (all five exit criteria verified,
+  see `sessions/2026-08-15-phase1-live.md`, `2026-08-16-workspaces-facebook-
+  threads.md`): DigitalOcean Toronto droplet, Caddy TLS on `markedfox.com`,
+  auth surface, connections layer with a real Instagram adapter, Facebook and
+  Threads adapters, workspaces as a plan limit, pricing rewritten to
+  per-workspace accounts + pooled usage. Meta deauthorize/data-deletion
+  callbacks live. Open at the end of 08-16: the owner's own browser would not
+  navigate on the Facebook/Threads toggles although both flows verified clean
+  from a fresh session (`handoff/2026-08-16-owner-tasks.md`).
+- **2026-08-16 (Phase 3 publish layer)** — One publish path for "now" and
+  "scheduled": `POST /api/posts` → `createPost()` refuses bad targets, plan
+  denials, missing adapters, and invalid content *before any row exists*;
+  `publishPost()` (pure orchestrator, injectable store) publishes per target,
+  writes one `history` row per platform attempt, one `post_publish` usage row
+  per post that went anywhere plus one `x_post` per X account, and settles
+  `published` / `partial` / `failed` with a per-platform `last_error`. Each
+  adapter now declares `rules` (caption limit, media caps, mixing, hashtags)
+  beside `capabilities`; `validateContent()` runs the same numbers in the
+  composer and the API. `containsExternalLink()` computes the X URL guard
+  server-side. The systemd timer's script became a thin HTTP trigger of
+  `POST /api/internal/scheduler/tick` (bearer `SCHEDULER_SECRET`, Caddy 404s
+  `/api/internal/*` publicly) because the adapters are TypeScript inside the
+  app. Composer at `/dashboard/compose` (live per-platform counters and
+  issues, per-platform caption overrides, media by public URL until the R2
+  pipeline, schedule picker, per-target results); `/dashboard/posts` lists
+  outcomes and cancels scheduled posts. Verified: 117 unit tests (partial
+  failure named precisely, X link refused, 301st X post refused, plan-locked
+  platform refused by API, daily cap, auth error → connection expired),
+  `scripts/publish-smoke.mjs` 28/28 live against the hosted project through
+  a running app (tick claims a due post, real Facebook adapter runs, Meta
+  rejects the fake token, row/history/connection settle correctly). Not yet
+  proven live: a real publish to a real account — the owner's first composer
+  post is that test. Phase 3 exit criteria still open: TikTok/YouTube/X
+  adapters (need keys/audits), and the real-account publish.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
