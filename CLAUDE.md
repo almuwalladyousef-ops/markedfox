@@ -798,31 +798,79 @@ schedule; filing early is the only lever we control.
   callbacks live. Open at the end of 08-16: the owner's own browser would not
   navigate on the Facebook/Threads toggles although both flows verified clean
   from a fresh session (`handoff/2026-08-16-owner-tasks.md`).
-- **2026-08-16 (Phase 3 publish layer)** — One publish path for "now" and
-  "scheduled": `POST /api/posts` → `createPost()` refuses bad targets, plan
-  denials, missing adapters, and invalid content *before any row exists*;
-  `publishPost()` (pure orchestrator, injectable store) publishes per target,
-  writes one `history` row per platform attempt, one `post_publish` usage row
-  per post that went anywhere plus one `x_post` per X account, and settles
-  `published` / `partial` / `failed` with a per-platform `last_error`. Each
-  adapter now declares `rules` (caption limit, media caps, mixing, hashtags)
-  beside `capabilities`; `validateContent()` runs the same numbers in the
-  composer and the API. `containsExternalLink()` computes the X URL guard
-  server-side. The systemd timer's script became a thin HTTP trigger of
-  `POST /api/internal/scheduler/tick` (bearer `SCHEDULER_SECRET`, Caddy 404s
-  `/api/internal/*` publicly) because the adapters are TypeScript inside the
-  app. Composer at `/dashboard/compose` (live per-platform counters and
-  issues, per-platform caption overrides, media by public URL until the R2
-  pipeline, schedule picker, per-target results); `/dashboard/posts` lists
-  outcomes and cancels scheduled posts. Verified: 117 unit tests (partial
-  failure named precisely, X link refused, 301st X post refused, plan-locked
-  platform refused by API, daily cap, auth error → connection expired),
-  `scripts/publish-smoke.mjs` 28/28 live against the hosted project through
-  a running app (tick claims a due post, real Facebook adapter runs, Meta
-  rejects the fake token, row/history/connection settle correctly). Not yet
-  proven live: a real publish to a real account — the owner's first composer
-  post is that test. Phase 3 exit criteria still open: TikTok/YouTube/X
-  adapters (need keys/audits), and the real-account publish.
+- **2026-08-16 (Phase 3 — publisher built, live, and proven on real
+  accounts)**. See `sessions/2026-08-16-phase3-publish.md` for detail.
+
+  *Publish layer.* One path for "now" and "scheduled": `POST /api/posts` →
+  `createPost()` refuses bad targets, plan denials, missing adapters, and
+  invalid content *before any row exists*; `publishPost()` (pure orchestrator,
+  injectable store) publishes per target, writes one `history` row per platform
+  attempt, one `post_publish` usage row per post that went anywhere plus one
+  `x_post` per X account, and settles `published`/`partial`/`failed` with a
+  per-platform `last_error`. Each adapter declares `rules` (caption limit,
+  media caps, mixing, hashtags) beside `capabilities`; `validateContent()` runs
+  the same numbers in the composer and the API, so the UI can never be more
+  permissive. `containsExternalLink()` computes the X URL guard server-side.
+  Composer at `/dashboard/compose`, outcomes and cancel at `/dashboard/posts`.
+
+  *Scheduler.* The systemd timer's script is now a thin HTTP trigger of
+  `POST /api/internal/scheduler/tick` (bearer `SCHEDULER_SECRET`, fail-closed;
+  Caddy 404s `/api/internal/*` publicly) because the adapters are TypeScript
+  inside the app. The tick also renews expiring tokens and purges spent media.
+
+  *Meta configuration, all owner-fixed this day.* Facebook needed
+  `pages_manage_posts` added to the app; Threads needed a **Threads Tester**
+  invite accepted on threads.com, because an unpublished app lets only testers
+  authorize. The "toggles do not work in my browser" symptom was neither: the
+  callback only read Meta's `error` parameter and not `error_code`/
+  `error_message`, so a refusal fell through to the state check and reported
+  `bad_state`. It now reads both, before the state check.
+
+  *First real posts.* Instagram (`instagram.com/reel/DcHDcalAYEt`), Facebook,
+  and Threads have all published from the composer, including a video uploaded
+  through R2. The first attempt was a `partial` — Instagram timed out — which
+  incidentally proved the "partial failure names precisely what failed"
+  criterion on live data.
+
+  *Media.* Uploads go from the browser **straight to R2** on a presigned PUT;
+  bytes never cross the droplet, which matters on 1 vCPU / 2GB. SigV4 is
+  hand-rolled and verified against AWS's own published test vector. Bucket
+  `markedfox-media`, public reads via the r2.dev subdomain, CORS set by API.
+  Storage cleans itself on the tick: media is deleted when its post is done
+  (at once for published/canceled, after 24h for partial/failed, never for
+  scheduled), objects are retained while any unpurged post still references
+  them, and **uploads that were never posted are collected after 48h** —
+  that orphan case was found on live data holding 109MB.
+
+  *Token lifetime.* Instagram and Facebook store Page tokens, which never
+  expire; Threads stores a 60-day user token and there is no permanent
+  variant. The tick renews anything inside 7 days of expiry, so Threads never
+  lapses. Measured: Meta accepts a refresh of a token under 24h old but
+  returns the ORIGINAL expiry — a silent no-op.
+
+  *Bugs found and fixed on live data*, each recorded in the session log:
+  refresh failures marked healthy connections `expired` (now only a dead grant
+  does); `deploy/sync-env.sh` matched key names as `[A-Z_]+` and silently
+  skipped every `R2_*` variable; Instagram's 60s container poll sat on top of a
+  measured 32s typical case (video now 300s with backoff, since Meta rate-
+  limits per app); Threads published anyway when its container never finished.
+
+  *Verified:* 175 unit tests, `scripts/publish-smoke.mjs` 28/28 live through a
+  running app, the R2 path proven end to end on production, and real posts on
+  all three platforms. Deployed `13903c4`.
+
+  **Phase 3 is NOT closed.** Built and proven: Instagram, Facebook, Threads.
+  Still open, all blocked on owner action rather than code: **X** (needs a
+  developer account and keys — no review, pay-per-use, the cheapest next
+  adapter), **TikTok** (app must be created, then audited), **YouTube** (audit;
+  unverified projects have every upload locked to private with no appeal).
+  LinkedIn and Pinterest remain post-launch by design.
+
+  *Open risk, owner-deferred:* Gmail blocked `markedfox.usa@gmail.com` on
+  2026-08-16 and it took an appeal to restore. That inbox owns the Meta app,
+  Business Verification, TikTok, Supabase, the VPS, Cloudflare, GitHub, and the
+  R2 keys, and still has 2FA off with no recovery phone. Owner has chosen to
+  handle it later.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
