@@ -36,6 +36,8 @@ export type TickSummary = {
   refreshFailed: number;
   /** Media objects deleted now that their post is done with them. */
   purged: number;
+  /** Uploads that were never attached to any post, deleted after their grace. */
+  orphansPurged: number;
   reports: PublishReport[];
 };
 
@@ -57,6 +59,7 @@ export async function runSchedulerTick(
     refreshed: 0,
     refreshFailed: 0,
     purged: 0,
+    orphansPurged: 0,
     reports: [],
   };
 
@@ -141,6 +144,7 @@ export async function runSchedulerTick(
         log,
       });
       summary.purged = purge.objectsDeleted;
+      summary.orphansPurged = purge.orphansDeleted;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       log.error(`scheduler: media purge failed — ${message}`);

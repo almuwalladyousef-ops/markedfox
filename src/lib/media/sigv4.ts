@@ -68,6 +68,8 @@ export type PresignInput = {
   now: Date;
   /** Extra headers the caller commits to sending, e.g. content-type. */
   signedHeaders?: Record<string, string>;
+  /** Extra query parameters, e.g. list-type=2. Signed with the rest. */
+  queryParams?: Record<string, string>;
 };
 
 export function presignUrl(input: PresignInput): string {
@@ -105,6 +107,7 @@ export function presignUrl(input: PresignInput): string {
 
   const credentialScope = `${dateStamp}/${input.region}/${service}/aws4_request`;
   const query: Record<string, string> = {
+    ...(input.queryParams ?? {}),
     "X-Amz-Algorithm": ALGORITHM,
     "X-Amz-Credential": `${input.accessKeyId}/${credentialScope}`,
     "X-Amz-Date": amzDate,

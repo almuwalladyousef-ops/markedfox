@@ -12,10 +12,10 @@ import {
   UPLOAD_URL_TTL_SECONDS,
   type MediaKind,
 } from "./policy";
-import {
-  PURGEABLE_STATUSES,
-  type MediaPurgeStore,
-  type PurgeablePost,
+import type {
+  MediaPurgeStore,
+  PurgeablePost,
+  StoredObject,
 } from "./purge";
 import { presignUrl } from "./sigv4";
 
@@ -49,6 +49,8 @@ export interface MediaStore {
     kind: MediaKind;
   }): Promise<UploadTarget>;
   delete(key: string): Promise<void>;
+  /** Everything in the bucket. Used to find uploads no post ever claimed. */
+  list(): Promise<StoredObject[]>;
 }
 
 export class MediaStorageNotConfiguredError extends Error {
@@ -121,6 +123,43 @@ export function createMediaStore(now: () => Date = () => new Date()): MediaStore
       };
     },
 
+    async list(): Promise<StoredObject[]> {
+      // ListObjectsV2 against the bucket root. The bucket only ever holds
+      // media awaiting publish, so with cleanup working it stays small; the
+      // 1000-object page size is far beyond that, and a truncated response
+      // simply means the next tick continues where this one stopped.
+      const objects: StoredObject[] = [];
+      const url = presignUrl({
+        method: "GET",
+        endpoint,
+        key: bucket,
+        accessKeyId,
+        secretAccessKey,
+        region: R2_REGION,
+        expiresInSeconds: 300,
+        now: now(),
+        queryParams: { "list-type": "2" },
+      });
+      const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+      const xml = await response.text();
+      if (!response.ok) {
+        throw new Error(`R2 list failed: HTTP ${response.status} ${xml.slice(0, 200)}`);
+      }
+      // Minimal parse rather than an XML dependency: three fields, one shape,
+      // and a malformed entry is skipped rather than crashing the sweep.
+      for (const match of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+        const entry = match[1];
+        const key = /<Key>([^<]*)<\/Key>/.exec(entry)?.[1];
+        const modified = /<LastModified>([^<]*)<\/LastModified>/.exec(entry)?.[1];
+        const size = /<Size>(\d+)<\/Size>/.exec(entry)?.[1];
+        if (!key || !modified) continue;
+        const uploadedAt = new Date(modified);
+        if (Number.isNaN(uploadedAt.getTime())) continue;
+        objects.push({ key, uploadedAt, sizeBytes: Number(size ?? 0) });
+      }
+      return objects;
+    },
+
     async delete(key: string) {
       const url = presignUrl({
         method: "DELETE",
@@ -157,13 +196,15 @@ export function createMediaPurgeStore(
   media: MediaStore = createMediaStore(),
 ): MediaPurgeStore {
   return {
-    async listPurgeable(limit: number): Promise<PurgeablePost[]> {
+    async listUnpurgedPosts(limit: number): Promise<PurgeablePost[]> {
+      // Every unpurged post, not only the finished ones: a draft or scheduled
+      // post's media must be protected from both sweeps, and the orphan pass
+      // needs to know every key that is still spoken for.
       const { data, error } = await supabase
         .from("scheduled_posts")
         .select("id, status, media, published_at, updated_at")
         .is("media_purged_at", null)
-        .in("status", PURGEABLE_STATUSES as unknown as string[])
-        .order("published_at", { ascending: true, nullsFirst: true })
+        .order("created_at", { ascending: true })
         .limit(limit);
       if (error) throw error;
 
@@ -191,6 +232,10 @@ export function createMediaPurgeStore(
             null,
         };
       });
+    },
+
+    listObjects() {
+      return media.list();
     },
 
     deleteObject(key: string) {
