@@ -65,14 +65,35 @@ export interface PublishResult {
   url?: string;
 }
 
+// The numbers behind "surface invalid content before publish, never as an
+// error after". Declarative on purpose: the composer receives these as plain
+// data and runs the same validateContent() the API runs, so the two can never
+// disagree — and adding a platform means declaring its limits in its own
+// adapter file, not editing a shared table.
+//
+// Capabilities say what a platform can carry (text-only? video? carousel?);
+// rules say how much. Both are read by src/lib/publish/validate.ts.
+export interface ContentRules {
+  /** Hard platform limit on caption/text length, in code points. */
+  captionMaxChars: number;
+  /** Most media items in one post (carousel size). 1 = single item only. */
+  mediaMax: number;
+  /** Most videos in one post, or null for no separate video limit. */
+  maxVideos: number | null;
+  /** Images and videos together in one post. */
+  mixedMediaAllowed: boolean;
+  /** Hashtag cap inside the caption, or null when the platform has none. */
+  hashtagMax: number | null;
+}
+
 // One adapter per platform, one file per adapter, registered in registry.ts.
 // Routes never contain platform-specific code: they resolve an adapter and
-// call it. A per-platform `validate()` (caption limits, aspect ratios, media
-// rules surfaced before publish) joins this interface in Phase 3.
+// call it.
 export interface PlatformAdapter {
   readonly id: Platform;
   readonly displayName: string;
   readonly capabilities: PlatformCapabilities;
+  readonly rules: ContentRules;
   /** OAuth leg 1: the URL the user is sent to. */
   getAuthorizeUrl(input: { redirectUri: string; state: string }): string;
   /** OAuth leg 2: exchange the callback code for tokens + account identity. */

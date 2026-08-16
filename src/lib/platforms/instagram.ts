@@ -199,6 +199,16 @@ export const instagram: PlatformAdapter = {
     analytics: true,
   },
 
+  // Content Publishing API limits: 2,200-character captions, 30 hashtags,
+  // carousels of 2–10 items mixing images and video freely.
+  rules: {
+    captionMaxChars: 2200,
+    mediaMax: 10,
+    maxVideos: null,
+    mixedMediaAllowed: true,
+    hashtagMax: 30,
+  },
+
   getAuthorizeUrl({ redirectUri, state }) {
     const url = new URL(`https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`);
     url.searchParams.set("client_id", requireEnv("META_APP_ID"));

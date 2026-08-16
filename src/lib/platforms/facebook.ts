@@ -93,9 +93,20 @@ export const facebook: PlatformAdapter = {
     text: true, // unlike Instagram, a Page post needs no media
     image: true,
     video: true,
-    carousel: false, // multi-photo Page posts are a different, rarely used flow
+    carousel: true, // several photos attach to one feed post (publish() below)
     schedule: true,
     analytics: true,
+  },
+
+  // A Page post takes up to 63,206 characters. publish() handles either one
+  // video or up to ten photos — never both in one post — so that is what the
+  // rules promise.
+  rules: {
+    captionMaxChars: 63206,
+    mediaMax: 10,
+    maxVideos: 1,
+    mixedMediaAllowed: false,
+    hashtagMax: null,
   },
 
   getAuthorizeUrl({ redirectUri, state }) {

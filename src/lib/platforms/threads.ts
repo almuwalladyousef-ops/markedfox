@@ -96,6 +96,15 @@ export const threadsAdapter: PlatformAdapter = {
     analytics: true,
   },
 
+  // 500 characters of text; carousels of 2–20 items, images and video mixed.
+  rules: {
+    captionMaxChars: 500,
+    mediaMax: 20,
+    maxVideos: null,
+    mixedMediaAllowed: true,
+    hashtagMax: null,
+  },
+
   getAuthorizeUrl({ redirectUri, state }) {
     const url = new URL(AUTH);
     url.searchParams.set("client_id", requireEnv("THREADS_APP_ID"));
