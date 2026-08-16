@@ -3,6 +3,10 @@ Description=MarkedFox web application
 Documentation=https://markedfox.com
 After=network-online.target
 Wants=network-online.target
+# These belong in [Unit] — systemd ignores them under [Service] and warns, which
+# meant the crash-loop throttle was never actually in effect.
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -27,8 +31,6 @@ ExecStart=/usr/bin/node .next/standalone/server.js
 # down until someone notices. StartLimit stops a crash loop from thrashing.
 Restart=always
 RestartSec=3
-StartLimitIntervalSec=60
-StartLimitBurst=5
 
 # Sandboxing. The app needs its own directory and outbound network, nothing else.
 NoNewPrivileges=true
