@@ -154,6 +154,18 @@ export const threadsAdapter: PlatformAdapter = {
     };
   },
 
+  // Threads tokens live 60 days and there is no non-expiring variant — unlike
+  // Instagram and Facebook, which hand out Page tokens with no expiry at all.
+  // Renewing inside the window is what keeps a connection alive indefinitely;
+  // refreshExpiringConnections() does that on the scheduler tick.
+  //
+  // Meta requires the token to be **at least 24 hours old**. Measured against
+  // the live API on 2026-08-16: refreshing a token only 83 minutes old is
+  // accepted and returns a new token string, but carries the ORIGINAL expiry
+  // rather than a fresh 60 days — a silent no-op, not an error. Real renewals
+  // are never affected, because the 7-day window only fires on tokens roughly
+  // 53 days old, but do not "fix" a failed renewal by refreshing a freshly
+  // reconnected token and expecting the clock to move.
   async refresh(tokens) {
     const out = await threads<{ access_token: string; expires_in?: number }>(
       "/refresh_access_token",

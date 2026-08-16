@@ -10,6 +10,8 @@ import type {
   Platform,
 } from "@/lib/platforms/types";
 
+import { isDeadGrant, type ExpiringConnection, type RefreshStore } from "./refresh";
+
 // The only code that touches connections' token columns. Tokens are AES-256-GCM
 // envelopes from src/lib/crypto.ts — plaintext never reaches a query, a log, or
 // a return value except through getConnectionTokens.
@@ -144,7 +146,7 @@ export async function markConnectionStatus(
 // Refresh threshold: Meta long-lived tokens last ~60 days and refresh by
 // re-exchange while still valid, so renewing a week early costs nothing and
 // absorbs a scheduler outage of days without any token dying.
-const REFRESH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+export const REFRESH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Server-side refresh — the Phase 2 requirement that background jobs never
 // hold stale tokens and no browser session is ever involved. Returns fresh
@@ -165,9 +167,12 @@ export async function getFreshConnectionTokens(
   try {
     fresh = await adapter.refresh(tokens);
   } catch (error) {
-    // A dead grant is a state change, not a transient failure: record it so
-    // the UI can show "reconnect needed" instead of silently failing publishes.
-    await markConnectionStatus(supabase, connectionId, "expired");
+    // A dead grant is a state change: record it so the UI can show "reconnect
+    // needed" instead of silently failing publishes. Anything else is left
+    // `active` to be retried — see isDeadGrant.
+    if (isDeadGrant(error)) {
+      await markConnectionStatus(supabase, connectionId, "expired");
+    }
     throw error;
   }
 
@@ -185,4 +190,35 @@ export async function getFreshConnectionTokens(
   if (error) throw error;
 
   return { row, tokens: fresh };
+}
+
+// The RefreshStore the scheduler's sweep runs against. Service-role client:
+// it must see every tenant's connections, so it filters on expiry and status
+// rather than on a user.
+export function createRefreshStore(supabase: SupabaseClient): RefreshStore {
+  return {
+    async listExpiring(before: Date): Promise<ExpiringConnection[]> {
+      const { data, error } = await supabase
+        .from("connections")
+        .select("id, platform, token_expires_at")
+        .eq("status", "active")
+        .not("token_expires_at", "is", null)
+        .lt("token_expires_at", before.toISOString())
+        .order("token_expires_at", { ascending: true })
+        .limit(200);
+      if (error) throw error;
+      return (data ?? []).map((row) => ({
+        id: String(row.id),
+        platform: row.platform as Platform,
+        tokenExpiresAt: (row.token_expires_at as string | null) ?? null,
+      }));
+    },
+
+    async refresh(connectionId: string): Promise<void> {
+      // getFreshConnectionTokens does the whole job — decrypt, call the
+      // adapter, re-encrypt, persist — and its own window check passes because
+      // listExpiring already selected on the same threshold.
+      await getFreshConnectionTokens(supabase, connectionId);
+    },
+  };
 }

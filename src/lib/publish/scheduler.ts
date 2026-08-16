@@ -2,6 +2,9 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { refreshExpiringConnections } from "@/lib/connections/refresh";
+import { createRefreshStore, REFRESH_WINDOW_MS } from "@/lib/connections/store";
+
 import { publishPost } from "./publish-post";
 import { createPublishStore, POST_COLUMNS, toPostRow } from "./store";
 import type { PublishReport } from "./types";
@@ -25,6 +28,10 @@ export type TickSummary = {
   published: number;
   partial: number;
   failed: number;
+  /** Connections whose tokens were renewed this tick. */
+  refreshed: number;
+  /** Renewals that failed; the connection keeps its old token and is retried. */
+  refreshFailed: number;
   reports: PublishReport[];
 };
 
@@ -43,6 +50,8 @@ export async function runSchedulerTick(
     published: 0,
     partial: 0,
     failed: 0,
+    refreshed: 0,
+    refreshFailed: 0,
     reports: [],
   };
 
@@ -56,9 +65,8 @@ export async function runSchedulerTick(
   if (error) throw error;
 
   summary.due = due?.length ?? 0;
-  if (!due || due.length === 0) return summary;
 
-  for (const raw of due) {
+  for (const raw of due ?? []) {
     const post = toPostRow(raw as unknown as Record<string, unknown>);
 
     const { data: claimed, error: claimError } = await supabase
@@ -95,6 +103,25 @@ export async function runSchedulerTick(
         .eq("status", "publishing");
       summary.failed += 1;
     }
+  }
+
+  // Token renewal, after publishing so a slow token endpoint never delays a
+  // post that is already due. Its query is indexed and returns nothing on
+  // almost every tick (connections_expiring_idx), and a renewal buys another
+  // ~60 days, so a given connection reappears here twice a year at most.
+  //
+  // Failures are counted, never thrown: a dead grant on one account must not
+  // take down the tick that publishes everyone else's posts.
+  try {
+    const refresh = await refreshExpiringConnections(
+      createRefreshStore(supabase),
+      { windowMs: REFRESH_WINDOW_MS, now, log },
+    );
+    summary.refreshed = refresh.refreshed;
+    summary.refreshFailed = refresh.failed;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log.error(`scheduler: refresh sweep failed — ${message}`);
   }
 
   return summary;
