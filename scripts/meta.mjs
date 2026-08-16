@@ -8,6 +8,8 @@
 //   node scripts/meta.mjs docs <query>        search Meta developer docs
 //   node scripts/meta.mjs tools               list every MCP tool
 //   node scripts/meta.mjs call <tool> <json>  escape hatch for anything else
+//   node scripts/meta.mjs redirects           show Facebook Login redirect URIs
+//   node scripts/meta.mjs redirects add <url> add one (Graph API write)
 //
 // Why this exists rather than `claude mcp`: the Claude Code MCP client times
 // out against mcp.facebook.com and never loads its tools, but the server
@@ -15,9 +17,13 @@
 // Claude Code already stored. This talks to it directly. If the client is ever
 // fixed, this becomes redundant rather than wrong.
 //
-// It is read-only by design. Everything it reports that is *not* done —
-// verification, Advanced Access, the Facebook Page — is a dashboard flow with
-// no API behind it, so the tool tells you the state and hands you the URL.
+// Mostly read-only. The one write is `redirects add`, which uses the Graph
+// API with the app token (needs "Allow API Access to App Settings" switched on
+// in the app's advanced settings — the owner did that 2026-08-16). Note this
+// reaches the main app's Facebook Login list only: the Threads use case is a
+// separate app object that rejects app tokens, so its redirect list stays a
+// dashboard task. Everything else it reports as not done — verification,
+// Advanced Access, permissions — is a dashboard flow with no API behind it.
 
 import { execFileSync } from "node:child_process";
 
@@ -236,6 +242,34 @@ async function cmdStatus() {
   process.exitCode = bv === true ? 0 : 1;
 }
 
+async function cmdRedirects(sub, url) {
+  const appId = process.env.META_APP_ID;
+  const secret = process.env.META_APP_SECRET;
+  if (!appId || !secret) fail("META_APP_ID and META_APP_SECRET must be in the environment (source .env.local).");
+  const token = `${appId}|${secret}`;
+  const base = `https://graph.facebook.com/v26.0/${appId}`;
+
+  const current = await callTool("devtools_app", { action: "advanced_settings", app_id: appId });
+  const uris = current?.oauth_redirect_uris ?? [];
+
+  if (sub === "add") {
+    if (!url) fail("Usage: node scripts/meta.mjs redirects add <https://…>");
+    if (uris.includes(url)) { console.log(`already present: ${url}`); return; }
+    const body = new URLSearchParams({
+      access_token: token,
+      valid_oauth_redirect_uris: JSON.stringify([...uris, url]),
+    });
+    const res = await fetch(base, { method: "POST", body }).then((r) => r.json());
+    if (res.error) fail(`Meta refused: ${res.error.message}`);
+    console.log(`added: ${url}`);
+    return;
+  }
+
+  console.log(bold("Facebook Login — valid OAuth redirect URIs"));
+  for (const u of uris) console.log(`  ${u}`);
+  console.log(dim(`\n  Threads keeps its own list under Use cases → Threads → Settings; not reachable by API.`));
+}
+
 async function cmdApps() {
   const apps = await callTool("devtools_app_list", { action: "list" });
   for (const a of apps?.apps ?? []) {
@@ -283,12 +317,13 @@ await connect();
 switch (command ?? "status") {
   case "status": await cmdStatus(); break;
   case "apps": await cmdApps(); break;
+  case "redirects": await cmdRedirects(rest[0], rest[1]); break;
   case "webhooks": await cmdWebhooks(); break;
   case "docs": await cmdDocs(rest.join(" ")); break;
   case "tools": await cmdTools(); break;
   case "call": await cmdCall(rest[0], rest[1]); break;
   default:
     console.log(`Unknown command: ${command}\n`);
-    console.log("  status | apps | webhooks | docs <query> | tools | call <tool> <json>");
+    console.log("  status | apps | redirects [add <url>] | webhooks | docs <query> | tools | call <tool> <json>");
     process.exit(1);
 }
