@@ -18,7 +18,12 @@ export const metadata: Metadata = { title: "Dashboard · MarkedFox" };
 //
 // Everything here reads through the user's own client, so RLS is what returns
 // the rows — not a filter this page remembered to apply.
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ connected?: string; connect_error?: string; connect_detail?: string }>;
+}) {
+  const params = await searchParams;
   const user = await requireUser();
   const workspaceId = await getDefaultWorkspaceId(user.id);
 
@@ -61,6 +66,17 @@ export default async function DashboardPage() {
           </button>
         </form>
       </header>
+
+      {params.connect_error ? (
+        <p className="rounded-md border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300">
+          {params.connect_detail ?? "Connecting that account did not work."}
+        </p>
+      ) : null}
+      {params.connected ? (
+        <p className="rounded-md border border-emerald-900 bg-emerald-950/50 px-3 py-2 text-sm text-emerald-300">
+          Connected {params.connected}.
+        </p>
+      ) : null}
 
       <section className="rounded-lg border border-neutral-900 p-4">
         <h2 className="text-sm font-medium text-neutral-300">Plan</h2>

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getUser } from "@/lib/auth/session";
 import { getSiteUrl } from "@/lib/auth/site-url";
+import { PlatformApiError, PlatformAuthError } from "@/lib/platforms/errors";
 import { decodeState } from "@/lib/connections/oauth-state";
 import { saveConnection } from "@/lib/connections/store";
 import { getPlatform } from "@/lib/platforms/registry";
@@ -93,6 +94,16 @@ export async function GET(
     });
   } catch (error) {
     console.error(`connect ${platform} failed:`, error);
-    return bounce(site, { connect_error: "exchange_failed" });
+    // Platform errors carry a message written for the user (e.g. "none of your
+    // Pages has an Instagram account linked"). Pass it through rather than
+    // making them read the server log to learn what to fix.
+    const detail =
+      error instanceof PlatformApiError || error instanceof PlatformAuthError
+        ? error.message
+        : "";
+    return bounce(site, {
+      connect_error: "exchange_failed",
+      ...(detail ? { connect_detail: detail.slice(0, 300) } : {}),
+    });
   }
 }

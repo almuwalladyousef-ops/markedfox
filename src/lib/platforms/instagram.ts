@@ -117,8 +117,12 @@ type PageWithInstagram = {
 
 async function listInstagramAccounts(
   userToken: string,
-): Promise<ConnectedAccount[]> {
+): Promise<{ accounts: ConnectedAccount[]; pagesSeen: string[] }> {
   const accounts: ConnectedAccount[] = [];
+  // Tracked so the failure message can distinguish "you manage no Pages" from
+  // "you manage Pages but none has an Instagram account linked" — very
+  // different fixes, and the first attempt at this hit the second one.
+  const pagesSeen: string[] = [];
   let path =
     `/me/accounts?fields=id,name,access_token,` +
     `instagram_business_account{id,username}&limit=50`;
@@ -131,6 +135,7 @@ async function listInstagramAccounts(
     }>(path, { searchParams: { access_token: userToken } });
 
     for (const fbPage of out.data ?? []) {
+      pagesSeen.push(fbPage.name);
       if (!fbPage.instagram_business_account) continue;
       accounts.push({
         platformAccountId: fbPage.instagram_business_account.id,
@@ -146,7 +151,7 @@ async function listInstagramAccounts(
     path = next ? next.replace(GRAPH, "") : "";
   }
 
-  return accounts;
+  return { accounts, pagesSeen };
 }
 
 // Create a media container and wait until Meta reports it ready to publish.
@@ -220,13 +225,22 @@ export const instagram: PlatformAdapter = {
 
     // Then straight to long-lived (~60 days) — the short token is never stored.
     const tokens = await exchangeForLongLived(short.access_token);
-    const accounts = await listInstagramAccounts(tokens.accessToken);
+    const { accounts, pagesSeen } = await listInstagramAccounts(
+      tokens.accessToken,
+    );
 
     if (accounts.length === 0) {
+      // Name the actual situation: the fix differs entirely depending on
+      // whether any Pages came back.
       throw new PlatformApiError(
         "instagram",
-        "No Instagram Business account found. The Facebook login must manage a " +
-          "Page linked to an Instagram Business or Creator account.",
+        pagesSeen.length === 0
+          ? "This Facebook login manages no Pages. Create a Page, then link " +
+              "your Instagram Business account to it."
+          : `Found ${pagesSeen.length} Page(s) — ${pagesSeen.join(", ")} — but ` +
+              "none has an Instagram account linked. Link it in Business " +
+              "Suite under Instagram accounts, then try again. Switching " +
+              "Instagram to a Business account is not the same as linking it.",
       );
     }
 
