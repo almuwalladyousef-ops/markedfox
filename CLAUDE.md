@@ -392,31 +392,44 @@ Supabase under the role account matters more than any other account decision her
 
 | | **Free** | **Pro $20/mo** | **Studio $49/mo** | **Enterprise** |
 |---|---|---|---|---|
-| Posts | 2/day | Unlimited | Unlimited | Unlimited |
-| Connected accounts | 3 total, any mix | Unlimited | Unlimited | Unlimited |
-| Platforms | All except X | All | All | All |
-| X | ✗ | 300/mo, no external links | 300/mo, no external links | Raised |
-| DM rules | 1, capped monthly sends | Unlimited rules, monthly send cap | Same | Raised |
-| Research (pillar 3) | ✗ | ✗ | Credit allowance | Raised |
+| **Workspaces** | 2 | 5 | 10 | Unlimited |
+| **Accounts per workspace** | 3 | Unlimited | Unlimited | Unlimited |
+| Posts *(pooled)* | 2/day | Unlimited | Unlimited | Unlimited |
+| Platforms | Instagram, Facebook, Threads, TikTok, YouTube | All | All | All |
+| X *(pooled)* | ✗ | 300/mo, no external links | 300/mo, no external links | Raised |
+| DM rules *(pooled)* | 1 | Unlimited | Unlimited | Raised |
+| DM sends *(pooled)* | 200/mo | 10,000/mo | 10,000/mo | Raised |
+| Research credits *(pooled)* | ✗ | ✗ | Credit allowance | Raised |
 | Funnels *(post-launch)* | ✗ | ✓ | ✓ | ✓ |
 
-**Revised 2026-08-16 (owner).** Platforms are no longer gated by identity —
-the old Free tier allowed only Instagram, TikTok, and YouTube, which meant
-telling people a platform was off-limits. Now every plan can connect every
-platform and the Free lever is the **number of connected accounts: three, in
-any mix**. That is a better free tier and a cleaner upgrade reason ("you ran
-out of slots" rather than "you may not use Facebook").
+**The model, settled 2026-08-16 (owner). Two scopes, and the split is the whole
+design:**
 
-**X is the sole exception, and it is locked on Free entirely** — not merely
-capped. Every other platform costs $0 per post; X bills $0.015, or $0.20 with
-a link. A free user connecting X would be a free user spending the owner's
-money, so X is refused at the connect step rather than at publish: linking an
-account you can never post from is a worse experience than being told upfront.
+- **Per workspace — connected accounts.** Free gets three *in each workspace*,
+  so a Free user with two workspaces may connect six accounts in total. This is
+  the natural unit: a workspace is one brand or client, and its accounts belong
+  to it.
+- **Pooled across every workspace — posts, DM sends, DM rules, X posts, video
+  minutes, research credits.** One budget per account, spent from whichever
+  workspace the user likes. Pooling is not a nicety: Meta rate-limits per app
+  rather than per user, and the Studio tier's credits are real API spend, so a
+  user must never be able to multiply an allowance by creating workspaces.
 
-**This must be disclosed wherever "unlimited" appears.** "Unlimited posts"
-means unlimited on every platform except X, which carries a hard monthly number
-on every paid plan. The dashboard already marks the X tile; the pricing page,
-when it exists in Phase 5, must say it in the plan comparison rather than in
+Enforced by scope in `snapshot.ts`: pooled figures filter on `user_id`,
+the per-workspace figure on `workspace_id`. Proven on live rows — three
+accounts in each of two workspaces, while posts from both count against one
+total.
+
+**Nothing is ever shown as "Locked".** Every platform renders as a toggle. One
+outside the plan wears a 💎 badge, and toggling it opens an upgrade prompt
+naming what the plan gives. A user should see what upgrading buys, not a dead
+row. The same applies to "+ New workspace" past the plan's count.
+
+**X is the permanent exception to "unlimited".** Every other platform costs $0
+per post; X bills $0.015, or $0.20 with a link. So it is excluded from Free
+outright and carries a hard monthly number on every paid plan. **That has to be
+stated wherever the word "unlimited" appears** — the dashboard says it on the X
+tile, and the pricing page must say it in the plan comparison rather than in
 fine print.
 
 **Annual billing at roughly two months free.** The audience is hot for about one

@@ -38,13 +38,16 @@ export function canUserDo(
       }
       // The Free-plan lever since 2026-08-16: every platform is connectable on
       // every plan, and it is the number of connected accounts that is capped.
+      // Per workspace, not pooled: a Free user with two workspaces gets three
+      // accounts in each.
       if (
-        limits.maxConnectedAccounts !== null &&
-        usage.connectedAccountCount >= limits.maxConnectedAccounts
+        limits.maxConnectedAccountsPerWorkspace !== null &&
+        usage.connectedAccountsInWorkspace >=
+          limits.maxConnectedAccountsPerWorkspace
       ) {
         return deny(
           "connected_accounts_cap",
-          `The ${snapshot.planId} plan connects up to ${limits.maxConnectedAccounts} accounts. Disconnect one or upgrade.`,
+          `The ${snapshot.planId} plan connects up to ${limits.maxConnectedAccountsPerWorkspace} accounts per workspace. Disconnect one, use another workspace, or upgrade.`,
         );
       }
       return { allowed: true };
@@ -80,6 +83,19 @@ export function canUserDo(
         return deny(
           "posts_daily_cap",
           `Posts are capped at ${limits.postsPerDay} per day on the ${snapshot.planId} plan`,
+        );
+      }
+      return { allowed: true };
+    }
+
+    case "create_workspace": {
+      if (
+        limits.maxWorkspaces !== null &&
+        usage.workspaceCount >= limits.maxWorkspaces
+      ) {
+        return deny(
+          "workspace_cap",
+          `The ${snapshot.planId} plan includes ${limits.maxWorkspaces} workspaces. Upgrade for more.`,
         );
       }
       return { allowed: true };

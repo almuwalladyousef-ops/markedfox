@@ -11,10 +11,11 @@ import {
 // Mirrors the seed rows in the initial schema migration.
 const FREE_LIMITS: PlanLimits = {
   postsPerDay: 2,
-  maxConnectedAccounts: 3,
-  // null on every plan since 2026-08-16 — platforms are no longer gated by
-  // identity, only by how many accounts are connected.
-  platforms: null,
+  maxConnectedAccountsPerWorkspace: 3,
+  maxWorkspaces: 2,
+  // Free carries the five it includes; X, LinkedIn and Pinterest are excluded
+  // and the UI shows them as toggles wearing an upgrade badge.
+  platforms: ["instagram", "facebook", "threads", "tiktok", "youtube"],
   xPostsPerMonth: 0,
   xLinksAllowed: false,
   dmRulesMax: 1,
@@ -26,7 +27,8 @@ const FREE_LIMITS: PlanLimits = {
 
 const PRO_LIMITS: PlanLimits = {
   postsPerDay: null,
-  maxConnectedAccounts: null,
+  maxConnectedAccountsPerWorkspace: null,
+  maxWorkspaces: 5,
   platforms: null,
   xPostsPerMonth: 300,
   xLinksAllowed: false,
@@ -39,7 +41,8 @@ const PRO_LIMITS: PlanLimits = {
 
 const ZERO_USAGE: EntitlementSnapshot["usage"] = {
   postsToday: 0,
-  connectedAccountCount: 0,
+  connectedAccountsInWorkspace: 0,
+  workspaceCount: 1,
   xPostsThisMonth: 0,
   dmSendsThisMonth: 0,
   dmRuleCount: 0,
@@ -66,13 +69,13 @@ describe("canUserDo — platform gating", () => {
     }
   });
 
-  it("Free may publish to every platform except X", () => {
-    // Since 2026-08-16 platforms are not gated by identity. X is the sole
-    // exception because it bills per post — Free carries x_posts_per_month 0.
-    for (const platform of ["facebook", "threads", "linkedin", "pinterest"] as const) {
+  it("Free may publish to the platforms its plan includes", () => {
+    for (const platform of ["instagram", "facebook", "threads"] as const) {
       expect(canUserDo(free(), { type: "publish_post", platform }).allowed).toBe(true);
     }
-    expect(denialCode(free(), { type: "publish_post", platform: "x" })).toBe("plan_platform_locked");
+    for (const platform of ["x", "linkedin", "pinterest"] as const) {
+      expect(denialCode(free(), { type: "publish_post", platform })).toBe("plan_platform_locked");
+    }
   });
 
   it("Free cannot connect a locked platform either", () => {
@@ -148,25 +151,45 @@ describe("canUserDo — video minutes and funnels", () => {
 });
 
 describe("connected-account cap (replaces the old platform gate)", () => {
-  it("lets Free connect any platform, not a fixed three", () => {
-    // The old model locked Facebook/Threads/X by identity. Now every platform
-    // is connectable and only the count is capped.
-    for (const platform of ["facebook", "threads", "linkedin", "pinterest"] as const) {
+  it("includes Facebook and Threads on Free, excludes X/LinkedIn/Pinterest", () => {
+    for (const platform of ["instagram", "facebook", "threads", "tiktok", "youtube"] as const) {
       expect(
         canUserDo(free(), { type: "connect_platform", platform }).allowed,
       ).toBe(true);
     }
+    for (const platform of ["x", "linkedin", "pinterest"] as const) {
+      expect(
+        denialCode(free(), { type: "connect_platform", platform }),
+      ).toBe("plan_platform_locked");
+    }
+  });
+
+  it("caps accounts PER WORKSPACE, not across the account", () => {
+    // Three in this workspace is the cap; a second workspace gets its own three.
+    expect(
+      denialCode(free({ connectedAccountsInWorkspace: 3 }), {
+        type: "connect_platform",
+        platform: "instagram",
+      }),
+    ).toBe("connected_accounts_cap");
+  });
+
+  it("caps workspaces by plan", () => {
+    expect(canUserDo(free({ workspaceCount: 1 }), { type: "create_workspace" }).allowed).toBe(true);
+    expect(denialCode(free({ workspaceCount: 2 }), { type: "create_workspace" })).toBe("workspace_cap");
+    expect(canUserDo(pro({ workspaceCount: 4 }), { type: "create_workspace" }).allowed).toBe(true);
+    expect(denialCode(pro({ workspaceCount: 5 }), { type: "create_workspace" })).toBe("workspace_cap");
   });
 
   it("refuses the fourth account on Free", () => {
     expect(
-      canUserDo(free({ connectedAccountCount: 2 }), {
+      canUserDo(free({ connectedAccountsInWorkspace: 2 }), {
         type: "connect_platform",
         platform: "facebook",
       }).allowed,
     ).toBe(true);
     expect(
-      denialCode(free({ connectedAccountCount: 3 }), {
+      denialCode(free({ connectedAccountsInWorkspace: 3 }), {
         type: "connect_platform",
         platform: "facebook",
       }),
@@ -175,7 +198,7 @@ describe("connected-account cap (replaces the old platform gate)", () => {
 
   it("does not cap accounts on paid plans", () => {
     expect(
-      canUserDo(pro({ connectedAccountCount: 500 }), {
+      canUserDo(pro({ connectedAccountsInWorkspace: 500 }), {
         type: "connect_platform",
         platform: "facebook",
       }).allowed,
@@ -202,8 +225,9 @@ describe("connected-account cap (replaces the old platform gate)", () => {
 describe("parsePlanLimits", () => {
   const VALID_JSONB = {
     posts_per_day: 2,
-    platforms: null,
-    max_connected_accounts: 3,
+    platforms: ["instagram", "facebook", "threads", "tiktok", "youtube"],
+    max_connected_accounts_per_workspace: 3,
+    max_workspaces: 2,
     x_posts_per_month: 0,
     x_links_allowed: false,
     dm_rules_max: 1,

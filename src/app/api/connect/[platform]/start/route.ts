@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { getDefaultWorkspaceId, getUser } from "@/lib/auth/session";
+import { getUser } from "@/lib/auth/session";
 import { getSiteUrl } from "@/lib/auth/site-url";
 import { encodeState, newNonce } from "@/lib/connections/oauth-state";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
@@ -8,6 +8,7 @@ import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { getPlatform } from "@/lib/platforms/registry";
 import { PLATFORMS, type Platform } from "@/lib/platforms/types";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveWorkspace } from "@/lib/workspaces/store";
 
 // Leg 1 of connecting a social account: gate on plan, mint signed state, and
 // send the user to the platform's consent screen.
@@ -47,10 +48,13 @@ export async function GET(
     );
   }
 
-  const workspaceId = await getDefaultWorkspaceId(user.id);
-  if (!workspaceId) {
+  // The workspace the user is currently looking at — connections belong to one
+  // workspace, and the cap is per workspace.
+  const active = await getActiveWorkspace();
+  if (!active) {
     return NextResponse.json({ error: "no workspace" }, { status: 500 });
   }
+  const workspaceId = active.id;
 
   // The API-level plan gate — the composer's locked tiles are only the UI echo
   // of this same decision.

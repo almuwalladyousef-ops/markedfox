@@ -3,24 +3,40 @@ import type { Platform } from "@/lib/platforms/types";
 // camelCase mirror of the `plans.limits` jsonb column. Convention everywhere:
 // null = unlimited/unrestricted. Raising a cap for one account is a row edit
 // in the plans table, never code.
+//
+// Two scopes, and the distinction matters (owner model, 2026-08-16):
+//
+//   PER WORKSPACE — connected accounts. Three per workspace on Free, so a Free
+//   user with two workspaces may connect three accounts in each.
+//
+//   POOLED across every workspace the user owns — posts, DM sends, X posts,
+//   video minutes, research credits. One budget for the account, spent from
+//   whichever workspace they like. This is what "a pool they can pull from"
+//   means, and it is why the usage queries filter by user_id, not workspace_id.
 export interface PlanLimits {
-  /** null = unlimited. Free is 2/day; every paid plan is unlimited, because
-   *  posting costs $0 on every platform except X. */
+  /** Pooled. null = unlimited. Free is 2/day. */
   postsPerDay: number | null;
-  /** null = all platforms. Every plan is null since 2026-08-16: platforms are
-   *  no longer gated by identity, connected-account count is the lever. */
+  /** Per workspace. null = unlimited. Free is 3. */
+  maxConnectedAccountsPerWorkspace: number | null;
+  /** Workspaces the user may own. null = unlimited. Free 2, Pro 5, Studio 10. */
+  maxWorkspaces: number | null;
+  /** null = every platform. Free excludes X, LinkedIn, Pinterest — the UI shows
+   *  those as toggles with an upgrade badge, never hidden. */
   platforms: Platform[] | null;
-  /** Total connected accounts across all platforms. null = unlimited.
-   *  This is the Free-plan lever: three accounts, any mix of platforms. */
-  maxConnectedAccounts: number | null;
-  /** 0 = X locked entirely. Never null: X is metered upstream. */
+  /** Pooled. 0 = X unavailable. Never null: X is the one platform that bills
+   *  per post ($0.015, $0.20 with a link), so it is never unlimited. */
   xPostsPerMonth: number;
-  /** False on every plan today — the 13x cost control ($0.015 vs $0.20). */
+  /** False on every plan today — the 13x cost control. */
   xLinksAllowed: boolean;
+  /** Pooled. null = unlimited. */
   dmRulesMax: number | null;
+  /** Pooled. Meta rate-limits per app, not per user, so this is a shared budget
+   *  in the literal sense: free users spend the allowance paying ones need. */
   dmSendsPerMonth: number;
+  /** Pooled. */
   videoUploadMinutesPerMonth: number;
   funnels: boolean;
+  /** Pooled. Studio's AI credits, spendable from any workspace. */
   researchCreditsPerMonth: number;
 }
 
@@ -28,26 +44,28 @@ export interface EntitlementSnapshot {
   planId: string;
   limits: PlanLimits;
   usage: {
-    /** usage kind 'post_publish', trailing 24 hours. Trailing rather than
-     *  calendar-day so the cap cannot be doubled by posting either side of
-     *  midnight. */
+    /** Pooled. usage kind 'post_publish', trailing 24 hours — trailing rather
+     *  than calendar-day so the cap cannot be doubled around midnight. */
     postsToday: number;
-    /** usage kind 'x_post', current UTC calendar month. */
+    /** Pooled. usage kind 'x_post', current UTC calendar month. */
     xPostsThisMonth: number;
-    /** usage kind 'dm_send', current UTC calendar month. */
+    /** Pooled. usage kind 'dm_send', current UTC calendar month. */
     dmSendsThisMonth: number;
-    /** count(dm_rules) in the workspace. */
+    /** Pooled. count(dm_rules) across every workspace the user owns. */
     dmRuleCount: number;
-    /** count(connections) in the workspace, all platforms. */
-    connectedAccountCount: number;
-    /** usage kind 'video_upload' amounts summed, current UTC calendar month. */
+    /** Pooled. usage kind 'video_upload' amounts summed, current UTC month. */
     videoMinutesThisMonth: number;
+    /** PER WORKSPACE — connections in the workspace being acted in. */
+    connectedAccountsInWorkspace: number;
+    /** count(workspaces) the user owns. */
+    workspaceCount: number;
   };
 }
 
 export type Action =
   | { type: "publish_post"; platform: Platform; hasExternalLink?: boolean }
   | { type: "connect_platform"; platform: Platform }
+  | { type: "create_workspace" }
   | { type: "create_dm_rule" }
   | { type: "send_dm" }
   | { type: "upload_video"; minutes: number }
@@ -56,6 +74,7 @@ export type Action =
 export type DenialCode =
   | "plan_platform_locked"
   | "connected_accounts_cap"
+  | "workspace_cap"
   | "posts_daily_cap"
   | "x_monthly_cap"
   | "x_links_blocked"
@@ -118,8 +137,11 @@ export function parsePlanLimits(json: unknown): PlanLimits {
 
   return {
     postsPerDay: nullableNumber("posts_per_day"),
+    maxConnectedAccountsPerWorkspace: nullableNumber(
+      "max_connected_accounts_per_workspace",
+    ),
+    maxWorkspaces: nullableNumber("max_workspaces"),
     platforms,
-    maxConnectedAccounts: nullableNumber("max_connected_accounts"),
     xPostsPerMonth: requiredNumber("x_posts_per_month"),
     xLinksAllowed: requiredBoolean("x_links_allowed"),
     dmRulesMax: nullableNumber("dm_rules_max"),

@@ -1,38 +1,55 @@
 import type { Metadata } from "next";
 
 import { signOut } from "@/lib/auth/actions";
-import { getDefaultWorkspaceId, requireUser } from "@/lib/auth/session";
+import { requireUser } from "@/lib/auth/session";
 import { listConnections } from "@/lib/connections/store";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { listRegisteredPlatforms } from "@/lib/platforms/registry";
-import { PLATFORMS } from "@/lib/platforms/types";
+import { PLATFORMS, type Platform } from "@/lib/platforms/types";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveWorkspace, listWorkspaces } from "@/lib/workspaces/store";
+
+import { PlatformToggles, type PlatformRow } from "./platform-toggles";
+import { WorkspaceSwitcher } from "./workspace-switcher";
 
 export const metadata: Metadata = { title: "Dashboard · MarkedFox" };
 
-// Placeholder shell for the real product surface. It exists now to prove the
-// Phase 2 chain end to end on live data: verified session, the workspace the
-// signup trigger created, the entitlement snapshot joined from subscriptions
-// and plans, and canUserDo answering per platform.
-//
+const LABELS: Record<Platform, string> = {
+  instagram: "Instagram",
+  x: "X",
+  threads: "Threads",
+  facebook: "Facebook",
+  tiktok: "TikTok",
+  youtube: "YouTube",
+  linkedin: "LinkedIn",
+  pinterest: "Pinterest",
+};
+
 // Everything here reads through the user's own client, so RLS is what returns
 // the rows — not a filter this page remembered to apply.
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ connected?: string; connect_error?: string; connect_detail?: string }>;
+  searchParams: Promise<{
+    connected?: string;
+    connect_error?: string;
+    connect_detail?: string;
+  }>;
 }) {
   const params = await searchParams;
   const user = await requireUser();
-  const workspaceId = await getDefaultWorkspaceId(user.id);
 
-  if (!workspaceId) {
-    // The signup trigger creates a workspace for every user, so this means the
-    // trigger did not run — worth showing plainly rather than rendering an
-    // empty dashboard that looks fine.
+  const [workspaces, active] = await Promise.all([
+    listWorkspaces(),
+    getActiveWorkspace(),
+  ]);
+
+  if (!active) {
+    // The signup trigger creates a workspace for every user, so this means it
+    // did not run — worth saying plainly rather than rendering an empty page.
     return (
-      <main className="mx-auto max-w-2xl px-4 py-16 text-neutral-50">
+      <main className="mx-auto max-w-2xl px-4 py-16">
         <h1 className="text-2xl font-semibold">Account setup incomplete</h1>
         <p className="mt-2 text-neutral-400">
           No workspace exists for this account. Contact support.
@@ -43,28 +60,67 @@ export default async function DashboardPage({
 
   const supabase = await createClient();
   const [snapshot, connections] = await Promise.all([
-    getEntitlementSnapshot(supabase, user.id, workspaceId),
-    listConnections(supabase, workspaceId),
+    getEntitlementSnapshot(supabase, user.id, active.id),
+    listConnections(supabase, active.id),
   ]);
-  // Only platforms with a real adapter get a Connect link — a link to a stub
-  // would 404 by design.
-  const connectable = new Set(listRegisteredPlatforms().map((a) => a.id));
+
+  const buildable = new Set(listRegisteredPlatforms().map((a) => a.id));
+  const accountCap = canUserDo(snapshot, {
+    type: "connect_platform",
+    platform: "instagram",
+  });
+  const atAccountCap =
+    !accountCap.allowed && accountCap.code === "connected_accounts_cap";
+
+  const rows: PlatformRow[] = PLATFORMS.map((platform) => {
+    const decision = canUserDo(snapshot, {
+      type: "connect_platform",
+      platform,
+    });
+    const included =
+      decision.allowed || decision.code !== "plan_platform_locked";
+
+    return {
+      id: platform,
+      label: LABELS[platform],
+      connected: connections
+        .filter((c) => c.platform === platform)
+        .map((c) => c.platform_account_name ?? c.platform_account_id),
+      buildable: buildable.has(platform),
+      included,
+      reason: included ? undefined : decision.allowed ? undefined : decision.reason,
+      atAccountCap: included && atAccountCap,
+      capReason: atAccountCap && !accountCap.allowed ? accountCap.reason : undefined,
+    };
+  });
+
+  const workspaceDecision = canUserDo(snapshot, { type: "create_workspace" });
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-4 py-16 text-neutral-50">
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-4 py-16">
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Dashboard</h1>
           <p className="mt-1 text-sm text-neutral-400">{user.email}</p>
         </div>
-        <form action={signOut}>
-          <button
-            type="submit"
-            className="rounded-md border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
-          >
-            Sign out
-          </button>
-        </form>
+        <div className="flex items-center gap-2">
+          <WorkspaceSwitcher
+            workspaces={workspaces}
+            activeId={active.id}
+            canCreate={workspaceDecision.allowed}
+            createBlockedReason={
+              workspaceDecision.allowed ? undefined : workspaceDecision.reason
+            }
+          />
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="rounded-md border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
       </header>
 
       {params.connect_error ? (
@@ -79,111 +135,88 @@ export default async function DashboardPage({
       ) : null}
 
       <section className="rounded-lg border border-neutral-900 p-4">
-        <h2 className="text-sm font-medium text-neutral-300">Plan</h2>
-        <p className="mt-1 text-lg font-semibold capitalize">
-          {snapshot.planId}
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-sm font-medium text-neutral-300">Plan</h2>
+          <span className="text-lg font-semibold capitalize">
+            {snapshot.planId}
+          </span>
+        </div>
+
+        <p className="mt-1 text-xs text-neutral-500">
+          Posts, DMs, and credits are shared across all your workspaces.
+          Connected accounts are per workspace.
         </p>
+
         <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-          <div>
-            <dt className="text-neutral-500">Posts today</dt>
-            <dd>
-              {snapshot.usage.postsToday}
-              {snapshot.limits.postsPerDay === null
-                ? " / unlimited"
-                : ` / ${snapshot.limits.postsPerDay}`}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-neutral-500">
-              X posts this month
-              {/* X is the one platform that costs real money per post, so it is
-                  capped on every plan including the unlimited ones. Saying so
-                  here, not only on the pricing page, avoids a nasty surprise. */}
-              <span className="ml-1 text-neutral-600" title="X charges per post, so it is never unlimited on any plan">
-                ⓘ
-              </span>
-            </dt>
-            <dd>
-              {snapshot.usage.xPostsThisMonth} / {snapshot.limits.xPostsPerMonth}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-neutral-500">DM sends this month</dt>
-            <dd>
-              {snapshot.usage.dmSendsThisMonth} /{" "}
-              {snapshot.limits.dmSendsPerMonth}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-neutral-500">Connected accounts</dt>
-            <dd>
-              {snapshot.usage.connectedAccountCount}
-              {snapshot.limits.maxConnectedAccounts === null
-                ? " / unlimited"
-                : ` / ${snapshot.limits.maxConnectedAccounts}`}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-neutral-500">DM rules</dt>
-            <dd>
-              {snapshot.usage.dmRuleCount}
-              {snapshot.limits.dmRulesMax === null
-                ? " / unlimited"
-                : ` / ${snapshot.limits.dmRulesMax}`}
-            </dd>
-          </div>
+          <Stat
+            label="Posts today"
+            used={snapshot.usage.postsToday}
+            limit={snapshot.limits.postsPerDay}
+            note="pooled"
+          />
+          <Stat
+            label="X posts this month"
+            used={snapshot.usage.xPostsThisMonth}
+            limit={snapshot.limits.xPostsPerMonth}
+            note="X charges per post — never unlimited"
+          />
+          <Stat
+            label="DM sends this month"
+            used={snapshot.usage.dmSendsThisMonth}
+            limit={snapshot.limits.dmSendsPerMonth}
+            note="pooled"
+          />
+          <Stat
+            label="DM rules"
+            used={snapshot.usage.dmRuleCount}
+            limit={snapshot.limits.dmRulesMax}
+            note="pooled"
+          />
+          <Stat
+            label="Accounts in this workspace"
+            used={snapshot.usage.connectedAccountsInWorkspace}
+            limit={snapshot.limits.maxConnectedAccountsPerWorkspace}
+            note="per workspace"
+          />
+          <Stat
+            label="Workspaces"
+            used={snapshot.usage.workspaceCount}
+            limit={snapshot.limits.maxWorkspaces}
+          />
         </dl>
       </section>
 
       <section className="rounded-lg border border-neutral-900 p-4">
         <h2 className="text-sm font-medium text-neutral-300">Platforms</h2>
         <p className="mt-1 text-xs text-neutral-500">
-          Locked platforms are shown, never hidden — the same canUserDo call
-          gates the API.
+          Connecting into <span className="text-neutral-300">{active.name}</span>.
         </p>
-        <ul className="mt-4 flex flex-col gap-2 text-sm">
-          {PLATFORMS.map((platform) => {
-            const decision = canUserDo(snapshot, {
-              type: "connect_platform",
-              platform,
-            });
-            const linked = connections.filter((c) => c.platform === platform);
-            return (
-              <li
-                key={platform}
-                className="flex items-center justify-between gap-4"
-              >
-                <span className="capitalize">
-                  {platform}
-                  {linked.length > 0 ? (
-                    <span className="ml-2 text-xs text-neutral-500">
-                      {linked
-                        .map((c) => c.platform_account_name ?? c.platform_account_id)
-                        .join(", ")}
-                    </span>
-                  ) : null}
-                </span>
-                {decision.allowed ? (
-                  connectable.has(platform) ? (
-                    <a
-                      href={`/api/connect/${platform}/start`}
-                      className="text-neutral-200 underline-offset-4 hover:underline"
-                    >
-                      {linked.length > 0 ? "Connect another" : "Connect"}
-                    </a>
-                  ) : (
-                    <span className="text-neutral-500">Coming soon</span>
-                  )
-                ) : (
-                  <span className="text-neutral-600" title={decision.reason}>
-                    Locked
-                  </span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <PlatformToggles rows={rows} />
       </section>
     </main>
+  );
+}
+
+function Stat({
+  label,
+  used,
+  limit,
+  note,
+}: {
+  label: string;
+  used: number;
+  limit: number | null;
+  note?: string;
+}) {
+  return (
+    <div>
+      <dt className="text-neutral-500" title={note}>
+        {label}
+      </dt>
+      <dd>
+        {used}
+        {limit === null ? " / unlimited" : ` / ${limit}`}
+      </dd>
+    </div>
   );
 }

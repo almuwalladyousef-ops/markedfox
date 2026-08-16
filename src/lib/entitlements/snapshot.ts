@@ -65,14 +65,23 @@ export async function getEntitlementSnapshot(
     limitsJson = freePlan.limits;
   }
 
-  const [posts, xPosts, dmSends, videoMinutes, dmRules, connectedAccounts] =
+  const [
+    posts,
+    xPosts,
+    dmSends,
+    videoMinutes,
+    dmRules,
+    connectedAccounts,
+    workspaces,
+  ] =
     await Promise.all([
       countUsage(supabase, userId, "post_publish", dayAgo),
       countUsage(supabase, userId, "x_post", monthStart),
       countUsage(supabase, userId, "dm_send", monthStart),
       sumUsage(supabase, userId, "video_upload", monthStart),
-      countDmRules(supabase, workspaceId),
+      countDmRules(supabase, userId),
       countConnections(supabase, workspaceId),
+      countWorkspaces(supabase, userId),
     ]);
 
   return {
@@ -84,7 +93,8 @@ export async function getEntitlementSnapshot(
       dmSendsThisMonth: dmSends,
       videoMinutesThisMonth: videoMinutes,
       dmRuleCount: dmRules,
-      connectedAccountCount: connectedAccounts,
+      connectedAccountsInWorkspace: connectedAccounts,
+      workspaceCount: workspaces,
     },
   };
 }
@@ -121,8 +131,8 @@ async function sumUsage(
   return (data ?? []).reduce((total, row) => total + Number(row.amount), 0);
 }
 
-// Every connected account in the workspace, across all platforms — the number
-// the Free plan caps.
+// Connected accounts in THIS workspace. Deliberately workspace-scoped: it is
+// the one limit that is per workspace rather than pooled.
 async function countConnections(
   supabase: SupabaseClient,
   workspaceId: string,
@@ -135,14 +145,29 @@ async function countConnections(
   return count ?? 0;
 }
 
+// Pooled across every workspace the user owns. Meta rate-limits per app rather
+// than per user, so the shared budget is the point: a Free user must not be
+// able to multiply their DM allowance by creating workspaces.
 async function countDmRules(
   supabase: SupabaseClient,
-  workspaceId: string,
+  userId: string,
 ): Promise<number> {
   const { count, error } = await supabase
     .from("dm_rules")
     .select("id", { count: "exact", head: true })
-    .eq("workspace_id", workspaceId);
+    .eq("user_id", userId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function countWorkspaces(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from("workspaces")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", userId);
   if (error) throw error;
   return count ?? 0;
 }
