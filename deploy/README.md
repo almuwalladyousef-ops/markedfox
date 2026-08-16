@@ -105,6 +105,12 @@ openssl rand -base64 32   # NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
 rotating it means every user reconnects every account. Back it up as carefully
 as the role account itself.
 
+A third secret, `SCHEDULER_SECRET`, is shared by the scheduler timer and the
+app's `POST /api/internal/scheduler/tick` — both read this same file. It can be
+rotated freely (regenerate, restart the app). Without it no scheduled post ever
+publishes: the endpoint fails closed. Day to day, `deploy/sync-env.sh` carries
+it from the laptop's `.env.local` to this file.
+
 ## 6. Install Caddy config and the systemd units
 
 ```bash
@@ -153,8 +159,14 @@ sudo reboot   # then, once back:
 systemctl is-active markedfox.service caddy
 systemctl list-timers markedfox-scheduler.timer --no-pager
 
-# The scheduler timer is actually firing
+# The scheduler timer is actually firing. Quiet ticks log nothing; a tick that
+# cannot reach the app or is refused by it logs an error line.
 journalctl -u markedfox-scheduler.service -n 20 --no-pager
+# From the box, a tick by hand (the endpoint is loopback + secret; Caddy
+# answers 404 for /api/internal/* from outside):
+sudo bash -c 'set -a; source /srv/markedfox/.env.production; set +a; \
+  curl -s -X POST -H "authorization: Bearer $SCHEDULER_SECRET" \
+  http://127.0.0.1:3000/api/internal/scheduler/tick'
 
 # Firewall
 sudo ufw status verbose        # only 22, 80, 443 in

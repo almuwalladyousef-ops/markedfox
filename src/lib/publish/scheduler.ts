@@ -1,0 +1,101 @@
+import "server-only";
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import { publishPost } from "./publish-post";
+import { createPublishStore, POST_COLUMNS, toPostRow } from "./store";
+import type { PublishReport } from "./types";
+
+// One scheduler tick: claim every due post and publish it.
+//
+// Called by POST /api/internal/scheduler/tick, which the systemd timer's
+// scripts/run-scheduler.mjs hits once a minute. The tick runs inside the Next
+// server because that is where the TypeScript adapters are — the timer script
+// is plain Node and cannot import them.
+//
+// Concurrency: the claim is a conditional update (`status = 'scheduled'` →
+// `publishing`), so a row moved by anyone else matches zero rows and is
+// skipped. With one box and a oneshot timer that will not overlap itself, that
+// is enough; Phase 6 replaces the poll with SELECT … FOR UPDATE SKIP LOCKED
+// and adds stale-claim recovery for a tick that dies mid-publish.
+
+export type TickSummary = {
+  due: number;
+  claimed: number;
+  published: number;
+  partial: number;
+  failed: number;
+  reports: PublishReport[];
+};
+
+export async function runSchedulerTick(
+  supabase: SupabaseClient,
+  options: { batchSize?: number; now?: () => Date; log?: Pick<Console, "error" | "warn" | "log"> } = {},
+): Promise<TickSummary> {
+  const batchSize = options.batchSize ?? 25;
+  const now = options.now ?? (() => new Date());
+  const log = options.log ?? console;
+  const store = createPublishStore(supabase);
+
+  const summary: TickSummary = {
+    due: 0,
+    claimed: 0,
+    published: 0,
+    partial: 0,
+    failed: 0,
+    reports: [],
+  };
+
+  const { data: due, error } = await supabase
+    .from("scheduled_posts")
+    .select(POST_COLUMNS)
+    .eq("status", "scheduled")
+    .lte("scheduled_for", now().toISOString())
+    .order("scheduled_for", { ascending: true })
+    .limit(batchSize);
+  if (error) throw error;
+
+  summary.due = due?.length ?? 0;
+  if (!due || due.length === 0) return summary;
+
+  for (const raw of due) {
+    const post = toPostRow(raw as unknown as Record<string, unknown>);
+
+    const { data: claimed, error: claimError } = await supabase
+      .from("scheduled_posts")
+      .update({ status: "publishing", attempt_count: post.attempt_count + 1 })
+      .eq("id", post.id)
+      .eq("status", "scheduled")
+      .select("id")
+      .maybeSingle();
+    if (claimError) {
+      log.error(`scheduler: claim failed for ${post.id} — ${claimError.message}`);
+      continue;
+    }
+    if (!claimed) continue;
+    summary.claimed += 1;
+
+    try {
+      const report = await publishPost(
+        { store, now, log },
+        { ...post, status: "publishing", attempt_count: post.attempt_count + 1 },
+      );
+      summary.reports.push(report);
+      summary[report.status] += 1;
+    } catch (err) {
+      // publishPost records its own per-target failures; reaching here means
+      // something before or after that blew up (a store call threw). Leave a
+      // trace on the row so it is not stranded in `publishing` silently.
+      const message = err instanceof Error ? err.message : String(err);
+      log.error(`scheduler: publish crashed for ${post.id} — ${message}`);
+      await supabase
+        .from("scheduled_posts")
+        .update({ status: "failed", last_error: `scheduler: ${message}`.slice(0, 1000) })
+        .eq("id", post.id)
+        .eq("status", "publishing");
+      summary.failed += 1;
+    }
+  }
+
+  return summary;
+}

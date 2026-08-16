@@ -7,6 +7,13 @@
 markedfox.com, www.markedfox.com {
 	encode zstd gzip
 
+	# Internal endpoints (the scheduler tick) are for the timer on this box,
+	# which reaches the app on loopback and never through Caddy. From the
+	# public side they do not exist. The endpoints also check a bearer secret;
+	# this is the outer lock.
+	@internal path /api/internal/*
+	respond @internal 404
+
 	# Next.js listens on loopback only. Caddy is the only thing bound to a
 	# public port, so the app is never reachable except through TLS.
 	reverse_proxy 127.0.0.1:3000

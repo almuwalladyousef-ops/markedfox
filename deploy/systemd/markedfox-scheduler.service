@@ -1,6 +1,9 @@
 [Unit]
 Description=MarkedFox scheduler tick — claims and publishes due scheduled posts
-After=network-online.target
+# The tick is an HTTP call into the running app (see scripts/run-scheduler.mjs),
+# so it is ordered after the web service. A tick that finds the app down logs
+# and exits non-zero; the next minute's tick tries again.
+After=network-online.target markedfox.service
 Wants=network-online.target
 
 [Service]
