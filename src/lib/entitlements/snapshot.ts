@@ -8,7 +8,8 @@ import { parsePlanLimits, type EntitlementSnapshot } from "./types";
 // without a database.
 //
 // Windows are deliberate and documented here, not in the pure function:
-// - posts per week = trailing 7 days
+// - posts per day = trailing 24 hours (not calendar day, so the cap cannot be
+//   doubled by posting either side of midnight)
 // - monthly caps = current UTC calendar month
 // Phase 6 may realign monthly windows to the billing period; that is a change
 // to this builder only — canUserDo never changes.
@@ -22,7 +23,7 @@ export async function getEntitlementSnapshot(
   workspaceId: string,
 ): Promise<EntitlementSnapshot> {
   const now = new Date();
-  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const monthStart = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
   );
@@ -64,23 +65,26 @@ export async function getEntitlementSnapshot(
     limitsJson = freePlan.limits;
   }
 
-  const [posts, xPosts, dmSends, videoMinutes, dmRules] = await Promise.all([
-    countUsage(supabase, userId, "post_publish", weekAgo),
-    countUsage(supabase, userId, "x_post", monthStart),
-    countUsage(supabase, userId, "dm_send", monthStart),
-    sumUsage(supabase, userId, "video_upload", monthStart),
-    countDmRules(supabase, workspaceId),
-  ]);
+  const [posts, xPosts, dmSends, videoMinutes, dmRules, connectedAccounts] =
+    await Promise.all([
+      countUsage(supabase, userId, "post_publish", dayAgo),
+      countUsage(supabase, userId, "x_post", monthStart),
+      countUsage(supabase, userId, "dm_send", monthStart),
+      sumUsage(supabase, userId, "video_upload", monthStart),
+      countDmRules(supabase, workspaceId),
+      countConnections(supabase, workspaceId),
+    ]);
 
   return {
     planId,
     limits: parsePlanLimits(limitsJson),
     usage: {
-      postsThisWeek: posts,
+      postsToday: posts,
       xPostsThisMonth: xPosts,
       dmSendsThisMonth: dmSends,
       videoMinutesThisMonth: videoMinutes,
       dmRuleCount: dmRules,
+      connectedAccountCount: connectedAccounts,
     },
   };
 }
@@ -115,6 +119,20 @@ async function sumUsage(
     .gte("occurred_at", since.toISOString());
   if (error) throw error;
   return (data ?? []).reduce((total, row) => total + Number(row.amount), 0);
+}
+
+// Every connected account in the workspace, across all platforms — the number
+// the Free plan caps.
+async function countConnections(
+  supabase: SupabaseClient,
+  workspaceId: string,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from("connections")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId);
+  if (error) throw error;
+  return count ?? 0;
 }
 
 async function countDmRules(

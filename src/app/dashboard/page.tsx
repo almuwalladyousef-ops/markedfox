@@ -85,16 +85,24 @@ export default async function DashboardPage({
         </p>
         <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div>
-            <dt className="text-neutral-500">Posts this week</dt>
+            <dt className="text-neutral-500">Posts today</dt>
             <dd>
-              {snapshot.usage.postsThisWeek}
-              {snapshot.limits.postsPerWeek === null
+              {snapshot.usage.postsToday}
+              {snapshot.limits.postsPerDay === null
                 ? " / unlimited"
-                : ` / ${snapshot.limits.postsPerWeek}`}
+                : ` / ${snapshot.limits.postsPerDay}`}
             </dd>
           </div>
           <div>
-            <dt className="text-neutral-500">X posts this month</dt>
+            <dt className="text-neutral-500">
+              X posts this month
+              {/* X is the one platform that costs real money per post, so it is
+                  capped on every plan including the unlimited ones. Saying so
+                  here, not only on the pricing page, avoids a nasty surprise. */}
+              <span className="ml-1 text-neutral-600" title="X charges per post, so it is never unlimited on any plan">
+                ⓘ
+              </span>
+            </dt>
             <dd>
               {snapshot.usage.xPostsThisMonth} / {snapshot.limits.xPostsPerMonth}
             </dd>
@@ -104,6 +112,15 @@ export default async function DashboardPage({
             <dd>
               {snapshot.usage.dmSendsThisMonth} /{" "}
               {snapshot.limits.dmSendsPerMonth}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-neutral-500">Connected accounts</dt>
+            <dd>
+              {snapshot.usage.connectedAccountCount}
+              {snapshot.limits.maxConnectedAccounts === null
+                ? " / unlimited"
+                : ` / ${snapshot.limits.maxConnectedAccounts}`}
             </dd>
           </div>
           <div>

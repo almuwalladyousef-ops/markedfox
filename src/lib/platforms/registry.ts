@@ -1,5 +1,7 @@
 import { PlatformNotRegisteredError } from "./errors";
+import { facebook } from "./facebook";
 import { instagram } from "./instagram";
+import { threadsAdapter } from "./threads";
 import type { Platform, PlatformAdapter } from "./types";
 
 // Adding a platform = one new adapter file + one entry here. Nothing else
@@ -8,6 +10,8 @@ import type { Platform, PlatformAdapter } from "./types";
 // adapter.
 const registry: Partial<Record<Platform, PlatformAdapter>> = {
   instagram,
+  facebook,
+  threads: threadsAdapter,
 };
 
 export function getPlatform(id: Platform): PlatformAdapter {

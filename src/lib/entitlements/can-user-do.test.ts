@@ -10,8 +10,11 @@ import {
 
 // Mirrors the seed rows in the initial schema migration.
 const FREE_LIMITS: PlanLimits = {
-  postsPerWeek: 10,
-  platforms: ["instagram", "tiktok", "youtube"],
+  postsPerDay: 2,
+  maxConnectedAccounts: 3,
+  // null on every plan since 2026-08-16 — platforms are no longer gated by
+  // identity, only by how many accounts are connected.
+  platforms: null,
   xPostsPerMonth: 0,
   xLinksAllowed: false,
   dmRulesMax: 1,
@@ -22,7 +25,8 @@ const FREE_LIMITS: PlanLimits = {
 };
 
 const PRO_LIMITS: PlanLimits = {
-  postsPerWeek: null,
+  postsPerDay: null,
+  maxConnectedAccounts: null,
   platforms: null,
   xPostsPerMonth: 300,
   xLinksAllowed: false,
@@ -34,7 +38,8 @@ const PRO_LIMITS: PlanLimits = {
 };
 
 const ZERO_USAGE: EntitlementSnapshot["usage"] = {
-  postsThisWeek: 0,
+  postsToday: 0,
+  connectedAccountCount: 0,
   xPostsThisMonth: 0,
   dmSendsThisMonth: 0,
   dmRuleCount: 0,
@@ -61,10 +66,13 @@ describe("canUserDo — platform gating", () => {
     }
   });
 
-  it("Free is denied X, Facebook, Threads, LinkedIn, Pinterest", () => {
-    for (const platform of ["x", "facebook", "threads", "linkedin", "pinterest"] as const) {
-      expect(denialCode(free(), { type: "publish_post", platform })).toBe("plan_platform_locked");
+  it("Free may publish to every platform except X", () => {
+    // Since 2026-08-16 platforms are not gated by identity. X is the sole
+    // exception because it bills per post — Free carries x_posts_per_month 0.
+    for (const platform of ["facebook", "threads", "linkedin", "pinterest"] as const) {
+      expect(canUserDo(free(), { type: "publish_post", platform }).allowed).toBe(true);
     }
+    expect(denialCode(free(), { type: "publish_post", platform: "x" })).toBe("plan_platform_locked");
   });
 
   it("Free cannot connect a locked platform either", () => {
@@ -80,15 +88,15 @@ describe("canUserDo — platform gating", () => {
 
 describe("canUserDo — weekly post cap", () => {
   it("Free allows post #10", () => {
-    expect(canUserDo(free({ postsThisWeek: 9 }), { type: "publish_post", platform: "instagram" }).allowed).toBe(true);
+    expect(canUserDo(free({ postsToday: 1 }), { type: "publish_post", platform: "instagram" }).allowed).toBe(true);
   });
 
   it("Free denies post #11", () => {
-    expect(denialCode(free({ postsThisWeek: 10 }), { type: "publish_post", platform: "instagram" })).toBe("posts_weekly_cap");
+    expect(denialCode(free({ postsToday: 2 }), { type: "publish_post", platform: "instagram" })).toBe("posts_daily_cap");
   });
 
   it("Pro has no weekly cap (null = unlimited)", () => {
-    expect(canUserDo(pro({ postsThisWeek: 5000 }), { type: "publish_post", platform: "instagram" }).allowed).toBe(true);
+    expect(canUserDo(pro({ postsToday: 5000 }), { type: "publish_post", platform: "instagram" }).allowed).toBe(true);
   });
 });
 
@@ -139,10 +147,63 @@ describe("canUserDo — video minutes and funnels", () => {
   });
 });
 
+describe("connected-account cap (replaces the old platform gate)", () => {
+  it("lets Free connect any platform, not a fixed three", () => {
+    // The old model locked Facebook/Threads/X by identity. Now every platform
+    // is connectable and only the count is capped.
+    for (const platform of ["facebook", "threads", "linkedin", "pinterest"] as const) {
+      expect(
+        canUserDo(free(), { type: "connect_platform", platform }).allowed,
+      ).toBe(true);
+    }
+  });
+
+  it("refuses the fourth account on Free", () => {
+    expect(
+      canUserDo(free({ connectedAccountCount: 2 }), {
+        type: "connect_platform",
+        platform: "facebook",
+      }).allowed,
+    ).toBe(true);
+    expect(
+      denialCode(free({ connectedAccountCount: 3 }), {
+        type: "connect_platform",
+        platform: "facebook",
+      }),
+    ).toBe("connected_accounts_cap");
+  });
+
+  it("does not cap accounts on paid plans", () => {
+    expect(
+      canUserDo(pro({ connectedAccountCount: 500 }), {
+        type: "connect_platform",
+        platform: "facebook",
+      }).allowed,
+    ).toBe(true);
+  });
+
+  it("still locks X on Free — it is the one platform that costs money", () => {
+    // Deliberately refused at CONNECT, not just at publish: letting someone
+    // link an X account they could never post from would be a worse
+    // experience than saying so upfront.
+    expect(
+      denialCode(free(), { type: "connect_platform", platform: "x" }),
+    ).toBe("plan_platform_locked");
+    // Paid plans connect X and post within their monthly allowance.
+    expect(
+      canUserDo(pro(), { type: "connect_platform", platform: "x" }).allowed,
+    ).toBe(true);
+    expect(
+      denialCode(pro({ xPostsThisMonth: 300 }), { type: "publish_post", platform: "x" }),
+    ).toBe("x_monthly_cap");
+  });
+});
+
 describe("parsePlanLimits", () => {
   const VALID_JSONB = {
-    posts_per_week: 10,
-    platforms: ["instagram", "tiktok", "youtube"],
+    posts_per_day: 2,
+    platforms: null,
+    max_connected_accounts: 3,
     x_posts_per_month: 0,
     x_links_allowed: false,
     dm_rules_max: 1,
@@ -159,11 +220,11 @@ describe("parsePlanLimits", () => {
   it("parses null as unlimited", () => {
     const parsed = parsePlanLimits({
       ...VALID_JSONB,
-      posts_per_week: null,
+      posts_per_day: null,
       platforms: null,
       dm_rules_max: null,
     });
-    expect(parsed.postsPerWeek).toBeNull();
+    expect(parsed.postsPerDay).toBeNull();
     expect(parsed.platforms).toBeNull();
     expect(parsed.dmRulesMax).toBeNull();
   });

@@ -392,12 +392,32 @@ Supabase under the role account matters more than any other account decision her
 
 | | **Free** | **Pro $20/mo** | **Studio $49/mo** | **Enterprise** |
 |---|---|---|---|---|
-| Posts | 10/week | Unlimited | Unlimited | Unlimited |
-| Platforms | 3 — Instagram, TikTok, YouTube | All | All | All |
+| Posts | 2/day | Unlimited | Unlimited | Unlimited |
+| Connected accounts | 3 total, any mix | Unlimited | Unlimited | Unlimited |
+| Platforms | All except X | All | All | All |
 | X | ✗ | 300/mo, no external links | 300/mo, no external links | Raised |
 | DM rules | 1, capped monthly sends | Unlimited rules, monthly send cap | Same | Raised |
 | Research (pillar 3) | ✗ | ✗ | Credit allowance | Raised |
 | Funnels *(post-launch)* | ✗ | ✓ | ✓ | ✓ |
+
+**Revised 2026-08-16 (owner).** Platforms are no longer gated by identity —
+the old Free tier allowed only Instagram, TikTok, and YouTube, which meant
+telling people a platform was off-limits. Now every plan can connect every
+platform and the Free lever is the **number of connected accounts: three, in
+any mix**. That is a better free tier and a cleaner upgrade reason ("you ran
+out of slots" rather than "you may not use Facebook").
+
+**X is the sole exception, and it is locked on Free entirely** — not merely
+capped. Every other platform costs $0 per post; X bills $0.015, or $0.20 with
+a link. A free user connecting X would be a free user spending the owner's
+money, so X is refused at the connect step rather than at publish: linking an
+account you can never post from is a worse experience than being told upfront.
+
+**This must be disclosed wherever "unlimited" appears.** "Unlimited posts"
+means unlimited on every platform except X, which carries a hard monthly number
+on every paid plan. The dashboard already marks the X tile; the pricing page,
+when it exists in Phase 5, must say it in the plan comparison rather than in
+fine print.
 
 **Annual billing at roughly two months free.** The audience is hot for about one
 week — annual converts that week into cash upfront instead of monthly churn risk.
@@ -407,7 +427,8 @@ week — annual converts that week into cash upfront instead of monthly churn ri
 1. **"Unlimited" only for what is free to serve.** Instagram, TikTok, YouTube,
    Facebook, Threads, LinkedIn, and Pinterest cost nothing per post. X, AI calls,
    transcription minutes, and storage are metered upstream and always carry a hard
-   number.
+   number — and that limit is stated wherever the word "unlimited" appears, not
+   buried.
 2. **X is never unlimited.** Unlimited X at $20 means a 30-post-per-day user costs
    $13.50/month — 68% of the plan before any other cost. A 300/month cap puts the
    worst case at $4.50 and almost nobody reaches it.

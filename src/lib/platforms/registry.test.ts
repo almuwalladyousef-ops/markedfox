@@ -32,9 +32,33 @@ describe("platform registry", () => {
     expect(() => getPlatform("x")).toThrow(PlatformNotRegisteredError);
   });
 
+  it("gives Facebook and Threads the capabilities Instagram lacks", () => {
+    // Instagram cannot post text alone; both of these can, and the composer
+    // reads exactly this to decide what to allow.
+    expect(getPlatform("instagram").capabilities.text).toBe(false);
+    expect(getPlatform("facebook").capabilities.text).toBe(true);
+    expect(getPlatform("threads").capabilities.text).toBe(true);
+  });
+
+  it("points Threads at its own API, not the Facebook graph", () => {
+    // Threads is a separate API with separate credentials — a regression here
+    // would silently send Threads traffic to graph.facebook.com.
+    process.env.THREADS_APP_ID = "threads-app-id";
+    const url = new URL(
+      getPlatform("threads").getAuthorizeUrl({
+        redirectUri: "https://markedfox.com/api/connect/threads/callback",
+        state: "s",
+      }),
+    );
+    expect(url.hostname).toBe("threads.net");
+    expect(url.searchParams.get("client_id")).toBe("threads-app-id");
+    expect(url.searchParams.get("scope")).toContain("threads_content_publish");
+    delete process.env.THREADS_APP_ID;
+  });
+
   it("lists only registered adapters", () => {
     const ids = listRegisteredPlatforms().map((a) => a.id);
-    expect(ids).toEqual(["instagram"]);
+    expect(ids).toEqual(["instagram", "facebook", "threads"]);
   });
 
   describe("instagram authorize URL", () => {

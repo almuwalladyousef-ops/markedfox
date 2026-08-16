@@ -4,9 +4,15 @@ import type { Platform } from "@/lib/platforms/types";
 // null = unlimited/unrestricted. Raising a cap for one account is a row edit
 // in the plans table, never code.
 export interface PlanLimits {
-  postsPerWeek: number | null;
-  /** null = all platforms. */
+  /** null = unlimited. Free is 2/day; every paid plan is unlimited, because
+   *  posting costs $0 on every platform except X. */
+  postsPerDay: number | null;
+  /** null = all platforms. Every plan is null since 2026-08-16: platforms are
+   *  no longer gated by identity, connected-account count is the lever. */
   platforms: Platform[] | null;
+  /** Total connected accounts across all platforms. null = unlimited.
+   *  This is the Free-plan lever: three accounts, any mix of platforms. */
+  maxConnectedAccounts: number | null;
   /** 0 = X locked entirely. Never null: X is metered upstream. */
   xPostsPerMonth: number;
   /** False on every plan today — the 13x cost control ($0.015 vs $0.20). */
@@ -22,14 +28,18 @@ export interface EntitlementSnapshot {
   planId: string;
   limits: PlanLimits;
   usage: {
-    /** usage kind 'post_publish', trailing 7 days. */
-    postsThisWeek: number;
+    /** usage kind 'post_publish', trailing 24 hours. Trailing rather than
+     *  calendar-day so the cap cannot be doubled by posting either side of
+     *  midnight. */
+    postsToday: number;
     /** usage kind 'x_post', current UTC calendar month. */
     xPostsThisMonth: number;
     /** usage kind 'dm_send', current UTC calendar month. */
     dmSendsThisMonth: number;
     /** count(dm_rules) in the workspace. */
     dmRuleCount: number;
+    /** count(connections) in the workspace, all platforms. */
+    connectedAccountCount: number;
     /** usage kind 'video_upload' amounts summed, current UTC calendar month. */
     videoMinutesThisMonth: number;
   };
@@ -45,7 +55,8 @@ export type Action =
 
 export type DenialCode =
   | "plan_platform_locked"
-  | "posts_weekly_cap"
+  | "connected_accounts_cap"
+  | "posts_daily_cap"
   | "x_monthly_cap"
   | "x_links_blocked"
   | "dm_rule_cap"
@@ -106,8 +117,9 @@ export function parsePlanLimits(json: unknown): PlanLimits {
   }
 
   return {
-    postsPerWeek: nullableNumber("posts_per_week"),
+    postsPerDay: nullableNumber("posts_per_day"),
     platforms,
+    maxConnectedAccounts: nullableNumber("max_connected_accounts"),
     xPostsPerMonth: requiredNumber("x_posts_per_month"),
     xLinksAllowed: requiredBoolean("x_links_allowed"),
     dmRulesMax: nullableNumber("dm_rules_max"),

@@ -36,6 +36,17 @@ export function canUserDo(
           `The ${snapshot.planId} plan does not include ${action.platform}`,
         );
       }
+      // The Free-plan lever since 2026-08-16: every platform is connectable on
+      // every plan, and it is the number of connected accounts that is capped.
+      if (
+        limits.maxConnectedAccounts !== null &&
+        usage.connectedAccountCount >= limits.maxConnectedAccounts
+      ) {
+        return deny(
+          "connected_accounts_cap",
+          `The ${snapshot.planId} plan connects up to ${limits.maxConnectedAccounts} accounts. Disconnect one or upgrade.`,
+        );
+      }
       return { allowed: true };
     }
 
@@ -63,12 +74,12 @@ export function canUserDo(
         }
       }
       if (
-        limits.postsPerWeek !== null &&
-        usage.postsThisWeek >= limits.postsPerWeek
+        limits.postsPerDay !== null &&
+        usage.postsToday >= limits.postsPerDay
       ) {
         return deny(
-          "posts_weekly_cap",
-          `Posts are capped at ${limits.postsPerWeek} per week`,
+          "posts_daily_cap",
+          `Posts are capped at ${limits.postsPerDay} per day on the ${snapshot.planId} plan`,
         );
       }
       return { allowed: true };
