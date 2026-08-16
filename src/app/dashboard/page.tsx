@@ -18,6 +18,19 @@ import { WorkspaceSwitcher } from "./workspace-switcher";
 
 export const metadata: Metadata = { title: "Dashboard · MarkedFox" };
 
+// What each connect failure means, in words the person reading it can act on.
+// `provider_error` carries the platform's own sentence in connect_detail
+// underneath — that is the one that says what to fix.
+const CONNECT_ERRORS: Record<string, string> = {
+  denied: "You cancelled before granting access. Nothing was connected.",
+  provider_error: "The platform refused the connection.",
+  bad_state:
+    "That connect link expired or was opened out of order. Start again from this page.",
+  missing_code: "The platform sent us back without an authorization code. Try again.",
+  exchange_failed: "We could not finish connecting that account.",
+  unknown_platform: "That platform is not one we support.",
+};
+
 // Everything here reads through the user's own client, so RLS is what returns
 // the rows — not a filter this page remembered to apply.
 export default async function DashboardPage({
@@ -116,9 +129,12 @@ export default async function DashboardPage({
       </header>
 
       {params.connect_error ? (
-        <p className="rounded-md border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300">
-          {params.connect_detail ?? "Connecting that account did not work."}
-        </p>
+        <div className="rounded-md border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300">
+          <p>{CONNECT_ERRORS[params.connect_error] ?? "Connecting that account did not work."}</p>
+          {params.connect_detail ? (
+            <p className="mt-1 text-red-200/80">{params.connect_detail}</p>
+          ) : null}
+        </div>
       ) : null}
       {params.connected ? (
         <p className="rounded-md border border-emerald-900 bg-emerald-950/50 px-3 py-2 text-sm text-emerald-300">

@@ -4,6 +4,7 @@ import { getUser } from "@/lib/auth/session";
 import { getSiteUrl } from "@/lib/auth/site-url";
 import { PlatformApiError, PlatformAuthError } from "@/lib/platforms/errors";
 import { decodeState } from "@/lib/connections/oauth-state";
+import { readProviderError } from "@/lib/connections/provider-error";
 import { saveConnection } from "@/lib/connections/store";
 import { getPlatform } from "@/lib/platforms/registry";
 import { PLATFORMS, type Platform } from "@/lib/platforms/types";
@@ -49,9 +50,25 @@ export async function GET(
   }
   const platform = platformParam as Platform;
 
-  // The user pressed Cancel on the consent screen, or the platform errored.
-  if (query.get("error")) {
-    return bounce(site, { connect_error: "denied" });
+  // Checked BEFORE the state check, and deliberately so: a provider that
+  // refuses the request never echoes `state`, so testing state first reports
+  // `bad_state` and buries the real reason. That cost hours on 2026-08-16,
+  // when Facebook was answering "Invalid Scopes: pages_manage_posts".
+  const providerError = readProviderError(query);
+  if (providerError) {
+    if (providerError.kind === "denied") {
+      return bounce(site, { connect_error: "denied" });
+    }
+    console.error(
+      `connect ${platformParam} refused by the provider:`,
+      query.toString(),
+    );
+    return bounce(site, {
+      connect_error: "provider_error",
+      ...(providerError.message
+        ? { connect_detail: providerError.message.slice(0, 300) }
+        : {}),
+    });
   }
 
   const state = decodeState(
