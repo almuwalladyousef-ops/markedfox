@@ -14,6 +14,11 @@
 # Keys the server owns and the laptop must never overwrite are listed in
 # SERVER_ONLY below. Values are never printed: this reports key names and
 # whether they changed, nothing more.
+#
+# Key names may contain digits (R2_ACCOUNT_ID and friends). An earlier version
+# matched only [A-Z_]+ and therefore skipped every R2 variable in silence —
+# the exact drift this script exists to catch, so the pattern is [A-Z0-9_]+
+# in all three places it appears.
 
 set -euo pipefail
 
@@ -43,11 +48,11 @@ log() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 [[ -f "$LOCAL_ENV" ]] || { echo "No $LOCAL_ENV here — run from the repo root." >&2; exit 1; }
 
 log "Reading remote keys"
-REMOTE_KEYS="$(ssh -o BatchMode=yes "$HOST" "sudo grep -oE '^[A-Z_]+=' $REMOTE_ENV | tr -d =" || true)"
+REMOTE_KEYS="$(ssh -o BatchMode=yes "$HOST" "sudo grep -oE '^[A-Z0-9_]+=' $REMOTE_ENV | tr -d =" || true)"
 
 ADDITIONS=()
 while IFS= read -r line; do
-  [[ "$line" =~ ^[A-Z_]+= ]] || continue
+  [[ "$line" =~ ^[A-Z0-9_]+= ]] || continue
   key="${line%%=*}"
   value="${line#*=}"
   [[ -n "$value" ]] || continue
@@ -108,4 +113,4 @@ log "Restarting the app so it picks them up"
 ssh -o BatchMode=yes "$HOST" 'sudo systemctl restart markedfox && sleep 2 && systemctl is-active markedfox'
 
 log "Server keys now"
-ssh -o BatchMode=yes "$HOST" "sudo grep -oE '^[A-Z_]+=' $REMOTE_ENV | tr -d = | sed 's/^/  /'"
+ssh -o BatchMode=yes "$HOST" "sudo grep -oE '^[A-Z0-9_]+=' $REMOTE_ENV | tr -d = | sed 's/^/  /'"
