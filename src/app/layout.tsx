@@ -13,7 +13,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      {/* Base colours live here so every route inherits them. Without this a
+          page that sets light text but no background renders invisibly on the
+          browser's default white — which is exactly what /dashboard did. */}
+      <body className="bg-neutral-950 text-neutral-50 antialiased">
+        {children}
+      </body>
     </html>
   );
 }
