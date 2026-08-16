@@ -4,6 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { refreshExpiringConnections } from "@/lib/connections/refresh";
 import { createRefreshStore, REFRESH_WINDOW_MS } from "@/lib/connections/store";
+import { purgeMedia } from "@/lib/media/purge";
+import { createMediaPurgeStore, isMediaStorageConfigured } from "@/lib/media/store";
 
 import { publishPost } from "./publish-post";
 import { createPublishStore, POST_COLUMNS, toPostRow } from "./store";
@@ -32,6 +34,8 @@ export type TickSummary = {
   refreshed: number;
   /** Renewals that failed; the connection keeps its old token and is retried. */
   refreshFailed: number;
+  /** Media objects deleted now that their post is done with them. */
+  purged: number;
   reports: PublishReport[];
 };
 
@@ -52,6 +56,7 @@ export async function runSchedulerTick(
     failed: 0,
     refreshed: 0,
     refreshFailed: 0,
+    purged: 0,
     reports: [],
   };
 
@@ -122,6 +127,24 @@ export async function runSchedulerTick(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log.error(`scheduler: refresh sweep failed — ${message}`);
+  }
+
+  // Storage cleanup. Media exists only so the platforms can fetch it once; a
+  // post that is done with it is holding bytes against a 10GB free tier. Last
+  // in the tick because it is the least urgent thing here, and — like the
+  // refresh sweep — its failures are counted rather than thrown.
+  if (isMediaStorageConfigured()) {
+    try {
+      const purge = await purgeMedia(createMediaPurgeStore(supabase), {
+        publicBaseUrl: process.env.R2_PUBLIC_BASE_URL ?? "",
+        now,
+        log,
+      });
+      summary.purged = purge.objectsDeleted;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log.error(`scheduler: media purge failed — ${message}`);
+    }
   }
 
   return summary;

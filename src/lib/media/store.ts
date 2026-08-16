@@ -2,6 +2,8 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { requireEnv } from "@/lib/env";
 
 import {
@@ -10,6 +12,11 @@ import {
   UPLOAD_URL_TTL_SECONDS,
   type MediaKind,
 } from "./policy";
+import {
+  PURGEABLE_STATUSES,
+  type MediaPurgeStore,
+  type PurgeablePost,
+} from "./purge";
 import { presignUrl } from "./sigv4";
 
 // Object storage for media awaiting publish.
@@ -138,6 +145,64 @@ export function createMediaStore(now: () => Date = () => new Date()): MediaStore
           ),
         );
       }
+    },
+  };
+}
+
+// The MediaPurgeStore the scheduler's sweep runs against. Service-role client:
+// storage cleanup is not a per-tenant concern, so it filters on post state
+// rather than on a user.
+export function createMediaPurgeStore(
+  supabase: SupabaseClient,
+  media: MediaStore = createMediaStore(),
+): MediaPurgeStore {
+  return {
+    async listPurgeable(limit: number): Promise<PurgeablePost[]> {
+      const { data, error } = await supabase
+        .from("scheduled_posts")
+        .select("id, status, media, published_at, updated_at")
+        .is("media_purged_at", null)
+        .in("status", PURGEABLE_STATUSES as unknown as string[])
+        .order("published_at", { ascending: true, nullsFirst: true })
+        .limit(limit);
+      if (error) throw error;
+
+      return (data ?? []).map((row: Record<string, unknown>) => {
+        const raw = (row as { media?: unknown }).media;
+        const mediaUrls = Array.isArray(raw)
+          ? raw
+              .map((item) =>
+                typeof item === "object" && item !== null
+                  ? (item as Record<string, unknown>).url
+                  : null,
+              )
+              .filter((url): url is string => typeof url === "string")
+          : [];
+        return {
+          id: String(row.id),
+          status: row.status as PurgeablePost["status"],
+          mediaUrls,
+          // published_at is only set when something went out; updated_at is
+          // when the row last changed, which for a terminal post is when it
+          // settled.
+          settledAt:
+            (row.published_at as string | null) ??
+            (row.updated_at as string | null) ??
+            null,
+        };
+      });
+    },
+
+    deleteObject(key: string) {
+      return media.delete(key);
+    },
+
+    async markPurged(postId: string, at: Date) {
+      const { error } = await supabase
+        .from("scheduled_posts")
+        .update({ media_purged_at: at.toISOString() })
+        .eq("id", postId);
+      if (error) throw error;
     },
   };
 }
