@@ -191,6 +191,21 @@ async function cmdStatus() {
     console.log(`  ${tick(false)} ${"rejections".padEnd(34)} ${dim(rejections.length + " — read before resubmitting")}`);
   }
 
+  // The scopes each adapter actually requests at OAuth time. A scope missing
+  // from the app's privilege list bounces every user off the consent screen
+  // with "Invalid Scopes" — found the hard way with pages_manage_posts.
+  const NEEDED = {
+    instagram: ["instagram_basic", "instagram_content_publish", "pages_show_list", "pages_read_engagement", "business_management"],
+    facebook: ["pages_show_list", "pages_read_engagement", "pages_manage_posts", "business_management"],
+    threads: ["threads_basic", "threads_content_publish"],
+  };
+  const have = new Set(privs.map((p) => (typeof p === "string" ? p : p.name)));
+  console.log(`\n${bold("  OAuth scopes each adapter needs")}`);
+  for (const [platform, scopes] of Object.entries(NEEDED)) {
+    const missing = scopes.filter((s) => !have.has(s));
+    row(missing.length === 0, platform, missing.length ? `missing: ${missing.join(", ")} — request on the permissions page` : "all requested");
+  }
+
   console.log(`\n${bold("  Phase 5 filing prerequisites")}`);
   row(Boolean(basic.privacy_policy_url), "privacy policy URL", basic.privacy_policy_url ?? "");
   row(Boolean(basic.terms_of_service_url), "terms of service URL", basic.terms_of_service_url ?? "");
