@@ -104,3 +104,15 @@ export function safeRedirectPath(
   if (raw.includes("://") || raw.includes("\\")) return fallback;
   return raw;
 }
+
+// The paid plans a visitor can arrive at /signup already wanting. Anything
+// else — including "free" and garbage — reads as no preference.
+export const INTENDED_PLANS = ["pro", "studio"] as const;
+export type IntendedPlan = (typeof INTENDED_PLANS)[number];
+
+export function parseIntendedPlan(value: unknown): IntendedPlan | undefined {
+  return typeof value === "string" &&
+    (INTENDED_PLANS as readonly string[]).includes(value)
+    ? (value as IntendedPlan)
+    : undefined;
+}

@@ -24,9 +24,20 @@ import type { PublishReport } from "./types";
 // is enough; Phase 6 replaces the poll with SELECT … FOR UPDATE SKIP LOCKED
 // and adds stale-claim recovery for a tick that dies mid-publish.
 
+// How long one tick keeps CLAIMING new posts. A post already claimed always
+// finishes (a TikTok PULL_FROM_URL poll alone can run 300s), but once this
+// much of the tick is spent, the rest of the due list waits for the next
+// minute's tick rather than stacking behind it — scripts/run-scheduler.mjs
+// gives up listening at 280s and the systemd unit at 300s, so a tick that
+// keeps claiming past that point reports as failed while still running.
+// Phase 6's job queue replaces this with per-job leases.
+export const CLAIM_BUDGET_MS = 200_000;
+
 export type TickSummary = {
   due: number;
   claimed: number;
+  /** Due posts left for the next tick because this one ran out of budget. */
+  deferred: number;
   published: number;
   partial: number;
   failed: number;
@@ -43,16 +54,24 @@ export type TickSummary = {
 
 export async function runSchedulerTick(
   supabase: SupabaseClient,
-  options: { batchSize?: number; now?: () => Date; log?: Pick<Console, "error" | "warn" | "log"> } = {},
+  options: {
+    batchSize?: number;
+    claimBudgetMs?: number;
+    now?: () => Date;
+    log?: Pick<Console, "error" | "warn" | "log">;
+  } = {},
 ): Promise<TickSummary> {
   const batchSize = options.batchSize ?? 25;
+  const claimBudgetMs = options.claimBudgetMs ?? CLAIM_BUDGET_MS;
   const now = options.now ?? (() => new Date());
   const log = options.log ?? console;
   const store = createPublishStore(supabase);
+  const startedAt = now().getTime();
 
   const summary: TickSummary = {
     due: 0,
     claimed: 0,
+    deferred: 0,
     published: 0,
     partial: 0,
     failed: 0,
@@ -76,6 +95,13 @@ export async function runSchedulerTick(
 
   for (const raw of due ?? []) {
     const post = toPostRow(raw as unknown as Record<string, unknown>);
+
+    if (now().getTime() - startedAt > claimBudgetMs) {
+      // Still `scheduled`, still due: the next tick picks it up first
+      // (ordered by scheduled_for).
+      summary.deferred += 1;
+      continue;
+    }
 
     const { data: claimed, error: claimError } = await supabase
       .from("scheduled_posts")

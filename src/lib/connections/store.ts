@@ -10,7 +10,11 @@ import type {
   Platform,
 } from "@/lib/platforms/types";
 
-import { isDeadGrant, type ExpiringConnection, type RefreshStore } from "./refresh";
+import {
+  refreshWithRaceRecovery,
+  type ExpiringConnection,
+  type RefreshStore,
+} from "./refresh";
 
 // The only code that touches connections' token columns. Tokens are AES-256-GCM
 // envelopes from src/lib/crypto.ts — plaintext never reaches a query, a log, or
@@ -148,6 +152,23 @@ export async function markConnectionStatus(
 // absorbs a scheduler outage of days without any token dying.
 export const REFRESH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
+// For "on-use" platforms the stored access token lives hours (X 2h, Snapchat
+// and YouTube 1h, TikTok 24h) and the refresh token behind it is what keeps
+// the connection alive — and on X and TikTok that refresh token is
+// single-use and ROTATES. Applying the 7-day window to those would rotate
+// the refresh token on every single publish, which is both needless and the
+// widest possible surface for two concurrent publishes to collide on one
+// single-use token. So they refresh only when the access token is actually
+// about to lapse.
+export const ON_USE_REFRESH_MARGIN_MS = 5 * 60 * 1000;
+
+// One refresh per connection per process at a time. Two concurrent publishes
+// that both find the token near expiry share a single refresh instead of
+// racing each other to redeem the same refresh token. Process-local is
+// enough: the app is one Node process on one box (CLAUDE.md), and
+// refreshWithRaceRecovery covers the cross-process case anyway.
+const inflightRefreshes = new Map<string, Promise<{ row: ConnectionRow; tokens: ConnectionTokens }>>();
+
 // Server-side refresh — the Phase 2 requirement that background jobs never
 // hold stale tokens and no browser session is ever involved. Returns fresh
 // tokens, refreshing and persisting first when expiry is near.
@@ -155,41 +176,55 @@ export async function getFreshConnectionTokens(
   supabase: SupabaseClient,
   connectionId: string,
 ): Promise<{ row: ConnectionRow; tokens: ConnectionTokens }> {
+  const inflight = inflightRefreshes.get(connectionId);
+  if (inflight) return inflight;
+
   const { row, tokens } = await getConnectionTokens(supabase, connectionId);
 
+  const adapter = getPlatform(row.platform);
+  const margin =
+    adapter.refreshPolicy === "on-use" ? ON_USE_REFRESH_MARGIN_MS : REFRESH_WINDOW_MS;
   const needsRefresh =
     tokens.expiresAt !== undefined &&
-    tokens.expiresAt.getTime() - Date.now() < REFRESH_WINDOW_MS;
+    tokens.expiresAt.getTime() - Date.now() < margin;
   if (!needsRefresh) return { row, tokens };
 
-  const adapter = getPlatform(row.platform);
-  let fresh: ConnectionTokens;
-  try {
-    fresh = await adapter.refresh(tokens);
-  } catch (error) {
-    // A dead grant is a state change: record it so the UI can show "reconnect
-    // needed" instead of silently failing publishes. Anything else is left
-    // `active` to be retried — see isDeadGrant.
-    if (isDeadGrant(error)) {
-      await markConnectionStatus(supabase, connectionId, "expired");
-    }
-    throw error;
-  }
+  const refreshing = refreshConnection(supabase, connectionId, adapter, { row, tokens }).finally(
+    () => inflightRefreshes.delete(connectionId),
+  );
+  inflightRefreshes.set(connectionId, refreshing);
+  return refreshing;
+}
 
-  const { error } = await supabase
-    .from("connections")
-    .update({
-      access_token_encrypted: encryptToken(fresh.accessToken),
-      refresh_token_encrypted: fresh.refreshToken
-        ? encryptToken(fresh.refreshToken)
-        : null,
-      token_expires_at: fresh.expiresAt?.toISOString() ?? null,
-      status: "active",
-    })
-    .eq("id", connectionId);
-  if (error) throw error;
-
-  return { row, tokens: fresh };
+async function refreshConnection(
+  supabase: SupabaseClient,
+  connectionId: string,
+  adapter: ReturnType<typeof getPlatform>,
+  { row, tokens }: { row: ConnectionRow; tokens: ConnectionTokens },
+): Promise<{ row: ConnectionRow; tokens: ConnectionTokens }> {
+  // Rotating refresh tokens (X, TikTok) plus concurrent publishes mean a
+  // refusal here might be "someone else just rotated it" rather than "the
+  // grant is dead" — refreshWithRaceRecovery re-reads before deciding.
+  return refreshWithRaceRecovery({
+    initial: { row, tokens },
+    refresh: (current) => adapter.refresh(current),
+    reread: () => getConnectionTokens(supabase, connectionId),
+    markExpired: () => markConnectionStatus(supabase, connectionId, "expired"),
+    persist: async (fresh) => {
+      const { error } = await supabase
+        .from("connections")
+        .update({
+          access_token_encrypted: encryptToken(fresh.accessToken),
+          refresh_token_encrypted: fresh.refreshToken
+            ? encryptToken(fresh.refreshToken)
+            : null,
+          token_expires_at: fresh.expiresAt?.toISOString() ?? null,
+          status: "active",
+        })
+        .eq("id", connectionId);
+      if (error) throw error;
+    },
+  });
 }
 
 // The RefreshStore the scheduler's sweep runs against. Service-role client:

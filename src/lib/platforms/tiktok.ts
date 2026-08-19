@@ -227,6 +227,25 @@ export const tiktokAdapter: PlatformAdapter = {
     });
   },
 
+  // POST /v2/oauth/revoke/ invalidates the access token and its refresh
+  // token together; the user's TikTok app-permissions page forgets MarkedFox.
+  async revoke(tokens) {
+    const form = new URLSearchParams({
+      client_key: requireEnv("TIKTOK_CLIENT_KEY"),
+      client_secret: requireEnv("TIKTOK_CLIENT_SECRET"),
+      token: tokens.accessToken,
+    });
+    const response = await fetch(`${API}/oauth/revoke/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) {
+      throw new PlatformApiError("tiktok", `revoke failed: HTTP ${response.status}`, true);
+    }
+  },
+
   async publish({ caption, media, tokens }): Promise<PublishResult> {
     if (media.length === 0) {
       throw new PlatformApiError("tiktok", "TikTok needs a video or photos");

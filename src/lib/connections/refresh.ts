@@ -1,5 +1,5 @@
 import { PlatformAuthError } from "@/lib/platforms/errors";
-import type { Platform } from "@/lib/platforms/types";
+import type { ConnectionTokens, Platform } from "@/lib/platforms/types";
 
 // Renews platform tokens before they lapse, on a timer rather than only when
 // something happens to publish.
@@ -111,4 +111,67 @@ export async function refreshExpiringConnections(
   }
 
   return summary;
+}
+
+// ── Refresh-token rotation under concurrency ──────────────────────────────
+//
+// X and TikTok rotate refresh tokens: every refresh returns a new pair and
+// the old refresh token dies. Their access tokens live hours, so every
+// publish refreshes — and two publishes against the same connection at once
+// (a "post now" while the scheduler tick is mid-publish, two tabs) both read
+// the same refresh token and both try to redeem it. The platform honours one
+// and answers the other with "token invalid", which looks exactly like a
+// dead grant.
+//
+// So a dead-grant verdict is not final until the row has been re-read: if a
+// concurrent refresh landed in the meantime, the stored tokens are the
+// rotated pair and this caller simply uses them. Only when the row is
+// genuinely unchanged is the connection marked expired.
+
+const RACE_RECHECK_DELAYS_MS = [0, 750, 1500];
+
+export type RefreshReadResult<Row extends { updated_at: string; status: string }> = {
+  row: Row;
+  tokens: ConnectionTokens;
+};
+
+export async function refreshWithRaceRecovery<
+  Row extends { updated_at: string; status: string },
+>(input: {
+  initial: RefreshReadResult<Row>;
+  refresh: (tokens: ConnectionTokens) => Promise<ConnectionTokens>;
+  persist: (fresh: ConnectionTokens) => Promise<void>;
+  /** Re-read the row and its tokens from the database. */
+  reread: () => Promise<RefreshReadResult<Row>>;
+  markExpired: () => Promise<void>;
+  sleep?: (ms: number) => Promise<void>;
+}): Promise<RefreshReadResult<Row>> {
+  const sleep = input.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+
+  let fresh: ConnectionTokens;
+  try {
+    fresh = await input.refresh(input.initial.tokens);
+  } catch (error) {
+    // Anything but an auth error is left `active` to be retried — see
+    // isDeadGrant.
+    if (!isDeadGrant(error)) throw error;
+
+    for (const delay of RACE_RECHECK_DELAYS_MS) {
+      if (delay > 0) await sleep(delay);
+      const latest = await input.reread();
+      const rotatedByAnother =
+        latest.row.updated_at !== input.initial.row.updated_at &&
+        latest.row.status === "active" &&
+        latest.tokens.accessToken !== input.initial.tokens.accessToken;
+      if (rotatedByAnother) return latest;
+    }
+
+    // Genuinely dead: record it so the UI can show "reconnect needed"
+    // instead of silently failing publishes.
+    await input.markExpired();
+    throw error;
+  }
+
+  await input.persist(fresh);
+  return { row: input.initial.row, tokens: fresh };
 }

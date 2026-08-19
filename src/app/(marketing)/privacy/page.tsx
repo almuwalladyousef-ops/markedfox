@@ -65,8 +65,10 @@ export default function PrivacyPage() {
               Access tokens for your connected accounts are encrypted at rest with
               AES-256-GCM. They are used only to perform the actions you set up —
               publishing your posts, reading the comments your rules target, and sending
-              the replies you configured — and are deleted when you disconnect the
-              account.
+              the replies you configured. They are deleted the moment you disconnect the
+              account (the × beside it on your dashboard) or delete your MarkedFox
+              account, and where the platform offers it (X, YouTube, TikTok) we also
+              tell the platform to revoke the access you granted.
             </li>
             <li>
               Uploaded media is stored only until it has been published, then deleted
@@ -166,19 +168,25 @@ export default function PrivacyPage() {
         <Section title="Data retention and deletion">
           <ul className="flex list-disc flex-col gap-2 pl-5">
             <li>
-              <strong>Disconnecting a social account</strong> deletes its stored tokens.
+              <strong>Disconnecting a social account</strong> (the × beside it on your
+              dashboard) deletes its stored tokens immediately.
             </li>
             <li>
-              <strong>Deleting your MarkedFox account</strong> removes your account data,
-              connections, posts, rules, and media. Email{" "}
+              <strong>Deleting your MarkedFox account</strong> — Dashboard → Settings →
+              Delete account — immediately removes your account data, workspaces,
+              connected accounts and their tokens, posts, automation rules, usage
+              records, and uploaded media. If you cannot sign in, email{" "}
               <a className="underline" href="mailto:support@markedfox.com">support@markedfox.com</a>{" "}
               from your account&apos;s email address and we will complete the deletion
               within 30 days, confirming when it is done.
             </li>
             <li>
-              <strong>Meta users:</strong> removing MarkedFox from your Facebook or
-              Instagram settings triggers Meta&apos;s data-deletion callback, and we
-              delete the data associated with that connection automatically.
+              <strong>Meta users:</strong> removing MarkedFox from your Facebook,
+              Instagram, or Threads settings triggers Meta&apos;s deauthorization
+              callback, and we delete the stored tokens for those connections
+              automatically. A data-deletion request made through Meta also removes the
+              publishing history we hold for those accounts, and Meta gives you a
+              confirmation code whose status you can check at any time.
             </li>
           </ul>
         </Section>

@@ -108,7 +108,8 @@ export default function Home() {
           <ul className="flex flex-col gap-4 text-sm text-neutral-300">
             <Feature title="Comment-to-DM triggers">
               &ldquo;Comment LINK and I&apos;ll send it to you&rdquo; — handled
-              automatically, at any volume.
+              automatically, around the clock, within your plan&apos;s monthly
+              DM allowance.
             </Feature>
             <Feature title="Keyword matching">
               Route replies by what people actually say, per post or across the

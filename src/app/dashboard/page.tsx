@@ -40,6 +40,8 @@ export default async function DashboardPage({
     connected?: string;
     connect_error?: string;
     connect_detail?: string;
+    disconnected?: string;
+    disconnect_error?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -98,7 +100,10 @@ export default async function DashboardPage({
       label: LABELS[platform],
       connected: connections
         .filter((c) => c.platform === platform)
-        .map((c) => c.platform_account_name ?? c.platform_account_id),
+        .map((c) => ({
+          id: c.id,
+          name: c.platform_account_name ?? c.platform_account_id,
+        })),
       buildable: buildable.has(platform),
       included,
       reason: included ? undefined : decision.allowed ? undefined : decision.reason,
@@ -149,6 +154,16 @@ export default async function DashboardPage({
           Connected {params.connected}.
         </p>
       ) : null}
+      {params.disconnected ? (
+        <p className="rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-300">
+          Disconnected {params.disconnected}. Its stored tokens are deleted.
+        </p>
+      ) : null}
+      {params.disconnect_error ? (
+        <p className="rounded-md border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300">
+          That account was not found — it may already be disconnected.
+        </p>
+      ) : null}
 
       <nav className="flex gap-2">
         <Link
@@ -162,6 +177,12 @@ export default async function DashboardPage({
           className="rounded-md border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
         >
           Posts
+        </Link>
+        <Link
+          href="/dashboard/settings"
+          className="rounded-md border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+        >
+          Settings
         </Link>
       </nav>
 

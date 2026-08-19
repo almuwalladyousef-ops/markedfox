@@ -1,10 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { MAX_MEDIA_ITEMS } from "@/lib/publish/request";
+
 import { PlatformNotRegisteredError } from "./errors";
 import { getPlatform, listRegisteredPlatforms } from "./registry";
 import { PLATFORMS } from "./types";
 
 describe("platform registry", () => {
+  it("never declares a media cap the API's shape check would refuse first", () => {
+    // The composer validates with rules.mediaMax; POST /api/posts refuses
+    // bodies over MAX_MEDIA_ITEMS before any adapter rule runs. If an
+    // adapter allows more than the API accepts, a post the composer calls
+    // valid is rejected after submit — the exact failure mode the rules
+    // exist to prevent.
+    for (const adapter of listRegisteredPlatforms()) {
+      expect(adapter.rules.mediaMax, adapter.id).toBeLessThanOrEqual(MAX_MEDIA_ITEMS);
+    }
+  });
+
   it("exposes all 9 known platforms in the union", () => {
     expect(PLATFORMS).toEqual([
       "instagram",

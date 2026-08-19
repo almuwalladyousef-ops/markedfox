@@ -5,11 +5,13 @@ import { useActionState } from "react";
 
 import { Field, FormMessage, SubmitButton } from "../_components/form-parts";
 import { signUp, type AuthFormState } from "@/lib/auth/actions";
-import { MIN_PASSWORD_LENGTH } from "@/lib/auth/validation";
+import { MIN_PASSWORD_LENGTH, type IntendedPlan } from "@/lib/auth/validation";
 
 const INITIAL: AuthFormState = {};
 
-export function SignupForm() {
+const PLAN_LABELS: Record<IntendedPlan, string> = { pro: "Pro", studio: "Studio" };
+
+export function SignupForm({ plan }: { plan?: IntendedPlan }) {
   const [state, formAction, pending] = useActionState(signUp, INITIAL);
 
   // On success the form is replaced by the confirmation notice: leaving the
@@ -38,6 +40,15 @@ export function SignupForm() {
           Publish everywhere. Automate every DM.
         </p>
       </div>
+
+      {plan ? (
+        <p className="rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-300">
+          You picked <span className="font-semibold">{PLAN_LABELS[plan]}</span>.
+          Every account starts on Free; you can upgrade from Settings once
+          billing opens — we will remember your choice.
+        </p>
+      ) : null}
+      {plan ? <input type="hidden" name="plan" value={plan} /> : null}
 
       <FormMessage state={state} />
 

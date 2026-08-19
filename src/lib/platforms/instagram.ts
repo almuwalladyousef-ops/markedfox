@@ -114,10 +114,23 @@ type PageWithInstagram = {
   instagram_business_account?: { id: string; username?: string };
 };
 
+// The app-scoped Facebook user id behind this login. It is what Meta sends
+// in the deauthorize and data-deletion callbacks (`user_id`), and the Page
+// tokens we store carry no link back to it — so it is captured once, here,
+// and kept in each connection's metadata. Without it a deletion request
+// could not be matched to the rows it is about.
+async function metaUserId(userToken: string): Promise<string> {
+  const me = await graph<{ id: string }>("/me", {
+    searchParams: { fields: "id", access_token: userToken },
+  });
+  return me.id;
+}
+
 async function listInstagramAccounts(
   userToken: string,
 ): Promise<{ accounts: ConnectedAccount[]; pagesSeen: string[] }> {
   const accounts: ConnectedAccount[] = [];
+  const fbUserId = await metaUserId(userToken);
   // Tracked so the failure message can distinguish "you manage no Pages" from
   // "you manage Pages but none has an Instagram account linked" — very
   // different fixes, and the first attempt at this hit the second one.
@@ -142,7 +155,7 @@ async function listInstagramAccounts(
         // Page tokens derived from a long-lived user token do not expire, and
         // Phase 4 webhook/messaging calls need them — store per account.
         tokens: { accessToken: fbPage.access_token, scopes: OAUTH_SCOPES },
-        metadata: { pageId: fbPage.id, pageName: fbPage.name },
+        metadata: { pageId: fbPage.id, pageName: fbPage.name, metaUserId: fbUserId },
       });
     }
 

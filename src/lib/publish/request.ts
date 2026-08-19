@@ -26,9 +26,12 @@ export type ParsedRequest =
   | { ok: false; issues: FieldIssue[] };
 
 // Generous ceilings that only exist to bound abuse; the real per-platform
-// numbers are in each adapter's rules.
+// numbers are in each adapter's rules. MAX_MEDIA_ITEMS must be at least the
+// largest rules.mediaMax any adapter declares (TikTok photo posts take 35),
+// or the composer's live validation and the API disagree — registry.test.ts
+// pins that.
 export const MAX_CAPTION_BYTES = 70_000;
-export const MAX_MEDIA_ITEMS = 20;
+export const MAX_MEDIA_ITEMS = 35;
 export const MAX_MEDIA_URL_LENGTH = 2048;
 export const MAX_TARGETS = 25;
 // Something scheduled more than a year out is almost certainly a typo in the

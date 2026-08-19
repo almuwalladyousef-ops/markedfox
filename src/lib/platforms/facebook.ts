@@ -132,6 +132,13 @@ export const facebook: PlatformAdapter = {
     });
     const tokens = await exchangeForLongLived(short.access_token);
 
+    // The app-scoped user id is what Meta's deauthorize and data-deletion
+    // callbacks identify the person by; Page tokens carry no way back to it,
+    // so it is recorded on every connection now. See instagram.ts.
+    const me = await graph<{ id: string }>("/me", {
+      searchParams: { fields: "id", access_token: tokens.accessToken },
+    });
+
     const out = await graph<{
       data: { id: string; name: string; access_token: string }[];
     }>("/me/accounts?fields=id,name,access_token&limit=50", {
@@ -143,7 +150,7 @@ export const facebook: PlatformAdapter = {
       platformAccountName: page.name,
       // Page tokens derived from a long-lived user token do not expire.
       tokens: { accessToken: page.access_token, scopes: OAUTH_SCOPES },
-      metadata: { pageName: page.name },
+      metadata: { pageName: page.name, metaUserId: me.id },
     }));
 
     if (accounts.length === 0) {

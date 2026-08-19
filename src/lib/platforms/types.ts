@@ -128,4 +128,10 @@ export interface PlatformAdapter {
   /** Server-side token refresh so background jobs never hold stale tokens. */
   refresh(tokens: ConnectionTokens): Promise<ConnectionTokens>;
   publish(input: PublishInput): Promise<PublishResult>;
+  /** Tell the platform to invalidate this grant, when it offers a per-token
+   *  revoke endpoint (X, Google, TikTok). Optional and best-effort: the
+   *  disconnect that calls it deletes our copy of the token regardless, and
+   *  Meta's only revoke is app-wide, which would disconnect every Page and
+   *  Instagram account the user has, not the one they clicked. */
+  revoke?(tokens: ConnectionTokens): Promise<void>;
 }

@@ -1,6 +1,7 @@
 import { createCipheriv, randomBytes } from "node:crypto";
 
 import { requireEnv } from "@/lib/env";
+import { fetchMedia, UnsafeMediaUrlError } from "@/lib/media/fetch-guard";
 
 import { PlatformApiError, PlatformAuthError } from "./errors";
 import type {
@@ -33,6 +34,12 @@ import type {
 // create, and the ciphertext uploaded in ≤32MB chunks (≤1GB, ≤35 parts).
 // Media containers expire 24 hours after creation, so everything happens at
 // publish time.
+//
+// Memory: the bytes are STREAMED from storage through the cipher and out in
+// parts — CBC ciphertext is a deterministic byte stream, so part boundaries
+// are stable without ever holding the whole file. Resident memory is one
+// part (~32MB), not 2–3x the video, which on the 2GB box is the difference
+// between publishing and the kernel killing the process mid-tick.
 
 const AUTHORIZE = "https://accounts.snapchat.com/login/oauth2/authorize";
 const TOKEN = "https://accounts.snapchat.com/login/oauth2/access_token";
@@ -41,7 +48,14 @@ const API = "https://businessapi.snapchat.com/v1";
 
 const OAUTH_SCOPES = ["snapchat-profile-api"];
 
-const CHUNK_BYTES = 32 * 1024 * 1024;
+// Part size for the chunked upload. Exported as a mutable tuning object so a
+// test can drive the multi-part path with kilobytes instead of 64MB.
+export const uploadTuning = { partBytes: 32 * 1024 * 1024 };
+// Snap's own ceiling for Spotlight media. Checked against Content-Length up
+// front and against the bytes actually read, because Content-Length can be
+// absent or wrong.
+const MAX_BYTES = 1024 * 1024 * 1024;
+const STREAM_STALL_MS = 120_000;
 
 type SnapError = {
   request_status?: string;
@@ -52,9 +66,13 @@ type SnapError = {
   error_description?: string;
 };
 
-async function snap<T>(url: string, init?: RequestInit): Promise<T> {
+async function snap<T>(
+  url: string,
+  init?: RequestInit & { tokenEndpoint?: boolean },
+): Promise<T> {
+  const { tokenEndpoint, ...request } = init ?? {};
   const response = await fetch(url, {
-    ...init,
+    ...request,
     signal: AbortSignal.timeout(60_000),
   });
   const body = (await response.json().catch(() => ({}))) as T & SnapError;
@@ -70,6 +88,12 @@ async function snap<T>(url: string, init?: RequestInit): Promise<T> {
       body.error ??
       `HTTP ${response.status}`;
     if (response.status === 401) {
+      throw new PlatformAuthError("snapchat", detail);
+    }
+    // OAuth token endpoints report a revoked/expired refresh token as 400
+    // invalid_grant, not 401 — that is a dead grant, so the connection must
+    // be marked rather than retried.
+    if (tokenEndpoint && response.status === 400 && body.error === "invalid_grant") {
       throw new PlatformAuthError("snapchat", detail);
     }
     throw new PlatformApiError(
@@ -89,6 +113,7 @@ async function tokenCall(params: Record<string, string>): Promise<ConnectionToke
     scope?: string;
   }>(TOKEN, {
     method: "POST",
+    tokenEndpoint: true,
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       client_id: requireEnv("SNAPCHAT_CLIENT_ID"),
@@ -212,26 +237,51 @@ export const snapchat: PlatformAdapter = {
     }
     const auth = { Authorization: `Bearer ${tokens.accessToken}` };
 
-    // 1. Fetch the bytes from storage and encrypt them. CBC has no streaming
-    //    integrity story anyway and chunk boundaries must be stable, so the
-    //    ciphertext is assembled in memory — acceptable because the upload
-    //    cap (media policy, 300MB) is far below Snap's 1GB and the box only
-    //    ever publishes one post at a time.
-    const source = await fetch(video.url, { signal: AbortSignal.timeout(60_000) });
-    if (!source.ok) {
+    // 1. Open the stream from storage. Guarded: this is the server fetching a
+    //    tenant-chosen URL — our own storage by prefix, or a public host.
+    //    The timeout covers the HEADERS only — a fetch signal also governs the
+    //    body, and this body is streamed out over minutes. Stalls on the
+    //    stream itself are caught per read below.
+    const sourceAbort = new AbortController();
+    const headerTimer = setTimeout(() => sourceAbort.abort(), 60_000);
+    let source: Response;
+    try {
+      source = await fetchMedia(
+        video.url,
+        { signal: sourceAbort.signal },
+        { trustedPrefix: process.env.R2_PUBLIC_BASE_URL },
+      );
+    } catch (error) {
+      if (error instanceof UnsafeMediaUrlError) {
+        throw new PlatformApiError("snapchat", error.message);
+      }
+      throw new PlatformApiError(
+        "snapchat",
+        `could not fetch media from storage: ${error instanceof Error ? error.message : String(error)}`,
+        true,
+      );
+    } finally {
+      clearTimeout(headerTimer);
+    }
+    if (!source.ok || !source.body) {
       throw new PlatformApiError(
         "snapchat",
         `could not fetch media from storage: HTTP ${source.status}`,
         true,
       );
     }
-    const plain = Buffer.from(await source.arrayBuffer());
-    const key = randomBytes(32);
-    const iv = randomBytes(16);
-    const cipher = createCipheriv("aes-256-cbc", key, iv);
-    const encrypted = Buffer.concat([cipher.update(plain), cipher.final()]);
+    const declared = Number(source.headers.get("content-length") ?? 0);
+    if (declared > MAX_BYTES) {
+      await source.body.cancel().catch(() => undefined);
+      throw new PlatformApiError(
+        "snapchat",
+        `video is ${Math.round(declared / 1024 / 1024)}MB; Snapchat allows 1GB`,
+      );
+    }
 
     // 2. Create the media container, handing over key + IV.
+    const key = randomBytes(32);
+    const iv = randomBytes(16);
     const container = await snap<{
       media?: { id?: string; add_path?: string; finalize_path?: string };
       media_id?: string;
@@ -251,6 +301,7 @@ export const snapchat: PlatformAdapter = {
     const addPath = container.media?.add_path ?? container.add_path;
     const finalizePath = container.media?.finalize_path ?? container.finalize_path;
     if (!mediaId || !addPath || !finalizePath) {
+      await source.body.cancel().catch(() => undefined);
       throw new PlatformApiError(
         "snapchat",
         "media container created but no upload paths returned",
@@ -259,16 +310,68 @@ export const snapchat: PlatformAdapter = {
     const absolute = (path: string) =>
       path.startsWith("http") ? path : `https://businessapi.snapchat.com${path}`;
 
-    // 3. Upload the ciphertext in ≤32MB parts, then finalize.
-    const parts = Math.max(1, Math.ceil(encrypted.length / CHUNK_BYTES));
-    for (let part = 0; part < parts; part++) {
-      const chunk = encrypted.subarray(part * CHUNK_BYTES, (part + 1) * CHUNK_BYTES);
+    // 3. Stream: storage → AES-256-CBC → ≤32MB parts → Snap, then finalize.
+    const cipher = createCipheriv("aes-256-cbc", key, iv);
+    let partNumber = 0;
+    const sendPart = async (bytes: Buffer) => {
+      partNumber += 1;
       const form = new FormData();
       form.set("action", "ADD");
-      form.set("part_number", String(part + 1));
-      form.set("file", new Blob([new Uint8Array(chunk)]), "chunk");
+      form.set("part_number", String(partNumber));
+      form.set("file", new Blob([new Uint8Array(bytes)]), "chunk");
       await snap(absolute(addPath), { method: "POST", headers: auth, body: form });
+    };
+
+    const pending: Buffer[] = [];
+    let pendingBytes = 0;
+    let plainBytes = 0;
+    const reader = source.body.getReader();
+    // No bytes for this long means the storage stream is dead, not slow.
+    const readWithStallGuard = async () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([
+          reader.read(),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(
+              () => reject(new PlatformApiError("snapchat", "storage stream stalled", true)),
+              STREAM_STALL_MS,
+            );
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    };
+    try {
+      for (;;) {
+        const { value, done } = await readWithStallGuard();
+        if (done) break;
+        plainBytes += value.byteLength;
+        if (plainBytes > MAX_BYTES) {
+          throw new PlatformApiError("snapchat", "video exceeds Snapchat's 1GB limit");
+        }
+        const encrypted = cipher.update(value);
+        if (encrypted.length === 0) continue;
+        pending.push(encrypted);
+        pendingBytes += encrypted.length;
+        while (pendingBytes >= uploadTuning.partBytes) {
+          const whole = Buffer.concat(pending);
+          await sendPart(whole.subarray(0, uploadTuning.partBytes));
+          pending.length = 0;
+          const rest = whole.subarray(uploadTuning.partBytes);
+          if (rest.length > 0) pending.push(Buffer.from(rest));
+          pendingBytes = rest.length;
+        }
+      }
+    } catch (error) {
+      await reader.cancel().catch(() => undefined);
+      throw error;
     }
+    pending.push(cipher.final());
+    const tail = Buffer.concat(pending);
+    if (tail.length > 0 || partNumber === 0) await sendPart(tail);
+
     const finalizeForm = new FormData();
     finalizeForm.set("action", "FINALIZE");
     await snap(absolute(finalizePath), {

@@ -1,0 +1,94 @@
+import type { Metadata } from "next";
+
+import Link from "next/link";
+
+import { requireUser } from "@/lib/auth/session";
+import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
+import { createClient } from "@/lib/supabase/server";
+import { getActiveWorkspace } from "@/lib/workspaces/store";
+
+import { DeleteAccountForm } from "./delete-account-form";
+
+export const metadata: Metadata = { title: "Settings · MarkedFox" };
+
+// Account settings. Small on purpose: the things a user needs that are not
+// about a workspace — which plan they are on, and the door out.
+export default async function SettingsPage() {
+  const user = await requireUser();
+  const active = await getActiveWorkspace();
+  const supabase = await createClient();
+  const snapshot = active
+    ? await getEntitlementSnapshot(supabase, user.id, active.id)
+    : null;
+
+  return (
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-4 py-16">
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Settings</h1>
+          <p className="mt-1 text-sm text-neutral-400">{user.email}</p>
+        </div>
+        <Link
+          href="/dashboard"
+          className="rounded-md border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+        >
+          Back to dashboard
+        </Link>
+      </header>
+
+      <section className="rounded-lg border border-neutral-900 p-4">
+        <h2 className="text-sm font-medium text-neutral-300">Plan</h2>
+        <p className="mt-2 text-lg font-semibold capitalize">
+          {snapshot?.planId ?? "free"}
+        </p>
+        <p className="mt-1 text-xs text-neutral-500">
+          Workspaces: {snapshot?.usage.workspaceCount ?? 0}
+          {snapshot?.limits.maxWorkspaces === null
+            ? " / unlimited"
+            : ` / ${snapshot?.limits.maxWorkspaces ?? "—"}`}
+          . Posts, DM sends, and credits are pooled across all of them.
+        </p>
+        <Link
+          href="/pricing"
+          className="mt-3 inline-block text-sm text-neutral-300 underline hover:text-white"
+        >
+          Compare plans
+        </Link>
+      </section>
+
+      <section className="rounded-lg border border-neutral-900 p-4">
+        <h2 className="text-sm font-medium text-neutral-300">Your data</h2>
+        <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5 text-sm text-neutral-400">
+          <li>
+            Connected accounts and their tokens: disconnect any of them from the
+            dashboard with the × next to its name.
+          </li>
+          <li>
+            Uploaded media is deleted from storage automatically once a post is
+            done with it.
+          </li>
+          <li>
+            Everything else — workspaces, posts, rules, usage records — goes when
+            you delete the account below. See the{" "}
+            <Link href="/privacy" className="underline">
+              privacy policy
+            </Link>
+            .
+          </li>
+        </ul>
+      </section>
+
+      <section className="rounded-lg border border-red-950 bg-red-950/10 p-4">
+        <h2 className="text-sm font-medium text-red-300">Delete account</h2>
+        <p className="mt-2 text-sm text-neutral-400">
+          Permanently deletes your MarkedFox account and everything in it:
+          workspaces, connected accounts and their tokens, posts (scheduled ones
+          will not go out), automation rules, and uploaded media. Where a
+          platform offers it, we also ask the platform to revoke the access you
+          granted. This cannot be undone.
+        </p>
+        <DeleteAccountForm />
+      </section>
+    </main>
+  );
+}

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { getSiteUrl } from "./site-url";
 import {
+  parseIntendedPlan,
   safeRedirectPath,
   validateCredentials,
   validateEmail,
@@ -35,17 +36,27 @@ export async function signUp(
   const supabase = await createClient();
   const siteUrl = await getSiteUrl();
 
+  // Which paid plan the pricing page sent them here wanting, if any. Kept on
+  // the auth user so the Phase 6 checkout can offer it first; it grants
+  // nothing by itself — entitlements come only from `subscriptions`.
+  const intendedPlan = parseIntendedPlan(formData.get("plan"));
+
   const { data, error } = await supabase.auth.signUp({
     email: parsed.value.email,
     password: parsed.value.password,
     options: {
       emailRedirectTo: `${siteUrl}/auth/confirm`,
+      ...(intendedPlan ? { data: { intended_plan: intendedPlan } } : {}),
     },
   });
 
   if (error) {
     return { message: error.message };
   }
+
+  const planNote = intendedPlan
+    ? ` You chose ${intendedPlan === "pro" ? "Pro" : "Studio"} — your account starts on Free, and you will be able to upgrade once billing opens.`
+    : "";
 
   // Account enumeration guard. With email confirmation on, Supabase answers a
   // signup for an existing address with a success-shaped response carrying an
@@ -56,13 +67,14 @@ export async function signUp(
     return {
       success: true,
       message:
-        "Check your email for a confirmation link. If you already have an account, we sent a sign-in reminder instead.",
+        "Check your email for a confirmation link. If you already have an account, we sent a sign-in reminder instead." +
+        planNote,
     };
   }
 
   return {
     success: true,
-    message: "Check your email for a confirmation link to finish signing up.",
+    message: "Check your email for a confirmation link to finish signing up." + planNote,
   };
 }
 

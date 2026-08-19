@@ -1,4 +1,5 @@
 import { requireEnv } from "@/lib/env";
+import { fetchMedia, UnsafeMediaUrlError } from "@/lib/media/fetch-guard";
 
 import { PlatformApiError, PlatformAuthError } from "./errors";
 import type { ConnectionTokens, PlatformAdapter, PublishResult } from "./types";
@@ -105,6 +106,67 @@ function titleFrom(caption: string): string {
   return title || "New video";
 }
 
+// The R2 fetch must answer with headers inside this window; the body is then
+// governed by the stall watchdog, not by a clock.
+const SOURCE_HEADERS_TIMEOUT_MS = 60_000;
+// No bytes from storage for this long means the stream is dead, not slow.
+const STREAM_STALL_MS = 120_000;
+
+// Pipes a stream through unchanged while re-arming a timer on every chunk;
+// `onStall` fires only if the gap between two chunks exceeds `stallMs`.
+export function withStallWatchdog(
+  body: ReadableStream<Uint8Array>,
+  onStall: () => void,
+  stallMs: number,
+): ReadableStream<Uint8Array> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const arm = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(onStall, stallMs);
+    // Never the only thing keeping the process alive.
+    (timer as { unref?: () => void }).unref?.();
+  };
+  const disarm = () => {
+    if (timer) clearTimeout(timer);
+  };
+  return body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      start: arm,
+      transform(chunk, controller) {
+        arm();
+        controller.enqueue(chunk);
+      },
+      flush: disarm,
+      // `cancel` is in the Streams spec but not yet in TypeScript's lib; if
+      // the consumer cancels mid-stream the timer simply fires into an
+      // already-settled fetch, where abort() is a no-op.
+      ...({ cancel: disarm } as object),
+    }),
+  );
+}
+
+// One verdict for a failed session-open or PUT. Google's resumable protocol
+// reports deterministic refusals as 4xx with a reason — those never improve
+// on retry, so only transport-shaped statuses are marked retryable.
+export function classifyUploadFailure(status: number, body: GoogleError): Error {
+  const { detail, reason } = errorParts(body, status);
+  if (status === 401) return new PlatformAuthError("youtube", detail);
+  if (reason === "quotaExceeded") {
+    return new PlatformApiError(
+      "youtube",
+      "YouTube's daily upload quota is exhausted — try again tomorrow",
+    );
+  }
+  if (reason === "uploadLimitExceeded") {
+    return new PlatformApiError(
+      "youtube",
+      "this channel has hit YouTube's upload limit for now — try again later",
+    );
+  }
+  const retryable = status >= 500 || status === 408 || status === 429 || status === 308;
+  return new PlatformApiError("youtube", detail, retryable);
+}
+
 export const youtube: PlatformAdapter = {
   id: "youtube",
   displayName: "YouTube",
@@ -194,6 +256,23 @@ export const youtube: PlatformAdapter = {
     return { ...fresh, refreshToken: tokens.refreshToken };
   },
 
+  // Google's revoke endpoint takes either token; revoking the refresh token
+  // also invalidates every access token minted from it. Google's OAuth
+  // verification reviewers look for exactly this on disconnect.
+  async revoke(tokens) {
+    const token = tokens.refreshToken ?? tokens.accessToken;
+    const response = await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token }).toString(),
+      signal: AbortSignal.timeout(15_000),
+    });
+    // 400 here means "already invalid" — which is the state we wanted.
+    if (!response.ok && response.status !== 400) {
+      throw new PlatformApiError("youtube", `revoke failed: HTTP ${response.status}`, true);
+    }
+  },
+
   async publish({ caption, media, tokens }): Promise<PublishResult> {
     const video = media.find((m) => m.type === "video");
     if (!video || media.length !== 1) {
@@ -211,9 +290,37 @@ export const youtube: PlatformAdapter = {
 
     // Fetch the media stream first so its size and type can be declared in
     // the session initiation — Google requires both up front.
-    const source = await fetch(video.url, {
-      signal: AbortSignal.timeout(60_000),
-    });
+    //
+    // The timeout here covers the HEADERS only. A fetch() signal governs the
+    // whole response, body included, and this body is about to be streamed
+    // into the upload PUT below — so a total-duration timer on the source
+    // would abort a perfectly healthy upload at exactly 60 seconds, which a
+    // 300MB video from the 1-vCPU box cannot beat. Instead: a timer that is
+    // cleared the moment the headers arrive, and a stall watchdog on the
+    // stream that only fires when NO bytes flow for a while.
+    const sourceAbort = new AbortController();
+    const headerTimer = setTimeout(() => sourceAbort.abort(), SOURCE_HEADERS_TIMEOUT_MS);
+    let source: Response;
+    try {
+      // Guarded: this is the server fetching a tenant-chosen URL. Our own
+      // storage is trusted by prefix; anything else must be a public host.
+      source = await fetchMedia(
+        video.url,
+        { signal: sourceAbort.signal },
+        { trustedPrefix: process.env.R2_PUBLIC_BASE_URL },
+      );
+    } catch (error) {
+      if (error instanceof UnsafeMediaUrlError) {
+        throw new PlatformApiError("youtube", error.message);
+      }
+      throw new PlatformApiError(
+        "youtube",
+        `could not fetch media from storage: ${error instanceof Error ? error.message : String(error)}`,
+        true,
+      );
+    } finally {
+      clearTimeout(headerTimer);
+    }
     if (!source.ok || !source.body) {
       throw new PlatformApiError(
         "youtube",
@@ -242,45 +349,59 @@ export const youtube: PlatformAdapter = {
       signal: AbortSignal.timeout(30_000),
     });
     if (!session.ok) {
+      sourceAbort.abort(); // release the R2 stream we will not be sending
       const body = (await session.json().catch(() => ({}))) as GoogleError;
-      const { detail, reason } = errorParts(body, session.status);
-      if (session.status === 401) throw new PlatformAuthError("youtube", detail);
-      throw new PlatformApiError(
-        "youtube",
-        reason === "quotaExceeded"
-          ? "YouTube's daily upload quota is exhausted — try again tomorrow"
-          : detail,
-        session.status >= 500,
-      );
+      throw classifyUploadFailure(session.status, body);
     }
     const sessionUri = session.headers.get("location");
     if (!sessionUri) {
+      sourceAbort.abort();
       throw new PlatformApiError("youtube", "upload session opened but no session URI returned");
     }
 
-    // Step 2: stream the bytes. One PUT of the whole file; a failure mid-way
-    // surfaces as a retryable error and the retry restarts the session. No
-    // overall timeout here — a large video legitimately takes minutes.
-    const upload = await fetch(sessionUri, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${tokens.accessToken}`,
-        "Content-Type": mime,
-        ...(size ? { "Content-Length": size } : {}),
-      },
-      body: source.body,
-      // Node's fetch requires half-duplex for streaming request bodies;
-      // TypeScript's RequestInit does not know the field yet.
-      ...( { duplex: "half" } as object),
-    });
+    // Step 2: stream the bytes. One PUT of the whole file; no overall timeout
+    // because a large video legitimately takes minutes. The stall watchdog
+    // aborts the SOURCE if nothing arrives from storage for a while, which
+    // ends the PUT with a network error — classified retryable below, and
+    // the retry restarts the session from scratch.
+    const body = withStallWatchdog(source.body, () => sourceAbort.abort(), STREAM_STALL_MS);
+    let upload: Response;
+    try {
+      upload = await fetch(sessionUri, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${tokens.accessToken}`,
+          "Content-Type": mime,
+          ...(size ? { "Content-Length": size } : {}),
+        },
+        body,
+        // Node's fetch requires half-duplex for streaming request bodies;
+        // TypeScript's RequestInit does not know the field yet.
+        ...({ duplex: "half" } as object),
+      });
+    } catch (error) {
+      // A TypeError("fetch failed") here is the network — ours, R2's, or
+      // Google's — not a verdict on the video. Retryable, and named, so it
+      // never lands in the dead-letter pile as an opaque "fetch failed".
+      throw new PlatformApiError(
+        "youtube",
+        `upload interrupted: ${error instanceof Error ? (error.cause instanceof Error ? error.cause.message : error.message) : String(error)}`,
+        true,
+      );
+    }
     const result = (await upload.json().catch(() => ({}))) as {
       id?: string;
     } & GoogleError;
 
-    if (!upload.ok || !result.id) {
-      const { detail } = errorParts(result, upload.status);
-      if (upload.status === 401) throw new PlatformAuthError("youtube", detail);
-      throw new PlatformApiError("youtube", detail, true);
+    if (!upload.ok) {
+      throw classifyUploadFailure(upload.status, result);
+    }
+    if (!result.id) {
+      throw new PlatformApiError(
+        "youtube",
+        "upload finished but YouTube returned no video id",
+        true,
+      );
     }
 
     return {

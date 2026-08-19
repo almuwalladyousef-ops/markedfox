@@ -56,9 +56,19 @@ type XErrorBody = {
   error_description?: string;
 };
 
+// What X's token endpoint says about a refresh token that is dead — expired,
+// revoked, or already redeemed (they are single-use). These arrive as HTTP
+// 400, not 401: treating them as generic API errors would leave a dead
+// connection `active` and retrying forever instead of asking for a reconnect.
+const TOKEN_DEAD_GRANT_CODES = new Set([
+  "invalid_request", // "Value passed for the token was invalid."
+  "invalid_grant",
+  "unauthorized_client",
+]);
+
 async function xFetch<T>(
   path: string,
-  init: RequestInit & { auth: string },
+  init: RequestInit & { auth: string; tokenEndpoint?: boolean },
 ): Promise<T> {
   const response = await fetch(`${API}${path}`, {
     method: init.method ?? "GET",
@@ -79,6 +89,14 @@ async function xFetch<T>(
       `HTTP ${response.status}`;
     if (response.status === 401) {
       // Expired/revoked token. The caller refreshes or marks the connection.
+      throw new PlatformAuthError("x", detail);
+    }
+    if (
+      init.tokenEndpoint &&
+      response.status === 400 &&
+      body.error &&
+      TOKEN_DEAD_GRANT_CODES.has(body.error)
+    ) {
       throw new PlatformAuthError("x", detail);
     }
     // 429 = rate limited (100 posts/15min per user, 10k/24h per app — the app
@@ -114,6 +132,7 @@ async function tokenCall(form: URLSearchParams): Promise<ConnectionTokens> {
       scope?: string;
     }>("/oauth2/token", {
       method: "POST",
+      tokenEndpoint: true,
       auth: basicAuth(),
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: form.toString(),
@@ -213,6 +232,23 @@ export const x: PlatformAdapter = {
         refresh_token: tokens.refreshToken,
       }),
     );
+  },
+
+  // POST /2/oauth2/revoke invalidates one token; revoking the refresh token
+  // takes its access tokens with it. Confidential client, so Basic auth.
+  async revoke(tokens) {
+    const token = tokens.refreshToken ?? tokens.accessToken;
+    await xFetch("/oauth2/revoke", {
+      method: "POST",
+      tokenEndpoint: true,
+      auth: basicAuth(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        token,
+        client_id: requireEnv("X_CLIENT_ID"),
+        token_type_hint: tokens.refreshToken ? "refresh_token" : "access_token",
+      }).toString(),
+    });
   },
 
   async publish({ caption, media, tokens }) {

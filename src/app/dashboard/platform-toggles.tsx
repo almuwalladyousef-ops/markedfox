@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 
+import { disconnectAccountAction } from "@/lib/connections/actions";
 import type { Platform } from "@/lib/platforms/types";
+
+export type ConnectedAccountRow = { id: string; name: string };
 
 export type PlatformRow = {
   id: Platform;
   label: string;
   /** Accounts already connected in this workspace. */
-  connected: string[];
+  connected: ConnectedAccountRow[];
   /** Adapter exists — false means genuinely not built yet. */
   buildable: boolean;
   /** Included in the plan. False renders the upgrade badge. */
@@ -49,8 +52,18 @@ export function PlatformToggles({ rows }: { rows: PlatformRow[] }) {
                   </span>
                 ) : null}
                 {row.connected.length > 0 ? (
-                  <span className="truncate text-xs text-neutral-500">
-                    {row.connected.join(", ")}
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-xs text-neutral-500">
+                    {row.connected.map((account, index) => (
+                      <span key={account.id} className="flex items-center">
+                        <span className="truncate">{account.name}</span>
+                        <DisconnectButton account={account} platformLabel={row.label} />
+                        {index < row.connected.length - 1 ? (
+                          <span aria-hidden="true" className="mr-1 text-neutral-700">
+                            ·
+                          </span>
+                        ) : null}
+                      </span>
+                    ))}
                   </span>
                 ) : null}
               </span>
@@ -79,6 +92,43 @@ export function PlatformToggles({ rows }: { rows: PlatformRow[] }) {
         <UpgradeDialog row={upsell} onClose={() => setUpsell(null)} />
       ) : null}
     </>
+  );
+}
+
+// The × beside each connected account. A real form post to a server action,
+// so it works without JavaScript and the deletion is RLS-scoped on the
+// server; the confirm() is only there to stop a stray click.
+function DisconnectButton({
+  account,
+  platformLabel,
+}: {
+  account: ConnectedAccountRow;
+  platformLabel: string;
+}) {
+  return (
+    <form
+      action={disconnectAccountAction}
+      onSubmit={(event) => {
+        if (
+          !window.confirm(
+            `Disconnect ${account.name} from ${platformLabel}? MarkedFox deletes its stored tokens; scheduled posts targeting it will fail until it is reconnected.`,
+          )
+        ) {
+          event.preventDefault();
+        }
+      }}
+      className="inline"
+    >
+      <input type="hidden" name="connection_id" value={account.id} />
+      <button
+        type="submit"
+        aria-label={`Disconnect ${account.name} from ${platformLabel}`}
+        title="Disconnect"
+        className="rounded px-1 text-neutral-600 transition hover:bg-neutral-800 hover:text-red-300"
+      >
+        ×
+      </button>
+    </form>
   );
 }
 
