@@ -124,4 +124,37 @@ describe("parseCreatePostRequest", () => {
       ["caption", "media", "scheduledFor", "targetConnectionIds", "workspaceId"].sort(),
     );
   });
+
+  it("parses per-platform options and refuses malformed ones", () => {
+    const ok = parseCreatePostRequest(
+      {
+        ...valid(),
+        platformOverrides: {
+          tiktok: { options: { privacy_level: "SELF_ONLY", allow_comment: true, n: 1 } },
+          threads: { caption: "t" },
+        },
+      },
+      NOW,
+    );
+    expect(ok.ok).toBe(true);
+    if (ok.ok) {
+      expect(ok.value.platformOverrides.tiktok).toEqual({
+        options: { privacy_level: "SELF_ONLY", allow_comment: true, n: 1 },
+      });
+      expect(ok.value.platformOverrides.threads).toEqual({ caption: "t" });
+    }
+
+    for (const bad of [
+      { nested: { deep: true } },
+      { "Bad Key": 1 },
+      ["a"],
+      "str",
+      { s: "x".repeat(201) },
+      Object.fromEntries(Array.from({ length: 25 }, (_, i) => [`k${i}`, true])),
+    ]) {
+      expect(
+        fields(parseCreatePostRequest({ ...valid(), platformOverrides: { tiktok: { options: bad } } }, NOW)),
+      ).toEqual(["platformOverrides.tiktok.options"]);
+    }
+  });
 });

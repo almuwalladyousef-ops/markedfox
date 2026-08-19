@@ -54,11 +54,17 @@ export interface MediaRef {
   mime?: string;
 }
 
+// Per-platform publish options the user chose in the composer — TikTok's
+// privacy level and disclosure toggles, for instance. Flat JSON primitives
+// only, stored in scheduled_posts.platform_overrides[platform].options.
+export type PlatformPublishOptions = Record<string, string | number | boolean>;
+
 export interface PublishInput {
   caption: string;
   media: MediaRef[];
   tokens: ConnectionTokens;
   platformAccountId: string;
+  options?: PlatformPublishOptions;
 }
 
 export interface PublishResult {
@@ -128,6 +134,19 @@ export interface PlatformAdapter {
   /** Server-side token refresh so background jobs never hold stale tokens. */
   refresh(tokens: ConnectionTokens): Promise<ConnectionTokens>;
   publish(input: PublishInput): Promise<PublishResult>;
+  /** Live facts the composer needs before a post to this platform can be
+   *  configured — TikTok's creator_info (who the post goes to, which privacy
+   *  levels they may use, which interactions are disabled). Optional; most
+   *  platforms need nothing. Served by GET /api/connections/[id]/publish-context. */
+  getPublishContext?(tokens: ConnectionTokens): Promise<Record<string, unknown>>;
+  /** Validate the per-platform options for a post. Pure. Runs in the API at
+   *  create time (no context) and is shared with the composer; returns the
+   *  reasons the post cannot go out, in the user's words. */
+  validateOptions?(
+    options: PlatformPublishOptions | undefined,
+    context?: Record<string, unknown> | null,
+    input?: { hasVideo?: boolean },
+  ): string[];
   /** Tell the platform to invalidate this grant, when it offers a per-token
    *  revoke endpoint (X, Google, TikTok). Optional and best-effort: the
    *  disconnect that calls it deletes our copy of the token regardless, and

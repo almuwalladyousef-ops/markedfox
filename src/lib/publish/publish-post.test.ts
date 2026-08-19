@@ -465,4 +465,44 @@ describe("publishPost", () => {
     expect(store.finished?.status).toBe("published");
     expect(errors.length).toBeGreaterThan(0);
   });
+
+  it("refuses a TikTok target whose options lack a privacy level, and passes options through when present", async () => {
+    // The adapter's validateOptions is the gate; TikTok's real one is used
+    // (fakeAdapter spreads the real adapter), publish() is scripted.
+    const store = new MemoryStore();
+    store.connections = [connection("c-tt", "tiktok")];
+    const publish = vi.fn<PlatformAdapter["publish"]>(async () => ({ platformPostId: "tt-1" }));
+    const deps = { store, getAdapter: (p: Platform) => fakeAdapter(p, publish), log: quiet };
+
+    const refused = await publishPost(
+      deps,
+      post({
+        caption: "x",
+        media: [{ url: "https://cdn.example.com/v.mp4", type: "video" }],
+        target_connection_ids: ["c-tt"],
+      }),
+    );
+    expect(publish).not.toHaveBeenCalled();
+    expect(refused.targets[0]).toMatchObject({ outcome: "failed", code: "invalid_content" });
+    expect(refused.targets[0].outcome === "failed" ? refused.targets[0].error : "").toMatch(
+      /Choose who can see this TikTok post/,
+    );
+
+    const ok = await publishPost(
+      deps,
+      post({
+        caption: "x",
+        media: [{ url: "https://cdn.example.com/v.mp4", type: "video" }],
+        target_connection_ids: ["c-tt"],
+        platform_overrides: {
+          tiktok: { options: { privacy_level: "SELF_ONLY", allow_comment: true } },
+        },
+      }),
+    );
+    expect(ok.status).toBe("published");
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish.mock.calls[0][0]).toMatchObject({
+      options: { privacy_level: "SELF_ONLY", allow_comment: true },
+    });
+  });
 });

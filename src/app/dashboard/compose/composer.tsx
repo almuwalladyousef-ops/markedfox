@@ -2,11 +2,19 @@
 
 import { useMemo, useState } from "react";
 
-import type { MediaRef, Platform } from "@/lib/platforms/types";
+import {
+  parseTikTokOptions,
+  validateTikTokOptions,
+  type TikTokCreatorContext,
+  type TikTokPublishOptions,
+} from "@/lib/platforms/tiktok-options";
+import type { MediaRef, Platform, PlatformPublishOptions } from "@/lib/platforms/types";
 import { containsExternalLink } from "@/lib/publish/links";
 import type { ContentSpecs } from "@/lib/publish/specs";
 import type { TargetOutcome } from "@/lib/publish/types";
 import { captionLength, validateContent } from "@/lib/publish/validate";
+
+import { TikTokOptionsPanel, type ContextState } from "./tiktok-options-panel";
 
 // The composer. One caption, any combination of connected accounts, optional
 // per-platform caption overrides, publish now or schedule.
@@ -89,6 +97,10 @@ export function Composer({
   const [media, setMedia] = useState<MediaRow[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [overrides, setOverrides] = useState<Partial<Record<Platform, string>>>({});
+  // Per-platform publish options (today: TikTok's privacy level and toggles).
+  const [tiktokOptions, setTiktokOptions] = useState<TikTokPublishOptions>({});
+  // Live creator context per TikTok connection, fetched once it is selected.
+  const [contexts, setContexts] = useState<Record<string, ContextState>>({});
   const [mode, setMode] = useState<"now" | "schedule">("now");
   const [scheduledFor, setScheduledFor] = useState("");
   // The picker's lower bound. Set from event handlers, never during render —
@@ -118,6 +130,52 @@ export function Composer({
 
   const captionFor = (platform: Platform) => overrides[platform] ?? caption;
 
+  const selectedTikTok = useMemo(
+    () =>
+      selected
+        .map((id) => accountById.get(id))
+        .filter((a): a is ComposerAccount => Boolean(a && a.platform === "tiktok")),
+    [selected, accountById],
+  );
+  const hasVideo = mediaRefs.some((m) => m.type === "video");
+
+  // TikTok requires creator_info BEFORE the post form is usable: it is where
+  // the allowed privacy levels and disabled interactions come from. Fetched
+  // from the click that selects the account (never from an effect), once per
+  // connection; the panel renders from whatever state each one is in.
+  const ensureContext = (account: ComposerAccount) => {
+    if (account.platform !== "tiktok" || contexts[account.id]) return;
+    setContexts((prev) => ({ ...prev, [account.id]: { status: "loading" } }));
+    void (async () => {
+      try {
+        const response = await fetch(`/api/connections/${account.id}/publish-context`);
+        const body = (await response.json().catch(() => ({}))) as {
+          context?: TikTokCreatorContext | null;
+          message?: string;
+        };
+        if (!response.ok || !body.context) {
+          setContexts((prev) => ({
+            ...prev,
+            [account.id]: {
+              status: "error",
+              message: body.message ?? "Could not load this account's TikTok settings.",
+            },
+          }));
+          return;
+        }
+        setContexts((prev) => ({
+          ...prev,
+          [account.id]: { status: "ready", context: body.context as TikTokCreatorContext },
+        }));
+      } catch {
+        setContexts((prev) => ({
+          ...prev,
+          [account.id]: { status: "error", message: "Could not reach the server." },
+        }));
+      }
+    })();
+  };
+
   // ── live validation ────────────────────────────────────────────────────
   const issues: Issue[] = useMemo(() => {
     const out: Issue[] = [];
@@ -133,6 +191,31 @@ export function Composer({
           platform,
           message: "Posts to X cannot contain links — X charges 13x more for them, so no plan allows it.",
         });
+      }
+      if (platform === "tiktok") {
+        const states = selectedTikTok.map((a) => contexts[a.id]);
+        if (states.some((s) => !s || s.status === "loading")) {
+          out.push({ platform, message: "Loading TikTok account details…" });
+        }
+        for (const state of states) {
+          if (state?.status === "error") out.push({ platform, message: state.message });
+        }
+        const ready = states.filter(
+          (s): s is Extract<ContextState, { status: "ready" }> => s?.status === "ready",
+        );
+        // Validate against every selected creator: one set of options must
+        // satisfy all of them.
+        const seen = new Set<string>();
+        const targets = ready.length > 0 ? ready.map((s) => s.context) : [null];
+        for (const context of targets) {
+          for (const message of validateTikTokOptions(parseTikTokOptions(tiktokOptions), context, {
+            hasVideo,
+          })) {
+            if (seen.has(message)) continue;
+            seen.add(message);
+            out.push({ platform, message });
+          }
+        }
       }
     }
     if (mode === "now") {
@@ -159,13 +242,16 @@ export function Composer({
       if (row.error) out.push({ platform: null, message: row.error });
     }
     return out;
-  }, [selectedPlatforms, specs, caption, overrides, mediaRefs, media, uploading, mode, scheduledFor, xLinksAllowed, usage, planId]);
+  }, [selectedPlatforms, specs, caption, overrides, mediaRefs, media, uploading, mode, scheduledFor, xLinksAllowed, usage, planId, selectedTikTok, contexts, tiktokOptions, hasVideo]);
 
   const canSubmit = selected.length > 0 && issues.length === 0 && !submitting;
 
   // ── handlers ───────────────────────────────────────────────────────────
-  const toggleAccount = (id: string) =>
+  const toggleAccount = (id: string) => {
+    const account = accountById.get(id);
+    if (account && !selected.includes(id)) ensureContext(account);
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
 
   const addMedia = () => {
     setMedia((prev) => [...prev, { key: nextKey, url: "", type: "image" }]);
@@ -263,10 +349,17 @@ export function Composer({
     setSubmitting(true);
     setOutcome(null);
     try {
-      const platformOverrides: Record<string, { caption: string }> = {};
+      const platformOverrides: Record<string, { caption?: string; options?: PlatformPublishOptions }> = {};
       for (const platform of selectedPlatforms) {
         const override = overrides[platform];
         if (override !== undefined) platformOverrides[platform] = { caption: override };
+      }
+      if (selectedPlatforms.includes("tiktok")) {
+        const options: PlatformPublishOptions = {};
+        for (const [key, value] of Object.entries(parseTikTokOptions(tiktokOptions))) {
+          if (value !== undefined) options[key] = value;
+        }
+        platformOverrides.tiktok = { ...(platformOverrides.tiktok ?? {}), options };
       }
       const response = await fetch("/api/posts", {
         method: "POST",
@@ -466,6 +559,17 @@ export function Composer({
           </div>
         ) : null}
       </section>
+
+      {/* per-platform options */}
+      {selectedTikTok.length > 0 ? (
+        <TikTokOptionsPanel
+          accounts={selectedTikTok.map((a) => ({ id: a.id, name: a.name }))}
+          contexts={contexts}
+          options={tiktokOptions}
+          onChange={setTiktokOptions}
+          hasVideo={hasVideo}
+        />
+      ) : null}
 
       {/* media */}
       <section className="rounded-lg border border-neutral-900 p-4">
@@ -746,6 +850,14 @@ function OutcomePanel({
             ) : (
               <span>failed — {r.error}</span>
             )}
+            {r.outcome === "published" && r.platform === "tiktok" ? (
+              // TikTok's guidelines: tell the user the post is processing and
+              // may take a moment to show on their profile.
+              <span className="text-xs opacity-80">
+                {" "}
+                — TikTok is processing it; it may take a few minutes to appear on the profile.
+              </span>
+            ) : null}
           </li>
         ))}
       </ul>

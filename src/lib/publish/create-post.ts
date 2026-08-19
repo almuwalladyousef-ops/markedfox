@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import type { DenialCode } from "@/lib/entitlements/types";
+import { getPlatform } from "@/lib/platforms/registry";
 import type { Platform } from "@/lib/platforms/types";
 
 import { containsExternalLink } from "./links";
@@ -147,13 +148,24 @@ export async function createPost(
   }
   if (problems.length > 0) return { kind: "bad_targets", problems };
 
-  // 5. content, per distinct platform, with overrides applied
-  const issues: ContentIssue[] = platforms.flatMap((platform) =>
-    validateContent(specs[platform] as PlatformContentSpec, {
+  // 5. content, per distinct platform, with overrides applied — and the
+  //    platform's own publish options (TikTok's privacy level etc.), judged
+  //    by the adapter so the rule lives in its file.
+  const hasVideo = request.media.some((m) => m.type === "video");
+  const issues: ContentIssue[] = platforms.flatMap((platform) => {
+    const content = validateContent(specs[platform] as PlatformContentSpec, {
       caption: captionFor(platform),
       media: request.media,
-    }),
-  );
+    });
+    const adapter = getPlatform(platform);
+    const options = adapter.validateOptions
+      ? adapter.validateOptions(request.platformOverrides[platform]?.options, null, { hasVideo })
+      : [];
+    return [
+      ...content,
+      ...options.map((message) => ({ platform, code: "invalid_options" as const, message })),
+    ];
+  });
   if (issues.length > 0) return { kind: "invalid_content", issues };
 
   // 6. the row. Publish-now is born `publishing` (claimed by this request);

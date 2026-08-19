@@ -2,6 +2,12 @@ import { requireEnv } from "@/lib/env";
 
 import { PlatformApiError, PlatformAuthError } from "./errors";
 import { pollDelays, VIDEO_POLL_TOTAL_MS } from "./polling";
+import {
+  parseCreatorContext,
+  parseTikTokOptions,
+  validateTikTokOptions,
+  type TikTokCreatorContext,
+} from "./tiktok-options";
 import type { ConnectionTokens, PlatformAdapter, PublishResult } from "./types";
 
 // TikTok Content Posting API (Direct Post).
@@ -24,9 +30,12 @@ import type { ConnectionTokens, PlatformAdapter, PublishResult } from "./types";
 //      also keeps the media-purge sweep from deleting a file TikTok has not
 //      fetched yet, since the post row stays unsettled until then.
 //
-// Audit-visible UX duties (privacy dropdown with no default, creator
-// nickname shown, toggles off by default) belong to the composer and are a
-// Phase 5 filing task — tracked in the session log, not silently skipped.
+// The audit-visible UX duties (privacy dropdown with no default, creator
+// nickname shown, interaction toggles off by default, commercial-content
+// disclosure, consent line) are implemented: getPublishContext() serves
+// creator_info to the composer, validateOptions() judges the user's choices
+// with the same pure function the composer runs (./tiktok-options.ts), and
+// publish() applies them. Nothing here picks a privacy level for the user.
 
 const AUTHORIZE = "https://www.tiktok.com/v2/auth/authorize/";
 const API = "https://open.tiktokapis.com/v2";
@@ -123,26 +132,19 @@ async function tokenCall(params: Record<string, string>): Promise<ConnectionToke
   return toTokens(body as { access_token: string });
 }
 
-type CreatorInfo = {
-  data?: {
-    creator_username?: string;
-    creator_nickname?: string;
-    privacy_level_options?: string[];
-    max_video_post_duration_sec?: number;
-  };
-};
+type CreatorInfo = { data?: Record<string, unknown> };
 
-// Most-public first. privacy_level MUST be one of the options creator_info
-// returned for this user (403 privacy_level_option_mismatch otherwise), and
-// which ones appear depends on whether the account is public or private —
-// hardcoding PUBLIC_TO_EVERYONE breaks private accounts, including every
-// account during the pre-audit phase.
-const PRIVACY_PREFERENCE = [
-  "PUBLIC_TO_EVERYONE",
-  "FOLLOWER_OF_CREATOR",
-  "MUTUAL_FOLLOW_FRIENDS",
-  "SELF_ONLY",
-];
+// Mandatory first call per TikTok's integration rules — and genuinely
+// needed: it is the only source of the privacy levels this user may post
+// with, of which interactions they have disabled, and of their nickname.
+async function queryCreatorInfo(token: string): Promise<TikTokCreatorContext> {
+  const creator = await tiktok<CreatorInfo>("/post/publish/creator_info/query/", {
+    token,
+    headers: { "Content-Type": "application/json; charset=UTF-8" },
+    body: "{}",
+  });
+  return parseCreatorContext(creator.data);
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -246,30 +248,48 @@ export const tiktokAdapter: PlatformAdapter = {
     }
   },
 
-  async publish({ caption, media, tokens }): Promise<PublishResult> {
+  // Served to the composer so it can show who the post goes to and offer
+  // only the privacy levels and interactions TikTok allows this creator.
+  async getPublishContext(tokens) {
+    return queryCreatorInfo(tokens.accessToken) as Promise<Record<string, unknown>>;
+  },
+
+  validateOptions(options, context, input) {
+    return validateTikTokOptions(
+      parseTikTokOptions(options),
+      context ? (context as unknown as TikTokCreatorContext) : null,
+      input,
+    );
+  },
+
+  async publish({ caption, media, tokens, options: rawOptions }): Promise<PublishResult> {
     if (media.length === 0) {
       throw new PlatformApiError("tiktok", "TikTok needs a video or photos");
     }
     const token = tokens.accessToken;
-
-    // Mandatory first call per TikTok's integration rules — and genuinely
-    // needed: it is the only source of the privacy levels this user may post
-    // with, and of their username for the post URL.
-    const creator = await tiktok<CreatorInfo>("/post/publish/creator_info/query/", {
-      token,
-      headers: { "Content-Type": "application/json; charset=UTF-8" },
-      body: "{}",
-    });
-    const options = creator.data?.privacy_level_options ?? [];
-    const privacy = PRIVACY_PREFERENCE.find((p) => options.includes(p));
-    if (!privacy) {
-      throw new PlatformApiError(
-        "tiktok",
-        "TikTok reported no allowed privacy level for this account",
-      );
-    }
-
     const video = media.find((m) => m.type === "video");
+    const options = parseTikTokOptions(rawOptions);
+
+    // creator_info again, at publish time: the user chose a privacy level in
+    // the composer against that moment's options; TikTok requires the choice
+    // to still be allowed now (403 privacy_level_option_mismatch otherwise),
+    // and a scheduled post may be hours or days old.
+    const creator = await queryCreatorInfo(token);
+    const problems = validateTikTokOptions(options, creator, { hasVideo: Boolean(video) });
+    if (problems.length > 0) {
+      throw new PlatformApiError("tiktok", problems.join(" "));
+    }
+    const privacy = options.privacy_level as string;
+
+    // Interactions are opt-in (off unless the user allowed them), per
+    // TikTok's rules; disclosure toggles map straight onto the API's names.
+    const commercial = options.disclose_commercial
+      ? {
+          brand_content_toggle: Boolean(options.brand_content),
+          brand_organic_toggle: Boolean(options.brand_organic),
+        }
+      : {};
+
     let publishId: string;
 
     if (video) {
@@ -279,7 +299,15 @@ export const tiktokAdapter: PlatformAdapter = {
           token,
           headers: { "Content-Type": "application/json; charset=UTF-8" },
           body: JSON.stringify({
-            post_info: { title: caption, privacy_level: privacy },
+            post_info: {
+              title: caption,
+              privacy_level: privacy,
+              disable_comment: !options.allow_comment,
+              disable_duet: !options.allow_duet,
+              disable_stitch: !options.allow_stitch,
+              ...commercial,
+              ...(options.is_aigc ? { is_aigc: true } : {}),
+            },
             source_info: { source: "PULL_FROM_URL", video_url: video.url },
           }),
         },
@@ -294,7 +322,12 @@ export const tiktokAdapter: PlatformAdapter = {
           body: JSON.stringify({
             media_type: "PHOTO",
             post_mode: "DIRECT_POST",
-            post_info: { description: caption, privacy_level: privacy },
+            post_info: {
+              description: caption,
+              privacy_level: privacy,
+              disable_comment: !options.allow_comment,
+              ...commercial,
+            },
             source_info: {
               source: "PULL_FROM_URL", // the only source photos support
               photo_images: media.slice(0, 35).map((m) => m.url),
@@ -328,7 +361,7 @@ export const tiktokAdapter: PlatformAdapter = {
       const status = check.data?.status;
       if (status === "PUBLISH_COMPLETE") {
         const postId = check.data?.publicaly_available_post_id?.[0];
-        const username = creator.data?.creator_username;
+        const username = creator.creatorUsername;
         return {
           // Public posts carry TikTok's own id; SELF_ONLY ones (pre-audit)
           // do not, so the publish_id is the trace we keep instead.

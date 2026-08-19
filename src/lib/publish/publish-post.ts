@@ -93,14 +93,24 @@ export async function publishPost(
         `${platform} publishing is not available yet.`);
     }
 
-    const caption = post.platform_overrides[platform]?.caption ?? post.caption;
+    const override = post.platform_overrides[platform];
+    const caption = override?.caption ?? post.caption;
     const issues = validateContent(
       { id: adapter.id, displayName: adapter.displayName, capabilities: adapter.capabilities, rules: adapter.rules },
       { caption, media: post.media },
-    );
+    ).map((i) => i.message);
+    // Per-platform options (TikTok's privacy level and toggles) are checked
+    // the same way content is: createPost refused them already, this is the
+    // publish-time echo for rows that reached the queue another way.
+    if (adapter.validateOptions) {
+      issues.push(
+        ...adapter.validateOptions(override?.options, null, {
+          hasVideo: post.media.some((m) => m.type === "video"),
+        }),
+      );
+    }
     if (issues.length > 0) {
-      return failed(connection.id, platform, name, "invalid_content",
-        issues.map((i) => i.message).join(" "));
+      return failed(connection.id, platform, name, "invalid_content", issues.join(" "));
     }
 
     // The plan gate, at publish time — not only at submission. A post scheduled
@@ -121,6 +131,7 @@ export async function publishPost(
         media: post.media,
         tokens,
         platformAccountId: connection.platform_account_id,
+        options: override?.options,
       });
 
       if (platform === "x") snapshot.usage.xPostsThisMonth += 1;

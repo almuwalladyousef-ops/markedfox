@@ -38,7 +38,10 @@ export type ContentIssueCode =
   | "too_many_media"
   | "too_many_videos"
   | "mixed_media"
-  | "invalid_media_url";
+  | "invalid_media_url"
+  /** A per-platform publish option is missing or not allowed (TikTok's
+   *  privacy level, disclosure toggles). Produced by adapter.validateOptions. */
+  | "invalid_options";
 
 export type ContentIssue = {
   platform: Platform;

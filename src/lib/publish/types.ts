@@ -3,6 +3,7 @@ import type {
   ConnectionTokens,
   MediaRef,
   Platform,
+  PlatformPublishOptions,
   PublishResult,
 } from "@/lib/platforms/types";
 import type { UsageKind } from "@/lib/usage/record";
@@ -19,7 +20,14 @@ export type PostStatus =
   | "failed"
   | "canceled";
 
-export type PlatformOverrides = Partial<Record<Platform, { caption?: string }>>;
+export type PlatformOverride = {
+  caption?: string;
+  /** Per-platform publish options chosen in the composer (see
+   *  PlatformAdapter.validateOptions). */
+  options?: PlatformPublishOptions;
+};
+
+export type PlatformOverrides = Partial<Record<Platform, PlatformOverride>>;
 
 // A scheduled_posts row as the orchestrator needs it. `media` and
 // `platform_overrides` are jsonb in the database; the store parses them into

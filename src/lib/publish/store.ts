@@ -7,11 +7,17 @@ import {
   markConnectionStatus,
 } from "@/lib/connections/store";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
-import { PLATFORMS, type MediaRef, type Platform } from "@/lib/platforms/types";
+import {
+  PLATFORMS,
+  type MediaRef,
+  type Platform,
+  type PlatformPublishOptions,
+} from "@/lib/platforms/types";
 import { recordUsage } from "@/lib/usage/record";
 
 import type {
   HistoryEntry,
+  PlatformOverride,
   PlatformOverrides,
   PostRow,
   PostStatus,
@@ -130,8 +136,19 @@ export function parseOverrides(raw: unknown): PlatformOverrides {
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
     if (!(PLATFORMS as readonly string[]).includes(key)) continue;
     if (typeof value !== "object" || value === null) continue;
-    const caption = (value as Record<string, unknown>).caption;
-    if (typeof caption === "string") out[key as Platform] = { caption };
+    const record = value as Record<string, unknown>;
+    const override: PlatformOverride = {};
+    if (typeof record.caption === "string") override.caption = record.caption;
+    if (typeof record.options === "object" && record.options !== null && !Array.isArray(record.options)) {
+      const options: PlatformPublishOptions = {};
+      for (const [k, v] of Object.entries(record.options as Record<string, unknown>)) {
+        if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") options[k] = v;
+      }
+      override.options = options;
+    }
+    if (override.caption !== undefined || override.options !== undefined) {
+      out[key as Platform] = override;
+    }
   }
   return out;
 }

@@ -1,6 +1,11 @@
-import { PLATFORMS, type MediaRef, type Platform } from "@/lib/platforms/types";
+import {
+  PLATFORMS,
+  type MediaRef,
+  type Platform,
+  type PlatformPublishOptions,
+} from "@/lib/platforms/types";
 
-import type { PlatformOverrides } from "./types";
+import type { PlatformOverride, PlatformOverrides } from "./types";
 
 // Parses the body of POST /api/posts. Pure: no I/O, no framework imports, so
 // the shape rules are unit-tested and the route stays a thin wrapper.
@@ -33,6 +38,29 @@ export type ParsedRequest =
 export const MAX_CAPTION_BYTES = 70_000;
 export const MAX_MEDIA_ITEMS = 35;
 export const MAX_MEDIA_URL_LENGTH = 2048;
+// Per-platform options are a small flat bag of primitives; these bounds only
+// exist so a hostile body cannot store a novel in jsonb.
+export const MAX_OPTION_KEYS = 24;
+export const MAX_OPTION_STRING_LENGTH = 200;
+
+function parsePublishOptions(raw: unknown): PlatformPublishOptions | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const entries = Object.entries(raw as Record<string, unknown>);
+  if (entries.length > MAX_OPTION_KEYS) return null;
+  const out: PlatformPublishOptions = {};
+  for (const [key, value] of entries) {
+    if (!/^[a-z][a-z0-9_]{0,39}$/.test(key)) return null;
+    if (typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value))) {
+      out[key] = value;
+    } else if (typeof value === "string") {
+      if (value.length > MAX_OPTION_STRING_LENGTH) return null;
+      out[key] = value;
+    } else {
+      return null;
+    }
+  }
+  return out;
+}
 export const MAX_TARGETS = 25;
 // Something scheduled more than a year out is almost certainly a typo in the
 // year, and the composer's picker will not offer it either.
@@ -145,16 +173,31 @@ export function parseCreatePostRequest(body: unknown, now = new Date()): ParsedR
           continue;
         }
         const override = value as Record<string, unknown>;
-        if (override.caption === undefined) continue;
-        if (typeof override.caption !== "string") {
-          issue(`platformOverrides.${key}.caption`, "Override caption must be a string.");
-          continue;
+        const parsed: PlatformOverride = {};
+        if (override.caption !== undefined) {
+          if (typeof override.caption !== "string") {
+            issue(`platformOverrides.${key}.caption`, "Override caption must be a string.");
+            continue;
+          }
+          if (new TextEncoder().encode(override.caption).length > MAX_CAPTION_BYTES) {
+            issue(`platformOverrides.${key}.caption`, "That caption is far beyond what any platform accepts.");
+            continue;
+          }
+          parsed.caption = override.caption;
         }
-        if (new TextEncoder().encode(override.caption).length > MAX_CAPTION_BYTES) {
-          issue(`platformOverrides.${key}.caption`, "That caption is far beyond what any platform accepts.");
-          continue;
+        if (override.options !== undefined) {
+          const options = parsePublishOptions(override.options);
+          if (!options) {
+            issue(
+              `platformOverrides.${key}.options`,
+              `Options must be an object of at most ${MAX_OPTION_KEYS} string/number/boolean values.`,
+            );
+            continue;
+          }
+          parsed.options = options;
         }
-        platformOverrides[key as Platform] = { caption: override.caption };
+        if (parsed.caption === undefined && parsed.options === undefined) continue;
+        platformOverrides[key as Platform] = parsed;
       }
     }
   }
