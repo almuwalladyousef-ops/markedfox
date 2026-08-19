@@ -5,7 +5,7 @@ import { getPlatform, listRegisteredPlatforms } from "./registry";
 import { PLATFORMS } from "./types";
 
 describe("platform registry", () => {
-  it("exposes all 8 known platforms in the union", () => {
+  it("exposes all 9 known platforms in the union", () => {
     expect(PLATFORMS).toEqual([
       "instagram",
       "x",
@@ -13,6 +13,7 @@ describe("platform registry", () => {
       "facebook",
       "tiktok",
       "youtube",
+      "snapchat",
       "linkedin",
       "pinterest",
     ]);
@@ -28,8 +29,8 @@ describe("platform registry", () => {
   });
 
   it("throws for platforms without an adapter yet", () => {
-    expect(() => getPlatform("tiktok")).toThrow(PlatformNotRegisteredError);
-    expect(() => getPlatform("x")).toThrow(PlatformNotRegisteredError);
+    expect(() => getPlatform("linkedin")).toThrow(PlatformNotRegisteredError);
+    expect(() => getPlatform("pinterest")).toThrow(PlatformNotRegisteredError);
   });
 
   it("gives Facebook and Threads the capabilities Instagram lacks", () => {
@@ -58,7 +59,31 @@ describe("platform registry", () => {
 
   it("lists only registered adapters", () => {
     const ids = listRegisteredPlatforms().map((a) => a.id);
-    expect(ids).toEqual(["instagram", "facebook", "threads"]);
+    expect(ids).toEqual([
+      "instagram",
+      "x",
+      "facebook",
+      "threads",
+      "tiktok",
+      "youtube",
+      "snapchat",
+    ]);
+  });
+
+  it("declares a refresh policy and required env on every adapter", () => {
+    for (const adapter of listRegisteredPlatforms()) {
+      expect(["sweep", "on-use"]).toContain(adapter.refreshPolicy);
+      expect(adapter.requiredEnv.length).toBeGreaterThan(0);
+    }
+    // Short-lived-access-token platforms must never be swept minutely.
+    expect(getPlatform("x").refreshPolicy).toBe("on-use");
+    expect(getPlatform("youtube").refreshPolicy).toBe("on-use");
+    expect(getPlatform("tiktok").refreshPolicy).toBe("on-use");
+    expect(getPlatform("snapchat").refreshPolicy).toBe("on-use");
+    // The 60-day-token platforms are exactly what the sweep exists for.
+    expect(getPlatform("threads").refreshPolicy).toBe("sweep");
+    expect(getPlatform("instagram").refreshPolicy).toBe("sweep");
+    expect(getPlatform("facebook").refreshPolicy).toBe("sweep");
   });
 
   describe("instagram authorize URL", () => {

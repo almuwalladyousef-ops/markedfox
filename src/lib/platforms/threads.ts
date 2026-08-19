@@ -88,6 +88,8 @@ async function toLongLived(shortToken: string): Promise<ConnectionTokens> {
 export const threadsAdapter: PlatformAdapter = {
   id: "threads",
   displayName: "Threads",
+  requiredEnv: ["THREADS_APP_ID", "THREADS_APP_SECRET"],
+  refreshPolicy: "sweep",
   capabilities: {
     text: true, // Threads is text-first, unlike Instagram
     image: true,

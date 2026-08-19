@@ -11,6 +11,7 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
   facebook: "Facebook",
   tiktok: "TikTok",
   youtube: "YouTube",
+  snapchat: "Snapchat",
   linkedin: "LinkedIn",
   pinterest: "Pinterest",
 };

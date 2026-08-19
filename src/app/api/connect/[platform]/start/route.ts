@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getUser } from "@/lib/auth/session";
+import { MissingEnvError } from "@/lib/env";
 import { getSiteUrl } from "@/lib/auth/site-url";
 import { encodeState, newNonce } from "@/lib/connections/oauth-state";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
@@ -72,9 +73,23 @@ export async function GET(
   const state = encodeState({ n: nonce, w: workspaceId });
   const redirectUri = `${site}/api/connect/${platform}/callback`;
 
-  const response = NextResponse.redirect(
-    adapter.getAuthorizeUrl({ redirectUri, state }),
-  );
+  let authorizeUrl: string;
+  try {
+    authorizeUrl = adapter.getAuthorizeUrl({ redirectUri, state });
+  } catch (error) {
+    if (error instanceof MissingEnvError) {
+      // Adapter exists, credentials do not — the owner has not created this
+      // platform's developer app yet. The dashboard already hides the toggle
+      // for this case; this covers a hand-typed URL.
+      return NextResponse.json(
+        { error: `${platform} is not configured yet` },
+        { status: 503 },
+      );
+    }
+    throw error;
+  }
+
+  const response = NextResponse.redirect(authorizeUrl);
   response.cookies.set(NONCE_COOKIE, nonce, {
     httpOnly: true,
     sameSite: "lax",

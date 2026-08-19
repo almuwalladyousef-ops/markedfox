@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { decryptToken, encryptToken } from "@/lib/crypto";
-import { getPlatform } from "@/lib/platforms/registry";
+import { getPlatform, listRegisteredPlatforms } from "@/lib/platforms/registry";
 import type {
   ConnectedAccount,
   ConnectionTokens,
@@ -198,10 +198,21 @@ export async function getFreshConnectionTokens(
 export function createRefreshStore(supabase: SupabaseClient): RefreshStore {
   return {
     async listExpiring(before: Date): Promise<ExpiringConnection[]> {
+      // Only platforms whose stored credential is itself the expiring thing
+      // (refreshPolicy "sweep"). An X or YouTube connection's access token
+      // expires within hours by design — the refresh token behind it is what
+      // keeps it alive, and that renewal happens at publish time. Sweeping on
+      // token_expires_at would renew every such connection every minute.
+      const swept = listRegisteredPlatforms()
+        .filter((a) => a.refreshPolicy === "sweep")
+        .map((a) => a.id);
+      if (swept.length === 0) return [];
+
       const { data, error } = await supabase
         .from("connections")
         .select("id, platform, token_expires_at")
         .eq("status", "active")
+        .in("platform", swept)
         .not("token_expires_at", "is", null)
         .lt("token_expires_at", before.toISOString())
         .order("token_expires_at", { ascending: true })

@@ -7,6 +7,7 @@ export const PLATFORMS = [
   "facebook",
   "tiktok",
   "youtube",
+  "snapchat",
   "linkedin",
   "pinterest",
 ] as const;
@@ -94,10 +95,36 @@ export interface PlatformAdapter {
   readonly displayName: string;
   readonly capabilities: PlatformCapabilities;
   readonly rules: ContentRules;
+  /** Env vars this adapter cannot work without. The dashboard shows a
+   *  registered-but-unconfigured platform as "coming soon" instead of a
+   *  toggle that would 500 on click — the owner creates each platform's
+   *  developer app on their own schedule. */
+  readonly requiredEnv: readonly string[];
+  /** How tokens stay alive.
+   *
+   *  "sweep"  — the credential we store IS the thing that expires (Meta and
+   *             Threads 60-day tokens): the scheduler's sweep renews it ahead
+   *             of expiry, or a dormant account dies.
+   *  "on-use" — short access token + long-lived refresh token (X 2h/~6mo,
+   *             YouTube 1h/non-expiring, TikTok 24h/365d, Snapchat 1h):
+   *             getFreshConnectionTokens refreshes just-in-time at publish.
+   *             Sweeping these on token_expires_at would refresh every such
+   *             connection on every tick, minutely, forever.
+   *
+   *  Known gap, accepted until Phase 6: an "on-use" connection nobody
+   *  publishes from can outlive its refresh token (X ~6 months, YouTube after
+   *  6 months of non-use) and then needs reconnecting by hand. */
+  readonly refreshPolicy: "sweep" | "on-use";
   /** OAuth leg 1: the URL the user is sent to. */
   getAuthorizeUrl(input: { redirectUri: string; state: string }): string;
-  /** OAuth leg 2: exchange the callback code for tokens + account identity. */
-  connect(input: { code: string; redirectUri: string }): Promise<ConnectResult>;
+  /** OAuth leg 2: exchange the callback code for tokens + account identity.
+   *  `state` is the exact string echoed by the provider — adapters that need
+   *  PKCE (X) derive their code_verifier from it instead of storing one. */
+  connect(input: {
+    code: string;
+    redirectUri: string;
+    state?: string;
+  }): Promise<ConnectResult>;
   /** Server-side token refresh so background jobs never hold stale tokens. */
   refresh(tokens: ConnectionTokens): Promise<ConnectionTokens>;
   publish(input: PublishInput): Promise<PublishResult>;

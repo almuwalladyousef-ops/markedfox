@@ -202,6 +202,8 @@ async function createContainer(
 export const instagram: PlatformAdapter = {
   id: "instagram",
   displayName: "Instagram",
+  requiredEnv: ["META_APP_ID", "META_APP_SECRET"],
+  refreshPolicy: "sweep",
   capabilities: {
     text: false, // no text-only posts on Instagram
     image: true,

@@ -90,6 +90,9 @@ export async function GET(
     const result = await adapter.connect({
       code,
       redirectUri: `${site}/api/connect/${platform}/callback`,
+      // The raw state string, already verified above. X derives its PKCE
+      // code_verifier from it, so the dance stays stateless on our side.
+      state: query.get("state") ?? undefined,
     });
 
     // User-scoped client: RLS enforces that these rows can only land under the

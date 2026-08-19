@@ -89,6 +89,8 @@ async function exchangeForLongLived(token: string): Promise<ConnectionTokens> {
 export const facebook: PlatformAdapter = {
   id: "facebook",
   displayName: "Facebook",
+  requiredEnv: ["META_APP_ID", "META_APP_SECRET"],
+  refreshPolicy: "sweep",
   capabilities: {
     text: true, // unlike Instagram, a Page post needs no media
     image: true,

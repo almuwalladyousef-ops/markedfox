@@ -69,7 +69,15 @@ export default async function DashboardPage({
     listConnections(supabase, active.id),
   ]);
 
-  const buildable = new Set(listRegisteredPlatforms().map((a) => a.id));
+  // "Buildable" to the toggle means clicking Connect can actually work: the
+  // adapter exists AND the owner has put its credentials in the environment.
+  // Registered-but-unconfigured (a developer app not created yet) renders as
+  // "Coming soon" — same as no adapter at all, from the user's chair.
+  const buildable = new Set(
+    listRegisteredPlatforms()
+      .filter((a) => a.requiredEnv.every((name) => Boolean(process.env[name])))
+      .map((a) => a.id),
+  );
   const accountCap = canUserDo(snapshot, {
     type: "connect_platform",
     platform: "instagram",
