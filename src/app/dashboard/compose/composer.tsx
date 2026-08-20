@@ -17,6 +17,7 @@ import type { TargetOutcome } from "@/lib/publish/types";
 import { captionLength, validateContent } from "@/lib/publish/validate";
 
 import { PlatformOptionsPanel } from "./platform-options-panel";
+import { PostPreview } from "./post-preview";
 import { TikTokOptionsPanel, type ContextState } from "./tiktok-options-panel";
 
 // The composer. One caption, any combination of connected accounts, optional
@@ -864,6 +865,25 @@ export function Composer({
           </ul>
         ) : null}
       </section>
+
+      {selectedPlatforms.length > 0 ? (
+        <PostPreview
+          platforms={selectedPlatforms}
+          labels={labels}
+          caption={caption}
+          overrides={overrides}
+          media={mediaRefs}
+          accountsByPlatform={Object.fromEntries(
+            selectedPlatforms.map((platform) => [
+              platform,
+              selected
+                .map((id) => accountById.get(id))
+                .filter((account) => account?.platform === platform)
+                .map((account) => account!.name),
+            ]),
+          )}
+        />
+      ) : null}
 
       {/* when */}
       <section className="rounded-lg border border-neutral-900 p-4">

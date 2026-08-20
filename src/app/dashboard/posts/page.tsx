@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
+import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { PLATFORM_LABELS } from "@/lib/platforms/labels";
 import type { Platform } from "@/lib/platforms/types";
@@ -107,37 +107,33 @@ export default async function PostsPage() {
 
   return (
     <>
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Posts</h1>
-          <p className="mt-1 text-sm text-neutral-400">
-            In <span className="text-neutral-200">{active.name}</span>, newest first.
-          </p>
-        </div>
-        <nav className="flex gap-2 text-sm">
-          <Link
-            href="/dashboard/compose"
-            className="rounded-md bg-neutral-50 px-3 py-1.5 font-semibold text-neutral-950 transition hover:bg-white"
-          >
+      <PageHeader
+        title="Posts"
+        subtitle={
+          <>
+            In <span className="text-neutral-200">{active.name}</span>, newest
+            first — with what happened on each platform.
+          </>
+        }
+        actions={
+          <ButtonLink href="/dashboard/compose" tone="primary">
             Compose
-          </Link>
-          <Link
-            href="/dashboard"
-            className="rounded-md border border-neutral-800 px-3 py-1.5 text-neutral-300 transition hover:border-neutral-600"
-          >
-            Dashboard
-          </Link>
-        </nav>
-      </header>
+          </ButtonLink>
+        }
+      />
 
       {posts.length === 0 ? (
-        <p className="rounded-lg border border-neutral-900 p-6 text-sm text-neutral-400">
-          Nothing yet.{" "}
-          <Link href="/dashboard/compose" className="text-neutral-100 underline">
-            Compose your first post
-          </Link>
-          .
-        </p>
+        <EmptyState
+          title="Nothing yet"
+          action={
+            <ButtonLink href="/dashboard/compose" tone="primary">
+              Compose your first post
+            </ButtonLink>
+          }
+        >
+          Published and scheduled posts land here, each showing exactly which
+          platform succeeded and which did not.
+        </EmptyState>
       ) : (
         <ul className="flex flex-col gap-3">
           {posts.map((post) => {
