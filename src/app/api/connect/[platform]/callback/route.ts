@@ -3,11 +3,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getUser } from "@/lib/auth/session";
 import { getSiteUrl } from "@/lib/auth/site-url";
 import { PlatformApiError, PlatformAuthError } from "@/lib/platforms/errors";
+import { parseFeatures } from "@/lib/connections/features";
 import { decodeState } from "@/lib/connections/oauth-state";
 import { readProviderError } from "@/lib/connections/provider-error";
 import { saveConnection } from "@/lib/connections/store";
 import { getPlatform } from "@/lib/platforms/registry";
-import { PLATFORMS, type Platform } from "@/lib/platforms/types";
+import { PLATFORMS, type Platform, type PlatformFeature } from "@/lib/platforms/types";
 import { createClient } from "@/lib/supabase/server";
 
 import { NONCE_COOKIE } from "../start/route";
@@ -19,8 +20,8 @@ import { NONCE_COOKIE } from "../start/route";
 // Failure modes all land on /dashboard?connect_error=<reason> — a user mid-
 // OAuth has no use for a JSON error body.
 
-function bounce(base: string, query: Record<string, string>) {
-  const url = new URL("/dashboard", base);
+function bounce(base: string, query: Record<string, string>, path = "/dashboard") {
+  const url = new URL(path, base);
   for (const [key, value] of Object.entries(query)) {
     url.searchParams.set(key, value);
   }
@@ -85,6 +86,9 @@ export async function GET(
     return bounce(site, { connect_error: "missing_code" });
   }
 
+  const features: PlatformFeature[] = parseFeatures(state.f?.join(",") ?? null);
+  const messaging = features.includes("messaging");
+
   try {
     const adapter = getPlatform(platform);
     const result = await adapter.connect({
@@ -93,11 +97,13 @@ export async function GET(
       // The raw state string, already verified above. X derives its PKCE
       // code_verifier from it, so the dance stays stateless on our side.
       state: query.get("state") ?? undefined,
+      features,
     });
 
     // User-scoped client: RLS enforces that these rows can only land under the
     // signed-in user, whatever the state parameter claimed.
     const supabase = await createClient();
+    let subscribed = 0;
     for (const account of result.accounts) {
       await saveConnection(supabase, {
         userId: user.id,
@@ -106,12 +112,33 @@ export async function GET(
         account,
         tokens: result.tokens,
       });
+      // Automation was asked for: make the platform deliver this account's
+      // events to our webhook. Best-effort — the automations page offers a
+      // retry, and a failure here must not lose a connection that otherwise
+      // saved fine.
+      if (messaging && adapter.messaging) {
+        try {
+          await adapter.messaging.subscribeWebhooks({
+            tokens: account.tokens ?? result.tokens,
+            platformAccountId: account.platformAccountId,
+            metadata: account.metadata ?? {},
+          });
+          subscribed += 1;
+        } catch (error) {
+          console.error(`connect ${platform}: webhook subscription failed for ${account.platformAccountId}:`, error);
+        }
+      }
     }
 
-    return bounce(site, {
-      connected: platform,
-      accounts: String(result.accounts.length),
-    });
+    return bounce(
+      site,
+      {
+        connected: platform,
+        accounts: String(result.accounts.length),
+        ...(messaging ? { subscribed: String(subscribed) } : {}),
+      },
+      messaging ? "/dashboard/automations" : "/dashboard",
+    );
   } catch (error) {
     console.error(`connect ${platform} failed:`, error);
     // Platform errors carry a message written for the user (e.g. "none of your

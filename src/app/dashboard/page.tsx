@@ -53,14 +53,30 @@ export default async function DashboardPage({
   ]);
 
   if (!active) {
-    // The signup trigger creates a workspace for every user, so this means it
-    // did not run — worth saying plainly rather than rendering an empty page.
+    // Two ways here: the signup trigger did not run (worth saying plainly),
+    // or the account was deleted while this browser still held a session
+    // — a JWT verifies locally until it expires, so the cookie outlives the
+    // user. Tell them apart by the users row.
+    const supabaseForCheck = await createClient();
+    const { data: userRow } = await supabaseForCheck.from("users").select("id").eq("id", user.id).maybeSingle();
     return (
       <main className="mx-auto max-w-2xl px-4 py-16">
-        <h1 className="text-2xl font-semibold">Account setup incomplete</h1>
+        <h1 className="text-2xl font-semibold">
+          {userRow ? "Account setup incomplete" : "This account no longer exists"}
+        </h1>
         <p className="mt-2 text-neutral-400">
-          No workspace exists for this account. Contact support.
+          {userRow
+            ? "No workspace exists for this account. Contact support@markedfox.com."
+            : "It was deleted. Sign out to clear this browser's session."}
         </p>
+        <form action={signOut} className="mt-4">
+          <button
+            type="submit"
+            className="rounded-md border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+          >
+            Sign out
+          </button>
+        </form>
       </main>
     );
   }
@@ -177,6 +193,12 @@ export default async function DashboardPage({
           className="rounded-md border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
         >
           Posts
+        </Link>
+        <Link
+          href="/dashboard/automations"
+          className="rounded-md border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+        >
+          Automations
         </Link>
         <Link
           href="/dashboard/settings"

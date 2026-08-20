@@ -14,6 +14,9 @@ export type OAuthStatePayload = {
   n: string;
   /** Workspace the connection will be stored under. */
   w: string;
+  /** Optional feature sets requested in leg 1 ("messaging"), so leg 2 knows
+   *  which scopes were asked for and where to land afterwards. */
+  f?: string[];
   /** Mint time, for expiry. */
   t: number;
 };

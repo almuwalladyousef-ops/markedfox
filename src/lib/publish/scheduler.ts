@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { refreshExpiringConnections } from "@/lib/connections/refresh";
 import { createRefreshStore, REFRESH_WINDOW_MS } from "@/lib/connections/store";
+import { drainDmEngine, type DrainSummary } from "@/lib/dm/drain";
 import { purgeMedia } from "@/lib/media/purge";
 import { createMediaPurgeStore, isMediaStorageConfigured } from "@/lib/media/store";
 
@@ -49,6 +50,8 @@ export type TickSummary = {
   purged: number;
   /** Uploads that were never attached to any post, deleted after their grace. */
   orphansPurged: number;
+  /** The DM engine's pass: events matched, DMs sent, retried, failed. */
+  dm: DrainSummary | null;
   reports: PublishReport[];
 };
 
@@ -79,6 +82,7 @@ export async function runSchedulerTick(
     refreshFailed: 0,
     purged: 0,
     orphansPurged: 0,
+    dm: null,
     reports: [],
   };
 
@@ -156,6 +160,20 @@ export async function runSchedulerTick(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log.error(`scheduler: refresh sweep failed — ${message}`);
+  }
+
+  // The DM engine: any webhook events the webhook-time pass did not finish
+  // (a restart mid-drain), plus every DM now due — follow-ups with delays,
+  // retries backing off. Isolated like the others: its failure is logged.
+  try {
+    summary.dm = await drainDmEngine(supabase, {
+      siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "https://markedfox.com",
+      now,
+      log,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log.error(`scheduler: dm engine drain failed — ${message}`);
   }
 
   // Storage cleanup. Media exists only so the platforms can fetch it once; a

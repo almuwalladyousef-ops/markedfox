@@ -25,15 +25,24 @@ import type {
 const GRAPH_VERSION = "v26.0";
 const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
-// instagram_manage_messages is deliberately absent until Phase 4: requesting
-// the hardest permission before the DM engine exists would only invite
-// rejection notes on the app record.
+// Publishing scopes — what every Instagram connect asks for.
 const OAUTH_SCOPES = [
   "instagram_basic",
   "instagram_content_publish",
   "pages_show_list",
   "pages_read_engagement",
   "business_management",
+];
+
+// The DM/comment automation scopes, requested only when the user turns
+// automation on for an account ("messaging" feature). Kept apart so the
+// publishing connect keeps working on an app where these permissions have
+// not been added in the dashboard yet, and so the consent screen asks for
+// the hardest permission Meta grants only when there is a reason to.
+const MESSAGING_SCOPES = [
+  "instagram_manage_comments",
+  "instagram_manage_messages",
+  "pages_messaging",
 ];
 
 // Container polling lives in ./polling — the schedule and its reasoning are
@@ -126,8 +135,27 @@ async function metaUserId(userToken: string): Promise<string> {
   return me.id;
 }
 
+// What the user actually granted — Meta's token response does not say, and
+// a user can untick a permission on the consent screen. Stored on the
+// connection so the automations page can tell "messaging not granted" from
+// "engine broken". Falls back to the requested set if debug_token fails.
+async function grantedScopes(userToken: string, requested: string[]): Promise<string[]> {
+  try {
+    const out = await graph<{ data?: { scopes?: string[] } }>("/debug_token", {
+      searchParams: {
+        input_token: userToken,
+        access_token: `${requireEnv("META_APP_ID")}|${requireEnv("META_APP_SECRET")}`,
+      },
+    });
+    return Array.isArray(out.data?.scopes) && out.data.scopes.length > 0 ? out.data.scopes : requested;
+  } catch {
+    return requested;
+  }
+}
+
 async function listInstagramAccounts(
   userToken: string,
+  scopes: string[],
 ): Promise<{ accounts: ConnectedAccount[]; pagesSeen: string[] }> {
   const accounts: ConnectedAccount[] = [];
   const fbUserId = await metaUserId(userToken);
@@ -154,7 +182,7 @@ async function listInstagramAccounts(
         platformAccountName: fbPage.instagram_business_account.username,
         // Page tokens derived from a long-lived user token do not expire, and
         // Phase 4 webhook/messaging calls need them — store per account.
-        tokens: { accessToken: fbPage.access_token, scopes: OAUTH_SCOPES },
+        tokens: { accessToken: fbPage.access_token, scopes },
         metadata: { pageId: fbPage.id, pageName: fbPage.name, metaUserId: fbUserId },
       });
     }
@@ -236,17 +264,20 @@ export const instagram: PlatformAdapter = {
     hashtagMax: 30,
   },
 
-  getAuthorizeUrl({ redirectUri, state }) {
+  getAuthorizeUrl({ redirectUri, state, features }) {
+    const scopes = features?.includes("messaging")
+      ? [...OAUTH_SCOPES, ...MESSAGING_SCOPES]
+      : OAUTH_SCOPES;
     const url = new URL(`https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`);
     url.searchParams.set("client_id", requireEnv("META_APP_ID"));
     url.searchParams.set("redirect_uri", redirectUri);
     url.searchParams.set("state", state);
     url.searchParams.set("response_type", "code");
-    url.searchParams.set("scope", OAUTH_SCOPES.join(","));
+    url.searchParams.set("scope", scopes.join(","));
     return url.toString();
   },
 
-  async connect({ code, redirectUri }) {
+  async connect({ code, redirectUri, features }) {
     // Leg 2: the callback code becomes a short-lived user token.
     const short = await graph<{ access_token: string; expires_in?: number }>(
       "/oauth/access_token",
@@ -262,9 +293,12 @@ export const instagram: PlatformAdapter = {
 
     // Then straight to long-lived (~60 days) — the short token is never stored.
     const tokens = await exchangeForLongLived(short.access_token);
-    const { accounts, pagesSeen } = await listInstagramAccounts(
-      tokens.accessToken,
-    );
+    const requested = features?.includes("messaging")
+      ? [...OAUTH_SCOPES, ...MESSAGING_SCOPES]
+      : OAUTH_SCOPES;
+    const scopes = await grantedScopes(tokens.accessToken, requested);
+    tokens.scopes = scopes;
+    const { accounts, pagesSeen } = await listInstagramAccounts(tokens.accessToken, scopes);
 
     if (accounts.length === 0) {
       // Name the actual situation: the fix differs entirely depending on
@@ -286,6 +320,115 @@ export const instagram: PlatformAdapter = {
 
   async refresh(tokens) {
     return exchangeForLongLived(tokens.accessToken);
+  },
+
+  // The Instagram Messaging API, with the Page token each connection stores.
+  // Every call is POST /{ig-user-id}/messages (or /{comment-id}/replies for
+  // the public reply); the engine owns the 24-hour window, the plan cap,
+  // dedupe, and retries — this just speaks the wire format.
+  messaging: {
+    requiredScopes: MESSAGING_SCOPES,
+
+    async sendPrivateReply({ tokens, platformAccountId, commentId, text }) {
+      const out = await graph<{ message_id?: string }>(`/${platformAccountId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipient: { comment_id: commentId },
+          message: { text: text.slice(0, 1000) },
+        }),
+        searchParams: { access_token: tokens.accessToken },
+      });
+      return { messageId: out.message_id };
+    },
+
+    async sendMessage({ tokens, platformAccountId, recipientId, text, buttons }) {
+      const send = (message: Record<string, unknown>) =>
+        graph<{ message_id?: string }>(`/${platformAccountId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recipient: { id: recipientId }, message }),
+          searchParams: { access_token: tokens.accessToken },
+        });
+
+      const first = await send({ text: text.slice(0, 1000) });
+      if (!buttons || buttons.length === 0) return { messageId: first.message_id };
+
+      // Links ride a generic template (Instagram has no button template);
+      // the element title is the first button's title so the card reads as
+      // the call to action. Up to three web_url buttons per element.
+      const out = await send({
+        attachment: {
+          type: "template",
+          payload: {
+            template_type: "generic",
+            elements: [
+              {
+                title: buttons[0].title.slice(0, 80),
+                buttons: buttons.slice(0, 3).map((b) => ({
+                  type: "web_url",
+                  url: b.url,
+                  title: b.title.slice(0, 20),
+                })),
+              },
+            ],
+          },
+        },
+      });
+      return { messageId: out.message_id ?? first.message_id };
+    },
+
+    async replyToComment({ tokens, commentId, text }) {
+      const out = await graph<{ id?: string }>(`/${commentId}/replies`, {
+        method: "POST",
+        searchParams: { message: text.slice(0, 2200), access_token: tokens.accessToken },
+      });
+      return { replyId: out.id };
+    },
+
+    // For an Instagram account reached through Facebook Login, webhooks
+    // flow once the app is subscribed to the Page linked to it — any Page
+    // field will do; the Instagram fields (comments, messages) are chosen on
+    // the app's Webhooks product, once, by the owner. Idempotent.
+    async listRecentPosts({ tokens, platformAccountId, limit = 24 }) {
+      const out = await graph<{
+        data?: {
+          id: string;
+          caption?: string;
+          permalink?: string;
+          thumbnail_url?: string;
+          media_url?: string;
+          media_type?: string;
+          timestamp?: string;
+        }[];
+      }>(`/${platformAccountId}/media`, {
+        searchParams: {
+          fields: "id,caption,permalink,thumbnail_url,media_url,media_type,timestamp",
+          limit: String(Math.min(Math.max(limit, 1), 50)),
+          access_token: tokens.accessToken,
+        },
+      });
+      return (out.data ?? []).map((m) => ({
+        id: m.id,
+        caption: m.caption,
+        permalink: m.permalink,
+        // Videos carry thumbnail_url; images only media_url.
+        thumbnailUrl: m.thumbnail_url ?? (m.media_type === "VIDEO" ? undefined : m.media_url),
+        mediaType: m.media_type,
+        timestamp: m.timestamp,
+      }));
+    },
+
+    async subscribeWebhooks({ tokens, metadata }) {
+      const pageId = typeof metadata.pageId === "string" ? metadata.pageId : null;
+      if (!pageId) {
+        throw new PlatformApiError("instagram", "no Page id on this connection — reconnect it");
+      }
+      await graph(`/${pageId}/subscribed_apps`, {
+        method: "POST",
+        searchParams: { subscribed_fields: "feed", access_token: tokens.accessToken },
+      });
+    },
   },
 
   async publish({ caption, media, tokens, platformAccountId }) {

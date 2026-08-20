@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getUser } from "@/lib/auth/session";
 import { MissingEnvError } from "@/lib/env";
 import { getSiteUrl } from "@/lib/auth/site-url";
+import { parseFeatures } from "@/lib/connections/features";
 import { encodeState, newNonce } from "@/lib/connections/oauth-state";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -15,6 +16,7 @@ import { getActiveWorkspace } from "@/lib/workspaces/store";
 // send the user to the platform's consent screen.
 //
 // GET /api/connect/instagram/start
+// GET /api/connect/instagram/start?features=messaging   (adds the DM scopes)
 
 export const NONCE_COOKIE = "mf_oauth_nonce";
 
@@ -69,13 +71,21 @@ export async function GET(
     );
   }
 
+  const features = parseFeatures(request.nextUrl.searchParams.get("features"));
+  if (features.includes("messaging") && !adapter.messaging) {
+    return NextResponse.json(
+      { error: `${platform} has no DM automation` },
+      { status: 404 },
+    );
+  }
+
   const nonce = newNonce();
-  const state = encodeState({ n: nonce, w: workspaceId });
+  const state = encodeState({ n: nonce, w: workspaceId, ...(features.length ? { f: features } : {}) });
   const redirectUri = `${site}/api/connect/${platform}/callback`;
 
   let authorizeUrl: string;
   try {
-    authorizeUrl = adapter.getAuthorizeUrl({ redirectUri, state });
+    authorizeUrl = adapter.getAuthorizeUrl({ redirectUri, state, features });
   } catch (error) {
     if (error instanceof MissingEnvError) {
       // Adapter exists, credentials do not — the owner has not created this

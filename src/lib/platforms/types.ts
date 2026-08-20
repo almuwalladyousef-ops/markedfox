@@ -93,6 +93,60 @@ export interface ContentRules {
   hashtagMax: number | null;
 }
 
+// Optional permission sets a connect can ask for on top of publishing.
+export type PlatformFeature = "messaging";
+
+// What the DM engine asks of a platform. Every call is one send; the engine
+// owns queueing, windows, caps, retries, and analytics.
+export interface MessagingCapability {
+  /** The scopes the platform must have granted for the engine to work here. */
+  readonly requiredScopes: readonly string[];
+  /** The one DM a platform allows in answer to a comment. */
+  sendPrivateReply(input: {
+    tokens: ConnectionTokens;
+    platformAccountId: string;
+    commentId: string;
+    text: string;
+  }): Promise<{ messageId?: string }>;
+  /** A DM to someone inside the platform's messaging window. */
+  sendMessage(input: {
+    tokens: ConnectionTokens;
+    platformAccountId: string;
+    recipientId: string;
+    text: string;
+    buttons?: { title: string; url: string }[];
+  }): Promise<{ messageId?: string }>;
+  /** A public reply under a comment. */
+  replyToComment(input: {
+    tokens: ConnectionTokens;
+    platformAccountId: string;
+    commentId: string;
+    text: string;
+  }): Promise<{ replyId?: string }>;
+  /** Make the platform deliver this account's events to our webhook. Called
+   *  at connect and from the automations page; idempotent. */
+  subscribeWebhooks(input: {
+    tokens: ConnectionTokens;
+    platformAccountId: string;
+    metadata: Record<string, unknown>;
+  }): Promise<void>;
+  /** Recent posts, so a rule can be aimed at specific ones. */
+  listRecentPosts(input: {
+    tokens: ConnectionTokens;
+    platformAccountId: string;
+    limit?: number;
+  }): Promise<RecentPost[]>;
+}
+
+export type RecentPost = {
+  id: string;
+  caption?: string;
+  permalink?: string;
+  thumbnailUrl?: string;
+  mediaType?: string;
+  timestamp?: string;
+};
+
 // One adapter per platform, one file per adapter, registered in registry.ts.
 // Routes never contain platform-specific code: they resolve an adapter and
 // call it.
@@ -121,8 +175,10 @@ export interface PlatformAdapter {
    *  publishes from can outlive its refresh token (X ~6 months, YouTube after
    *  6 months of non-use) and then needs reconnecting by hand. */
   readonly refreshPolicy: "sweep" | "on-use";
-  /** OAuth leg 1: the URL the user is sent to. */
-  getAuthorizeUrl(input: { redirectUri: string; state: string }): string;
+  /** OAuth leg 1: the URL the user is sent to. `features` asks for optional
+   *  permission sets beyond publishing — "messaging" adds the DM/comment
+   *  scopes so the automation engine can act for this account. */
+  getAuthorizeUrl(input: { redirectUri: string; state: string; features?: PlatformFeature[] }): string;
   /** OAuth leg 2: exchange the callback code for tokens + account identity.
    *  `state` is the exact string echoed by the provider — adapters that need
    *  PKCE (X) derive their code_verifier from it instead of storing one. */
@@ -130,6 +186,8 @@ export interface PlatformAdapter {
     code: string;
     redirectUri: string;
     state?: string;
+    /** The feature set leg 1 asked for, so leg 2 knows what was requested. */
+    features?: PlatformFeature[];
   }): Promise<ConnectResult>;
   /** Server-side token refresh so background jobs never hold stale tokens. */
   refresh(tokens: ConnectionTokens): Promise<ConnectionTokens>;
@@ -147,6 +205,10 @@ export interface PlatformAdapter {
     context?: Record<string, unknown> | null,
     input?: { hasVideo?: boolean },
   ): string[];
+  /** DM and comment automation for this platform, when the API supports it
+   *  (Instagram via the Messaging API; Facebook Pages later). Absent means the
+   *  automation engine has nothing to drive here. */
+  readonly messaging?: MessagingCapability;
   /** Tell the platform to invalidate this grant, when it offers a per-token
    *  revoke endpoint (X, Google, TikTok). Optional and best-effort: the
    *  disconnect that calls it deletes our copy of the token regardless, and
