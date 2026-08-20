@@ -126,6 +126,7 @@ export type TargetFailureCode =
   | "funnels_locked"
   | "research_locked"
   | "research_credits_cap"
+  | "research_sources_cap"
   | "auth_error"
   | "rate_limited"
   | "platform_error"

@@ -23,6 +23,8 @@ const FREE_LIMITS: PlanLimits = {
   videoUploadMinutesPerMonth: 60,
   funnels: false,
   researchCreditsPerMonth: 0,
+  researchSourcesMax: 0,
+  researchRefreshHours: 24,
 };
 
 const PRO_LIMITS: PlanLimits = {
@@ -37,6 +39,8 @@ const PRO_LIMITS: PlanLimits = {
   videoUploadMinutesPerMonth: 600,
   funnels: true,
   researchCreditsPerMonth: 0,
+  researchSourcesMax: 0,
+  researchRefreshHours: 24,
 };
 
 const ZERO_USAGE: EntitlementSnapshot["usage"] = {
@@ -46,6 +50,7 @@ const ZERO_USAGE: EntitlementSnapshot["usage"] = {
   xPostsThisMonth: 0,
   dmSendsThisMonth: 0,
   dmRuleCount: 0,
+  researchSourceCount: 0,
   videoMinutesThisMonth: 0,
   researchCreditsThisMonth: 0,
 };
@@ -236,6 +241,8 @@ describe("parsePlanLimits", () => {
     video_upload_minutes_per_month: 60,
     funnels: false,
     research_credits_per_month: 0,
+    research_sources_max: 0,
+    research_refresh_hours: 24,
   };
 
   it("parses the seed shape", () => {
@@ -267,7 +274,12 @@ describe("parsePlanLimits", () => {
 describe("canUserDo — research", () => {
   // Research is the Studio pillar: Free and Pro carry zero credits, so the
   // capability itself is off, not merely capped.
-  const studioLimits = { ...PRO_LIMITS, researchCreditsPerMonth: 100 };
+  const studioLimits = {
+    ...PRO_LIMITS,
+    researchCreditsPerMonth: 100,
+    researchSourcesMax: 150,
+    researchRefreshHours: 12,
+  };
   const studio = (usage: Partial<EntitlementSnapshot["usage"]> = {}) => ({
     planId: "studio",
     limits: studioLimits,

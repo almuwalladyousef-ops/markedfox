@@ -11,6 +11,9 @@
 
 import { requireEnv } from "@/lib/env";
 
+import type { Breakdown } from "./breakdown";
+import { renderBreakdownForPrompt } from "./breakdown-prompt";
+
 export type ScriptKind = "hooks" | "outline" | "script";
 
 export interface GenerationSource {
@@ -21,6 +24,10 @@ export interface GenerationSource {
   transcript?: string | null;
   /** How far it beat its channel's baseline — the reason it is worth copying. */
   outlierScore?: number | null;
+  /** The step-3 deconstruction. When present it REPLACES the transcript in the
+   *  prompt: the mechanism is what should carry over, and passing the original
+   *  words as well is how a "remix" turns into a rewrite. */
+  breakdown?: Breakdown | null;
 }
 
 export interface GenerationRequest {
@@ -75,25 +82,35 @@ export function buildPrompt(request: GenerationRequest): string {
 
   if (request.source) {
     const s = request.source;
-    parts.push(
-      "\nUse this high-performing video as the reference for structure and angle — " +
-        "do not copy its wording.",
-      `Platform: ${s.platform}`,
-      `Title: ${s.title}`,
-    );
-    if (typeof s.outlierScore === "number") {
+
+    if (s.breakdown) {
+      // The good path. The model gets the MECHANISM and never sees the original
+      // wording, so the result is a remix by construction rather than by
+      // instruction — there is nothing there to copy.
+      parts.push("", renderBreakdownForPrompt(s.breakdown));
+    } else {
+      // No breakdown yet: fall back to the raw video. Weaker, and the UI says
+      // so, because a model handed a transcript will echo its phrasing.
       parts.push(
-        `Performance: ${s.outlierScore.toFixed(1)}x this channel's own recent median, ` +
-          "so its structure is what is worth learning from.",
+        "\nUse this high-performing video as the reference for structure and angle — " +
+          "do not copy its wording.",
+        `Platform: ${s.platform}`,
+        `Title: ${s.title}`,
       );
-    }
-    if (s.description?.trim()) {
-      parts.push(`Description: ${s.description.trim().slice(0, 1000)}`);
-    }
-    if (s.transcript?.trim()) {
-      parts.push(
-        `Transcript (may be truncated):\n${s.transcript.trim().slice(0, MAX_TRANSCRIPT_CHARS)}`,
-      );
+      if (typeof s.outlierScore === "number") {
+        parts.push(
+          `Performance: ${s.outlierScore.toFixed(1)}x this channel's own recent median, ` +
+            "so its structure is what is worth learning from.",
+        );
+      }
+      if (s.description?.trim()) {
+        parts.push(`Description: ${s.description.trim().slice(0, 1000)}`);
+      }
+      if (s.transcript?.trim()) {
+        parts.push(
+          `Transcript (may be truncated):\n${s.transcript.trim().slice(0, MAX_TRANSCRIPT_CHARS)}`,
+        );
+      }
     }
   }
 
@@ -141,6 +158,13 @@ const TIMEOUT_MS = 60_000;
 export async function generate(
   request: GenerationRequest,
 ): Promise<Generation> {
+  return generateFromPrompt(buildPrompt(request));
+}
+
+/** The same call with a prompt built elsewhere — the breakdown, the standalone
+ *  hook generator, and the channel audit all have their own prompts and share
+ *  this plumbing. */
+export async function generateFromPrompt(prompt: string): Promise<Generation> {
   const configured = configuredModel();
   if (!configured) {
     throw new GenerationError(
@@ -149,7 +173,6 @@ export async function generate(
     );
   }
 
-  const prompt = buildPrompt(request);
   const output =
     configured.provider === "gemini"
       ? await callGemini(configured.model, prompt)

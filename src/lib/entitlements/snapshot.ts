@@ -72,6 +72,7 @@ export async function getEntitlementSnapshot(
     videoMinutes,
     researchCredits,
     dmRules,
+    researchSources,
     connectedAccounts,
     workspaces,
   ] =
@@ -82,6 +83,7 @@ export async function getEntitlementSnapshot(
       sumUsage(supabase, userId, "video_upload", monthStart),
       sumUsage(supabase, userId, "ai_call", monthStart),
       countDmRules(supabase, userId),
+      countResearchSources(supabase, userId),
       countConnections(supabase, workspaceId),
       countWorkspaces(supabase, userId),
     ]);
@@ -96,6 +98,7 @@ export async function getEntitlementSnapshot(
       videoMinutesThisMonth: videoMinutes,
       researchCreditsThisMonth: researchCredits,
       dmRuleCount: dmRules,
+      researchSourceCount: researchSources,
       connectedAccountsInWorkspace: connectedAccounts,
       workspaceCount: workspaces,
     },
@@ -157,6 +160,20 @@ async function countDmRules(
 ): Promise<number> {
   const { count, error } = await supabase
     .from("dm_rules")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+// Pooled for the same reason: a tracked channel costs API quota on a schedule,
+// so tracking must not be multipliable by creating workspaces.
+async function countResearchSources(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from("research_sources")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId);
   if (error) throw error;

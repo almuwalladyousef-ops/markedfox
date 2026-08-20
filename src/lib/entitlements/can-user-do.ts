@@ -144,6 +144,25 @@ export function canUserDo(
       return { allowed: true };
     }
 
+    case "track_research_source": {
+      if (limits.researchCreditsPerMonth <= 0) {
+        return deny(
+          "research_locked",
+          `Research is not included in the ${snapshot.planId} plan`,
+        );
+      }
+      if (
+        limits.researchSourcesMax !== null &&
+        usage.researchSourceCount >= limits.researchSourcesMax
+      ) {
+        return deny(
+          "research_sources_cap",
+          `The ${snapshot.planId} plan tracks up to ${limits.researchSourcesMax} channels`,
+        );
+      }
+      return { allowed: true };
+    }
+
     case "spend_research_credits": {
       if (limits.researchCreditsPerMonth <= 0) {
         return deny(

@@ -8,12 +8,22 @@ import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { deleteSourceAction, syncSourceAction } from "@/lib/research/actions";
 import { configuredModel } from "@/lib/research/generate";
-import { describeScore, OUTLIER_THRESHOLD } from "@/lib/research/outlier";
+import {
+  describeScore,
+  OUTLIER_THRESHOLD,
+  scoreTier,
+  TIER_LABELS,
+} from "@/lib/research/outlier";
 import {
   isResearchProviderConfigured,
   listResearchProviders,
 } from "@/lib/research/providers";
-import { listFeed, listSources } from "@/lib/research/store";
+import {
+  breakdownVideoIds,
+  listFeed,
+  listProjects,
+  listSources,
+} from "@/lib/research/store";
 import type { ResearchPlatform } from "@/lib/research/types";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
@@ -91,10 +101,17 @@ export default async function ResearchPage() {
     );
   }
 
-  const [sources, feed] = await Promise.all([
+  const [sources, feed, projects] = await Promise.all([
     listSources(supabase, active.id),
     listFeed(supabase, active.id, { limit: 60 }),
+    listProjects(supabase, active.id),
   ]);
+  // One query for the whole page rather than one per row.
+  const analysed = await breakdownVideoIds(
+    supabase,
+    feed.map((v) => v.id),
+  );
+  const sampleBySource = new Map(sources.map((s) => [s.id, s.baseline_sample]));
 
   const watchingByPlatform = new Map<ResearchPlatform, number>();
   for (const source of sources) {
@@ -142,6 +159,24 @@ export default async function ResearchPage() {
           credits left this month
         </p>
       </header>
+
+      <nav className="flex flex-wrap gap-2 text-sm">
+        <Link
+          href="/dashboard/research/projects"
+          className="rounded-md border border-neutral-800 px-3 py-2 text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+        >
+          Projects
+          {projects.length > 0 ? (
+            <span className="ml-1.5 text-neutral-500">{projects.length}</span>
+          ) : null}
+        </Link>
+        <Link
+          href="/dashboard/research/tools"
+          className="rounded-md border border-neutral-800 px-3 py-2 text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+        >
+          Tools
+        </Link>
+      </nav>
 
       {!model ? (
         <p className="rounded-lg border border-neutral-800 bg-neutral-950 px-4 py-3 text-xs text-neutral-500">
@@ -217,14 +252,21 @@ export default async function ResearchPage() {
         ) : (
           <ul className="mt-3 flex flex-col gap-2">
             {feed.map((video) => {
-              const strong = (video.outlier_score ?? 0) >= OUTLIER_THRESHOLD;
+              const score =
+                video.outlier_score === null ? null : Number(video.outlier_score);
+              const sample = sampleBySource.get(video.source_id) ?? 0;
+              const tier = scoreTier(score, sample);
+              const validated = tier === "validated";
+              const strong = (score ?? 0) >= OUTLIER_THRESHOLD;
               return (
                 <li
                   key={video.id}
                   className={`flex items-start gap-4 rounded-lg border px-4 py-3 ${
-                    strong
-                      ? "border-emerald-900/60 bg-emerald-950/10"
-                      : "border-neutral-800 bg-neutral-950/60"
+                    validated
+                      ? "border-emerald-700/70 bg-emerald-950/20"
+                      : strong
+                        ? "border-emerald-900/60 bg-emerald-950/10"
+                        : "border-neutral-800 bg-neutral-950/60"
                   }`}
                 >
                   <div className="min-w-0 flex-1">
@@ -234,10 +276,25 @@ export default async function ResearchPage() {
                     >
                       {video.title}
                     </Link>
-                    <p className="mt-1 text-xs text-neutral-500">
-                      {video.source.title} · {video.source.platform} ·{" "}
-                      {formatCount(video.view_count)}{" "}
-                      {video.source.platform === "instagram" ? "likes" : "views"}
+                    <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-neutral-500">
+                      <span>
+                        {video.source.title} · {video.source.platform} ·{" "}
+                        {formatCount(video.view_count)}{" "}
+                        {video.source.platform === "instagram" ? "likes" : "views"}
+                      </span>
+                      {validated ? (
+                        <span
+                          title={`Beat this channel's median by ${score?.toFixed(1)}x, off a baseline of ${sample} videos`}
+                          className="rounded-full border border-emerald-700/70 bg-emerald-950/40 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300"
+                        >
+                          {TIER_LABELS.validated}
+                        </span>
+                      ) : null}
+                      {analysed.has(video.id) ? (
+                        <span className="rounded-full border border-neutral-700 bg-neutral-900 px-1.5 py-0.5 text-[10px] font-medium text-neutral-400">
+                          Broken down
+                        </span>
+                      ) : null}
                     </p>
                   </div>
                   <span
@@ -245,9 +302,7 @@ export default async function ResearchPage() {
                       strong ? "text-emerald-300" : "text-neutral-500"
                     }`}
                   >
-                    {describeScore(
-                      video.outlier_score === null ? null : Number(video.outlier_score),
-                    )}
+                    {describeScore(score, sample)}
                   </span>
                 </li>
               );

@@ -333,6 +333,121 @@ try {
     !ownDelete && orphanVideos === 0,
     `${orphanVideos} left`,
   );
+  // ── 9. step 3: breakdowns, projects, and the standalone transcripts ───
+  // A fresh source and video: section 8 deleted `small` and everything under it.
+  const stepThreeSource = await mkSource(a, { title: "Step three channel" });
+  const stepThreeVideo = await mkVideo(a, stepThreeSource.id, {
+    title: "Worth deconstructing",
+    view_count: 50000,
+    outlier_score: 12,
+    baseline_views: 4000,
+  });
+
+  const { error: breakdownError } = await admin.from("research_breakdowns").insert({
+    video_id: stepThreeVideo,
+    user_id: a.id,
+    workspace_id: a.workspaceId,
+    hook: "Everyone says grind. That is why you are broke.",
+    hook_type: "contradiction",
+    curiosity_loop: "Withholds the fix until 0:38",
+    structure: [{ label: "hook", detail: "Contradicts common advice" }],
+    takeaway: "Open by contradicting what the audience believes",
+    model: "smoke-model",
+  });
+  check("a breakdown stores against its video", !breakdownError, breakdownError?.message ?? "");
+
+  // One breakdown per video: re-analysing replaces rather than piling up.
+  const { error: dupBreakdown } = await admin.from("research_breakdowns").insert({
+    video_id: stepThreeVideo,
+    user_id: a.id,
+    workspace_id: a.workspaceId,
+    hook: "second attempt",
+  });
+  check("a video has at most one breakdown", Boolean(dupBreakdown), dupBreakdown?.code ?? "no error");
+
+  const { data: projectRow, error: projectError } = await admin
+    .from("research_projects")
+    .insert({ user_id: a.id, workspace_id: a.workspaceId, name: "Q4 series" })
+    .select("id")
+    .single();
+  check("a project is created", !projectError && Boolean(projectRow?.id));
+
+  await admin.from("research_project_items").insert({
+    user_id: a.id,
+    workspace_id: a.workspaceId,
+    project_id: projectRow.id,
+    video_id: stepThreeVideo,
+  });
+  const { error: dupItem } = await admin.from("research_project_items").insert({
+    user_id: a.id,
+    workspace_id: a.workspaceId,
+    project_id: projectRow.id,
+    video_id: stepThreeVideo,
+  });
+  check(
+    "saving the same idea into the same project twice is refused, not duplicated",
+    Boolean(dupItem),
+    dupItem?.code ?? "no error",
+  );
+
+  const { error: badStage } = await admin
+    .from("research_project_items")
+    .update({ stage: "vibing" })
+    .eq("project_id", projectRow.id);
+  check("an unknown pipeline stage is refused by the check constraint", Boolean(badStage));
+
+  const { error: linkTranscriptError } = await admin
+    .from("research_link_transcripts")
+    .insert({
+      user_id: a.id,
+      workspace_id: a.workspaceId,
+      platform: "youtube",
+      external_id: `smoke-${stamp}`,
+      url: "https://youtube.com/watch?v=dQw4w9WgXcQ",
+      text: "a standalone transcript with no tracked video behind it",
+      origin: "captions",
+    });
+  check(
+    "a standalone transcript stores with no research_videos row behind it",
+    !linkTranscriptError,
+    linkTranscriptError?.message ?? "",
+  );
+
+  // The new tables must be as tenant-isolated as the old ones.
+  const { data: aBreakdowns } = await clientA
+    .from("research_breakdowns")
+    .select("video_id");
+  check("A sees only A's breakdowns", (aBreakdowns ?? []).length === 1, `${(aBreakdowns ?? []).length}`);
+
+  const { data: aProjects } = await clientA.from("research_projects").select("id");
+  check("A sees only A's projects", (aProjects ?? []).length === 1);
+
+  const { error: crossProject } = await clientA.from("research_projects").insert({
+    user_id: b.id,
+    workspace_id: b.workspaceId,
+    name: "planted",
+  });
+  check("A cannot create a project in B's workspace", Boolean(crossProject), crossProject?.code);
+
+  const { data: aLinkTranscripts } = await clientA
+    .from("research_link_transcripts")
+    .select("id");
+  check("A sees only A's standalone transcripts", (aLinkTranscripts ?? []).length === 1);
+
+  // Deleting the project takes its items, not the videos they point at.
+  await admin.from("research_projects").delete().eq("id", projectRow.id);
+  const { count: orphanItems } = await admin
+    .from("research_project_items")
+    .select("id", { count: "exact", head: true })
+    .eq("project_id", projectRow.id);
+  const { count: videoStillThere } = await admin
+    .from("research_videos")
+    .select("id", { count: "exact", head: true })
+    .eq("id", stepThreeVideo);
+  check(
+    "deleting a project removes its items but not the videos",
+    orphanItems === 0 && videoStillThere === 1,
+  );
 } catch (e) {
   check("smoke ran to completion", false, e instanceof Error ? e.message : String(e));
 } finally {

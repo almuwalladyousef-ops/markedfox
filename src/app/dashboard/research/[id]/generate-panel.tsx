@@ -24,10 +24,16 @@ export function GeneratePanel({
   videoId,
   enabled,
   creditsLeft,
+  hasBreakdown,
 }: {
   videoId: string;
   enabled: boolean;
   creditsLeft: number;
+  /** With a breakdown the model gets the mechanism and never the original
+   *  words, so the result is a remix by construction. Without one it works
+   *  from the raw video and will echo its phrasing — said plainly, because a
+   *  user who does not know that will blame the output. */
+  hasBreakdown: boolean;
 }) {
   const [state, action, pending] = useActionState(generateScriptAction, EMPTY);
   const out = creditsLeft <= 0;
@@ -36,9 +42,11 @@ export function GeneratePanel({
     <section className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-5">
       <h2 className="text-sm font-semibold">Write from this video</h2>
       <p className="mt-1 text-xs text-neutral-500">
-        Uses the transcript when there is one, plus the title and how far it beat
-        its channel. Each generation spends one credit — {Math.max(0, creditsLeft)}{" "}
-        left this month.
+        {hasBreakdown
+          ? "Works from the breakdown above — the structure carries over, the wording cannot, because the model never sees it."
+          : "No breakdown yet, so this works from the raw video and may echo its phrasing. Break it down first for a genuine remix."}{" "}
+        Each generation spends one credit — {Math.max(0, creditsLeft)} left this
+        month.
       </p>
 
       {!enabled ? (

@@ -38,6 +38,13 @@ export interface PlanLimits {
   funnels: boolean;
   /** Pooled. Studio's AI credits, spendable from any workspace. */
   researchCreditsPerMonth: number;
+  /** Pooled. Channels the account may track at once. Every tracked channel is
+   *  API quota spent on a schedule, so unlimited tracking is unlimited spend —
+   *  which is why this is a number on every plan and null only on Enterprise. */
+  researchSourcesMax: number | null;
+  /** How often a tracked channel is refreshed. Higher tiers see moves sooner;
+   *  the cost is proportional, which is what makes it a tier difference. */
+  researchRefreshHours: number;
 }
 
 export interface EntitlementSnapshot {
@@ -53,6 +60,8 @@ export interface EntitlementSnapshot {
     dmSendsThisMonth: number;
     /** Pooled. count(dm_rules) across every workspace the user owns. */
     dmRuleCount: number;
+    /** Pooled. count(research_sources) across every workspace the user owns. */
+    researchSourceCount: number;
     /** Pooled. usage kind 'video_upload' amounts summed, current UTC month. */
     videoMinutesThisMonth: number;
     /** Pooled. usage kind 'ai_call' amounts summed, current UTC month. One
@@ -76,6 +85,7 @@ export type Action =
   /** Watching channels and reading the outlier feed. Gated on the plan having
    *  any research allowance at all, so Free and Pro see the upgrade prompt. */
   | { type: "use_research" }
+  | { type: "track_research_source" }
   /** One AI generation (hooks, script, outline). Checked BEFORE the call, so
    *  a denial costs nothing upstream. */
   | { type: "spend_research_credits"; credits: number };
@@ -92,7 +102,8 @@ export type DenialCode =
   | "video_minutes_cap"
   | "funnels_locked"
   | "research_locked"
-  | "research_credits_cap";
+  | "research_credits_cap"
+  | "research_sources_cap";
 
 export type Decision =
   | { allowed: true }
@@ -162,5 +173,7 @@ export function parsePlanLimits(json: unknown): PlanLimits {
     ),
     funnels: requiredBoolean("funnels"),
     researchCreditsPerMonth: requiredNumber("research_credits_per_month"),
+    researchSourcesMax: nullableNumber("research_sources_max"),
+    researchRefreshHours: requiredNumber("research_refresh_hours"),
   };
 }

@@ -29,6 +29,56 @@ export const MATURITY_HOURS = 48;
  *  the feed's default filter and the "outlier" badge. */
 export const OUTLIER_THRESHOLD = 2;
 
+/**
+ * Tiers, because "2x" and "150x" are not the same finding and a single badge
+ * would flatten them. The named tier is what the UI shows and what the feed
+ * sorts into groups.
+ *
+ * `validated` is the one that matters and the word is meant literally: not
+ * merely a big number, but a big number we can stand behind — computed from a
+ * baseline with enough videos in it, on a video old enough for its count to
+ * have settled. A 40x score off three videos is noise wearing a big number.
+ */
+export type OutlierTier =
+  | "unknown"
+  | "under"
+  | "normal"
+  | "strong"
+  | "outlier"
+  | "validated";
+
+/** A channel needs at least this many videos in its baseline before any score
+ *  is called validated. Above the bare minimum for computing a median at all —
+ *  a median of five can still be moved by one unusual video. */
+export const VALIDATED_MIN_SAMPLE = 10;
+
+/** The multiple at which a video stops being "did well" and becomes the thing
+ *  worth reverse-engineering. */
+export const VALIDATED_THRESHOLD = 10;
+
+export function scoreTier(
+  score: number | null,
+  baselineSample: number,
+): OutlierTier {
+  if (score === null) return "unknown";
+  if (score < 1) return "under";
+  if (score < OUTLIER_THRESHOLD) return "normal";
+  if (score < 5) return "strong";
+  if (score < VALIDATED_THRESHOLD) return "outlier";
+  // Past the threshold, but only "validated" if the baseline behind it is
+  // solid enough to be believed.
+  return baselineSample >= VALIDATED_MIN_SAMPLE ? "validated" : "outlier";
+}
+
+export const TIER_LABELS: Record<OutlierTier, string> = {
+  unknown: "Not enough data yet",
+  under: "Below this channel's average",
+  normal: "Around average for this channel",
+  strong: "Outperformed its channel",
+  outlier: "Outlier",
+  validated: "Validated outlier",
+};
+
 /** Median, not mean: one 50x video would otherwise raise the baseline enough to
  *  hide every other outlier on the channel. */
 export function median(values: readonly number[]): number | null {
@@ -142,12 +192,14 @@ export function scoreChannel(
 }
 
 /** Plain-English label for a score, so the UI never shows a bare float. */
-export function describeScore(score: number | null): string {
-  if (score === null) return "Not enough data yet";
-  if (score >= 10) return `${trim(score)}x — massive outlier`;
-  if (score >= OUTLIER_THRESHOLD) return `${trim(score)}x its channel average`;
-  if (score >= 1) return `${trim(score)}x — around average`;
-  return `${trim(score)}x — below this channel's average`;
+export function describeScore(
+  score: number | null,
+  baselineSample = 0,
+): string {
+  if (score === null) return TIER_LABELS.unknown;
+  const tier = scoreTier(score, baselineSample);
+  if (tier === "unknown") return TIER_LABELS.unknown;
+  return `${trim(score)}x — ${TIER_LABELS[tier].toLowerCase()}`;
 }
 
 function trim(n: number): string {

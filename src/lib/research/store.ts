@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getFreshConnectionTokens } from "@/lib/connections/store";
 
+import type { Breakdown } from "./breakdown";
 import type { StoredSource, SyncStore, VideoUpsert } from "./sync";
 import type { ProviderContext, ResearchPlatform } from "./types";
 
@@ -232,6 +233,9 @@ export async function saveScript(
     output: string;
     model: string | null;
     creditsSpent: number;
+    /** Whether this was written from a step-3 breakdown rather than raw video
+     *  text — so "why does this script look like this" stays answerable. */
+    fromBreakdown?: boolean;
   },
 ): Promise<{ id: string }> {
   const { data, error } = await supabase
@@ -245,6 +249,7 @@ export async function saveScript(
       output: input.output,
       model: input.model,
       credits_spent: input.creditsSpent,
+      from_breakdown: input.fromBreakdown ?? false,
     })
     .select("id")
     .single();
@@ -361,8 +366,15 @@ export function createSyncStore(supabase: SupabaseClient): SyncStore {
   };
 }
 
-/** Sources the background sweep should refresh: the stalest first, capped so
- *  one tick cannot spend a whole day's YouTube quota. */
+/**
+ * Sources the background sweep should consider: the stalest first, capped so
+ * one tick cannot spend a whole day's YouTube quota.
+ *
+ * `olderThan` is the LOOSEST plan's interval — the widest net. The sweep then
+ * filters each candidate against its own owner's plan, because refresh rate is
+ * a tier difference (Studio 12h, Enterprise 1h) and the query cannot know a
+ * row's plan without joining through subscriptions on every tick.
+ */
 export async function listStaleSources(
   service: SupabaseClient,
   olderThan: Date,
@@ -376,4 +388,328 @@ export async function listStaleSources(
     .limit(limit);
   if (error) throw error;
   return (data ?? []) as unknown as SourceRow[];
+}
+
+/** The refresh interval a source's OWNER is entitled to, in hours. */
+export async function refreshHoursForUser(
+  service: SupabaseClient,
+  userId: string,
+): Promise<number> {
+  const { data, error } = await service
+    .from("subscriptions")
+    .select("status, plans (limits)")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+
+  const raw: unknown = data?.plans;
+  const plan = (Array.isArray(raw) ? raw[0] : raw) as { limits?: Record<string, unknown> } | null;
+  const active = data && (data.status === "active" || data.status === "trialing");
+  const hours = active ? plan?.limits?.research_refresh_hours : undefined;
+  // Anything unreadable falls back to the slowest interval: over-refreshing
+  // costs quota that every tenant shares, under-refreshing costs freshness.
+  return typeof hours === "number" && hours > 0 ? hours : 24;
+}
+
+// ── step 3: breakdowns ─────────────────────────────────────────────────────
+
+export interface BreakdownRow {
+  video_id: string;
+  hook: string | null;
+  hook_type: string | null;
+  curiosity_loop: string | null;
+  structure: unknown;
+  format_notes: string | null;
+  takeaway: string | null;
+  notes: string | null;
+  model: string | null;
+  created_at: string;
+}
+
+const BREAKDOWN_COLUMNS =
+  "video_id,hook,hook_type,curiosity_loop,structure,format_notes,takeaway,notes,model,created_at";
+
+export async function getBreakdown(
+  supabase: SupabaseClient,
+  videoId: string,
+): Promise<BreakdownRow | null> {
+  const { data, error } = await supabase
+    .from("research_breakdowns")
+    .select(BREAKDOWN_COLUMNS)
+    .eq("video_id", videoId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as unknown as BreakdownRow) ?? null;
+}
+
+export async function saveBreakdown(
+  supabase: SupabaseClient,
+  input: {
+    videoId: string;
+    userId: string;
+    workspaceId: string;
+    breakdown: Breakdown;
+    model: string | null;
+  },
+): Promise<void> {
+  const { breakdown } = input;
+  const { error } = await supabase.from("research_breakdowns").upsert(
+    {
+      video_id: input.videoId,
+      user_id: input.userId,
+      workspace_id: input.workspaceId,
+      hook: breakdown.hook,
+      hook_type: breakdown.hookType,
+      curiosity_loop: breakdown.curiosityLoop,
+      structure: breakdown.structure,
+      format_notes: breakdown.formatNotes,
+      takeaway: breakdown.takeaway,
+      notes: breakdown.notes,
+      model: input.model,
+    },
+    { onConflict: "video_id" },
+  );
+  if (error) throw error;
+}
+
+/** Which of these videos already have a breakdown — so the feed can badge them
+ *  without a query per row. */
+export async function breakdownVideoIds(
+  supabase: SupabaseClient,
+  videoIds: string[],
+): Promise<Set<string>> {
+  if (videoIds.length === 0) return new Set();
+  const { data, error } = await supabase
+    .from("research_breakdowns")
+    .select("video_id")
+    .in("video_id", videoIds);
+  if (error) throw error;
+  return new Set((data ?? []).map((row) => (row as { video_id: string }).video_id));
+}
+
+export function toBreakdown(row: BreakdownRow): Breakdown {
+  const structure = Array.isArray(row.structure)
+    ? (row.structure as { label?: unknown; detail?: unknown }[])
+        .map((beat) => ({
+          label: typeof beat.label === "string" ? beat.label : "beat",
+          detail: typeof beat.detail === "string" ? beat.detail : "",
+        }))
+        .filter((beat) => beat.detail)
+    : [];
+
+  return {
+    hook: row.hook,
+    hookType: (row.hook_type as Breakdown["hookType"]) ?? null,
+    curiosityLoop: row.curiosity_loop,
+    structure,
+    formatNotes: row.format_notes,
+    takeaway: row.takeaway,
+    notes: row.notes,
+  };
+}
+
+// ── projects: the pipeline ─────────────────────────────────────────────────
+
+export interface ProjectRow {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+}
+
+export async function listProjects(
+  supabase: SupabaseClient,
+  workspaceId: string,
+): Promise<(ProjectRow & { item_count: number })[]> {
+  const { data, error } = await supabase
+    .from("research_projects")
+    .select("id,name,description,created_at,research_project_items(count)")
+    .eq("workspace_id", workspaceId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  return (data ?? []).map((row) => {
+    const { research_project_items: counts, ...project } = row as unknown as ProjectRow & {
+      research_project_items: { count: number }[];
+    };
+    return { ...project, item_count: counts?.[0]?.count ?? 0 };
+  });
+}
+
+export async function createProject(
+  supabase: SupabaseClient,
+  input: { userId: string; workspaceId: string; name: string; description: string | null },
+): Promise<{ id: string }> {
+  const { data, error } = await supabase
+    .from("research_projects")
+    .insert({
+      user_id: input.userId,
+      workspace_id: input.workspaceId,
+      name: input.name,
+      description: input.description,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data as { id: string };
+}
+
+export async function saveToProject(
+  supabase: SupabaseClient,
+  input: { userId: string; workspaceId: string; projectId: string; videoId: string },
+): Promise<void> {
+  // onConflict on (project_id, video_id): saving the same idea twice is a
+  // no-op, not an error the user has to read.
+  const { error } = await supabase.from("research_project_items").upsert(
+    {
+      user_id: input.userId,
+      workspace_id: input.workspaceId,
+      project_id: input.projectId,
+      video_id: input.videoId,
+    },
+    { onConflict: "project_id,video_id", ignoreDuplicates: true },
+  );
+  if (error) throw error;
+}
+
+export interface ProjectItemRow {
+  id: string;
+  stage: string;
+  note: string | null;
+  created_at: string;
+  video: VideoRow & { source: { title: string; platform: ResearchPlatform } };
+}
+
+export async function listProjectItems(
+  supabase: SupabaseClient,
+  projectId: string,
+): Promise<ProjectItemRow[]> {
+  const { data, error } = await supabase
+    .from("research_project_items")
+    .select(
+      `id,stage,note,created_at,research_videos!inner(${VIDEO_COLUMNS},research_sources!inner(title,platform))`,
+    )
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  return (data ?? []).map((row) => {
+    const { research_videos: video, ...item } = row as unknown as {
+      id: string;
+      stage: string;
+      note: string | null;
+      created_at: string;
+      research_videos: VideoRow & {
+        research_sources: { title: string; platform: ResearchPlatform };
+      };
+    };
+    const { research_sources: source, ...rest } = video;
+    return { ...item, video: { ...rest, source } };
+  });
+}
+
+export async function setProjectItemStage(
+  supabase: SupabaseClient,
+  itemId: string,
+  stage: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("research_project_items")
+    .update({ stage })
+    .eq("id", itemId);
+  if (error) throw error;
+}
+
+export async function removeProjectItem(
+  supabase: SupabaseClient,
+  itemId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("research_project_items")
+    .delete()
+    .eq("id", itemId);
+  if (error) throw error;
+}
+
+export async function deleteProject(
+  supabase: SupabaseClient,
+  projectId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("research_projects")
+    .delete()
+    .eq("id", projectId);
+  if (error) throw error;
+}
+
+// ── standalone transcripts (any pasted link) ───────────────────────────────
+
+export async function saveLinkTranscript(
+  supabase: SupabaseClient,
+  input: {
+    userId: string;
+    workspaceId: string;
+    platform: ResearchPlatform;
+    externalId: string;
+    url: string;
+    title: string | null;
+    text: string;
+    language: string | null;
+    origin: "captions" | "unavailable";
+  },
+): Promise<void> {
+  const { error } = await supabase.from("research_link_transcripts").upsert(
+    {
+      user_id: input.userId,
+      workspace_id: input.workspaceId,
+      platform: input.platform,
+      external_id: input.externalId,
+      url: input.url,
+      title: input.title,
+      text: input.text,
+      language: input.language,
+      origin: input.origin,
+    },
+    { onConflict: "workspace_id,platform,external_id" },
+  );
+  if (error) throw error;
+}
+
+export async function listLinkTranscripts(
+  supabase: SupabaseClient,
+  workspaceId: string,
+  limit = 20,
+): Promise<
+  {
+    id: string;
+    platform: ResearchPlatform;
+    url: string;
+    title: string | null;
+    text: string;
+    origin: string;
+    created_at: string;
+  }[]
+> {
+  const { data, error } = await supabase
+    .from("research_link_transcripts")
+    .select("id,platform,url,title,text,origin,created_at")
+    .eq("workspace_id", workspaceId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as never;
+}
+
+/** How many channels this workspace watches — checked against the plan's cap
+ *  before another is added. */
+export async function countSources(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from("research_sources")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if (error) throw error;
+  return count ?? 0;
 }

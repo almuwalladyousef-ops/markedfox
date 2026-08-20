@@ -6,19 +6,23 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
-import { fetchTranscriptAction } from "@/lib/research/actions";
+import { fetchTranscriptAction, saveToProjectAction } from "@/lib/research/actions";
+import { toBreakdown } from "@/lib/research/store";
 import { configuredModel } from "@/lib/research/generate";
 import { describeScore } from "@/lib/research/outlier";
 import { getResearchProvider } from "@/lib/research/providers";
 import {
+  getBreakdown,
   getSource,
   getTranscript,
   getVideo,
+  listProjects,
   listScripts,
 } from "@/lib/research/store";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
+import { BreakdownPanel } from "./breakdown-panel";
 import { GeneratePanel } from "./generate-panel";
 
 export const metadata: Metadata = { title: "Video · MarkedFox" };
@@ -40,12 +44,16 @@ export default async function ResearchVideoPage({
   const video = await getVideo(supabase, id);
   if (!video) notFound();
 
-  const [source, transcript, snapshot, scripts] = await Promise.all([
-    getSource(supabase, video.source_id),
-    getTranscript(supabase, id),
-    getEntitlementSnapshot(supabase, user.id, active.id),
-    listScripts(supabase, active.id, 10),
-  ]);
+  const [source, transcript, snapshot, scripts, breakdownRow, projects] =
+    await Promise.all([
+      getSource(supabase, video.source_id),
+      getTranscript(supabase, id),
+      getEntitlementSnapshot(supabase, user.id, active.id),
+      listScripts(supabase, active.id, 10),
+      getBreakdown(supabase, id),
+      listProjects(supabase, active.id),
+    ]);
+  const breakdown = breakdownRow ? toBreakdown(breakdownRow) : null;
 
   const allowed = canUserDo(snapshot, { type: "use_research" });
   if (!allowed.allowed) notFound();
@@ -74,6 +82,7 @@ export default async function ResearchVideoPage({
         <p className="mt-1 text-sm text-emerald-300">
           {describeScore(
             video.outlier_score === null ? null : Number(video.outlier_score),
+            source?.baseline_sample ?? 0,
           )}
           {video.baseline_views !== null ? (
             <span className="text-neutral-500">
@@ -125,10 +134,45 @@ export default async function ResearchVideoPage({
         )}
       </section>
 
+      {projects.length > 0 ? (
+        <form
+          action={saveToProjectAction}
+          className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-950/60 px-4 py-3"
+        >
+          <input type="hidden" name="video_id" value={id} />
+          <span className="text-xs text-neutral-500">Save to</span>
+          <select
+            name="project_id"
+            className="rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-xs outline-none"
+          >
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs transition hover:bg-neutral-900"
+          >
+            Save
+          </button>
+        </form>
+      ) : null}
+
+      <BreakdownPanel
+        videoId={id}
+        breakdown={breakdown}
+        enabled={configuredModel() !== null}
+        creditsLeft={creditsLeft}
+        hasTranscript={transcript?.origin === "captions"}
+      />
+
       <GeneratePanel
         videoId={id}
         enabled={configuredModel() !== null}
         creditsLeft={creditsLeft}
+        hasBreakdown={breakdown !== null}
       />
 
       {forThisVideo.length > 0 ? (

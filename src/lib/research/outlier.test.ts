@@ -8,6 +8,10 @@ import {
   median,
   outlierScore,
   scoreChannel,
+  scoreTier,
+  TIER_LABELS,
+  VALIDATED_MIN_SAMPLE,
+  VALIDATED_THRESHOLD,
 } from "./outlier";
 import type { SourceVideo } from "./types";
 
@@ -192,11 +196,55 @@ describe("describeScore", () => {
     expect(describeScore(null)).toBe("Not enough data yet");
   });
 
-  it("calls out a big multiple", () => {
-    expect(describeScore(12)).toContain("massive outlier");
+  it("calls out a big multiple, but not as validated without a sample", () => {
+    // No sample given, so 12x is an outlier — the validated bar needs a
+    // baseline thick enough to stand behind.
+    expect(describeScore(12)).toContain("outlier");
   });
 
   it("does not flatter an underperformer", () => {
     expect(describeScore(0.4)).toContain("below");
+  });
+});
+
+describe("scoreTier", () => {
+  it("calls a big multiple validated only when the baseline is thick enough", () => {
+    // The word is meant literally: not merely a big number, but a big number
+    // we can stand behind. 40x off three videos is noise wearing a big number.
+    expect(scoreTier(40, 3)).toBe("outlier");
+    expect(scoreTier(40, VALIDATED_MIN_SAMPLE)).toBe("validated");
+  });
+
+  it("separates 'did well' from 'worth reverse-engineering'", () => {
+    expect(scoreTier(2.5, 20)).toBe("strong");
+    expect(scoreTier(6, 20)).toBe("outlier");
+    expect(scoreTier(VALIDATED_THRESHOLD, 20)).toBe("validated");
+  });
+
+  it("does not flatter an underperformer", () => {
+    expect(scoreTier(0.4, 20)).toBe("under");
+    expect(scoreTier(1.2, 20)).toBe("normal");
+  });
+
+  it("is unknown without a score, whatever the sample", () => {
+    expect(scoreTier(null, 50)).toBe("unknown");
+  });
+
+  it("has a label for every tier, so the UI never shows a bare enum", () => {
+    for (const score of [null, 0.5, 1.5, 3, 7, 20]) {
+      const tier = scoreTier(score, 20);
+      expect(TIER_LABELS[tier].length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("describeScore with a sample", () => {
+  it("says validated outlier when it has earned it", () => {
+    expect(describeScore(12, 20)).toContain("validated outlier");
+  });
+
+  it("stops short of validated on a thin baseline", () => {
+    expect(describeScore(12, 4)).toContain("outlier");
+    expect(describeScore(12, 4)).not.toContain("validated");
   });
 });
