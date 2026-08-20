@@ -17,12 +17,27 @@ export class PlatformAuthError extends Error {
 
 // Any other platform API failure. `retryable` hints whether the job queue
 // should back off and try again (rate limits, 5xx) or dead-letter it.
+//
+// `status` and `retryAfterSeconds` are optional and exist for one job: telling
+// a genuine rate-limit refusal apart from every other failure, so the shared
+// per-app budget can be told to stop before the platform escalates. Adapters
+// that do not carry them simply do not participate.
 export class PlatformApiError extends Error {
   readonly retryable: boolean;
-  constructor(platform: string, detail: string, retryable = false) {
+  readonly status?: number;
+  readonly retryAfterSeconds?: number;
+
+  constructor(
+    platform: string,
+    detail: string,
+    retryable = false,
+    options: { status?: number; retryAfterSeconds?: number } = {},
+  ) {
     super(`${platform}: ${detail}`);
     this.name = "PlatformApiError";
     this.retryable = retryable;
+    this.status = options.status;
+    this.retryAfterSeconds = options.retryAfterSeconds;
   }
 }
 

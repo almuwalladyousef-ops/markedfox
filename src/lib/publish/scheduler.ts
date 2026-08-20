@@ -7,10 +7,11 @@ import { createRefreshStore, REFRESH_WINDOW_MS } from "@/lib/connections/store";
 import { drainDmEngine, type DrainSummary } from "@/lib/dm/drain";
 import { purgeMedia } from "@/lib/media/purge";
 import { createMediaPurgeStore, isMediaStorageConfigured } from "@/lib/media/store";
+import { createBudgetStore } from "@/lib/platforms/budget-store";
 import { sweepResearchSources, type SweepSummary } from "@/lib/research/sweep";
 
 import { publishPost } from "./publish-post";
-import { createPublishStore, POST_COLUMNS, toPostRow } from "./store";
+import { createPublishStore, toPostRow } from "./store";
 import type { PublishReport } from "./types";
 
 // One scheduler tick: claim every due post and publish it.
@@ -20,11 +21,11 @@ import type { PublishReport } from "./types";
 // server because that is where the TypeScript adapters are — the timer script
 // is plain Node and cannot import them.
 //
-// Concurrency: the claim is a conditional update (`status = 'scheduled'` →
-// `publishing`), so a row moved by anyone else matches zero rows and is
-// skipped. With one box and a oneshot timer that will not overlap itself, that
-// is enough; Phase 6 replaces the poll with SELECT … FOR UPDATE SKIP LOCKED
-// and adds stale-claim recovery for a tick that dies mid-publish.
+// Concurrency: posts are claimed with SELECT … FOR UPDATE SKIP LOCKED through
+// claim_scheduled_posts(), so two workers never take the same row, and a post
+// whose worker dies is recovered by the next tick's lease sweep rather than
+// stranded in `publishing` forever — which is what a deploy restart or an OOM
+// during a burst used to cost.
 
 // How long one tick keeps CLAIMING new posts. A post already claimed always
 // finishes (a TikTok PULL_FROM_URL poll alone can run 300s), but once this
@@ -32,14 +33,30 @@ import type { PublishReport } from "./types";
 // minute's tick rather than stacking behind it — scripts/run-scheduler.mjs
 // gives up listening at 280s and the systemd unit at 300s, so a tick that
 // keeps claiming past that point reports as failed while still running.
-// Phase 6's job queue replaces this with per-job leases.
 export const CLAIM_BUDGET_MS = 200_000;
+
+// How long a claimed post may stay in `publishing` before a later tick assumes
+// its worker died and returns it to the queue. Generous on purpose: a single
+// TikTok PULL_FROM_URL poll can legally run 300 seconds, and reclaiming a post
+// that is still publishing would post it twice — worse than posting it late.
+export const LEASE_SECONDS = 900;
+
+// After this many interrupted attempts a post is dead-lettered with a message
+// a human can act on, rather than retried forever.
+export const MAX_PUBLISH_ATTEMPTS = 5;
 
 export type TickSummary = {
   due: number;
   claimed: number;
-  /** Due posts left for the next tick because this one ran out of budget. */
+  /** Due posts this tick never reached because it ran out of claiming time. */
   deferred: number;
+  /** Posts held back by the shared per-app rate-limit budget and requeued.
+   *  Distinct from `deferred`: these WERE claimed and tried. */
+  rateLimited: number;
+  /** Posts a dead worker left in `publishing`, returned to the queue. */
+  recovered: number;
+  /** Posts that had been interrupted too many times to keep retrying. */
+  deadLettered: number;
   published: number;
   partial: number;
   failed: number;
@@ -71,12 +88,16 @@ export async function runSchedulerTick(
   const now = options.now ?? (() => new Date());
   const log = options.log ?? console;
   const store = createPublishStore(supabase);
+  const budget = createBudgetStore(supabase);
   const startedAt = now().getTime();
 
   const summary: TickSummary = {
     due: 0,
     claimed: 0,
     deferred: 0,
+    rateLimited: 0,
+    recovered: 0,
+    deadLettered: 0,
     published: 0,
     partial: 0,
     failed: 0,
@@ -89,62 +110,93 @@ export async function runSchedulerTick(
     reports: [],
   };
 
-  const { data: due, error } = await supabase
-    .from("scheduled_posts")
-    .select(POST_COLUMNS)
-    .eq("status", "scheduled")
-    .lte("scheduled_for", now().toISOString())
-    .order("scheduled_for", { ascending: true })
-    .limit(batchSize);
-  if (error) throw error;
-
-  summary.due = due?.length ?? 0;
-
-  for (const raw of due ?? []) {
-    const post = toPostRow(raw as unknown as Record<string, unknown>);
-
-    if (now().getTime() - startedAt > claimBudgetMs) {
-      // Still `scheduled`, still due: the next tick picks it up first
-      // (ordered by scheduled_for).
-      summary.deferred += 1;
-      continue;
-    }
-
-    const { data: claimed, error: claimError } = await supabase
-      .from("scheduled_posts")
-      .update({ status: "publishing", attempt_count: post.attempt_count + 1 })
-      .eq("id", post.id)
-      .eq("status", "scheduled")
-      .select("id")
-      .maybeSingle();
-    if (claimError) {
-      log.error(`scheduler: claim failed for ${post.id} — ${claimError.message}`);
-      continue;
-    }
-    if (!claimed) continue;
-    summary.claimed += 1;
-
-    try {
-      const report = await publishPost(
-        { store, now, log },
-        { ...post, status: "publishing", attempt_count: post.attempt_count + 1 },
+  // Recover anything a previous tick left stranded in `publishing` — a deploy
+  // restart or an OOM mid-publish. Runs BEFORE the claim so a recovered post
+  // can go out in this same tick rather than waiting another minute. The lease
+  // is generous on purpose: reclaiming a post that is still publishing would
+  // post it twice, which is the one outcome worse than posting it late.
+  try {
+    const { data: recovery, error: recoveryError } = await supabase.rpc(
+      "recover_stranded_posts",
+      { p_lease_seconds: LEASE_SECONDS, p_max_attempts: MAX_PUBLISH_ATTEMPTS },
+    );
+    if (recoveryError) throw recoveryError;
+    const row = Array.isArray(recovery) ? recovery[0] : recovery;
+    summary.recovered = Number(row?.recovered ?? 0);
+    summary.deadLettered = Number(row?.dead_lettered ?? 0);
+    if (summary.recovered > 0 || summary.deadLettered > 0) {
+      log.warn(
+        `scheduler: recovered ${summary.recovered} stranded post(s), gave up on ${summary.deadLettered}`,
       );
-      summary.reports.push(report);
-      summary[report.status] += 1;
-    } catch (err) {
-      // publishPost records its own per-target failures; reaching here means
-      // something before or after that blew up (a store call threw). Leave a
-      // trace on the row so it is not stranded in `publishing` silently.
-      const message = err instanceof Error ? err.message : String(err);
-      log.error(`scheduler: publish crashed for ${post.id} — ${message}`);
-      await supabase
-        .from("scheduled_posts")
-        .update({ status: "failed", last_error: `scheduler: ${message}`.slice(0, 1000) })
-        .eq("id", post.id)
-        .eq("status", "publishing");
-      summary.failed += 1;
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log.error(`scheduler: stranded-post recovery failed — ${message}`);
+  }
+
+  const { count: dueCount, error: countError } = await supabase
+    .from("scheduled_posts")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "scheduled")
+    .lte("scheduled_for", now().toISOString());
+  if (countError) throw countError;
+  summary.due = dueCount ?? 0;
+
+  // Claim with FOR UPDATE SKIP LOCKED rather than a conditional update: two
+  // workers (this tick and a future webhook-time drain) can run at once and
+  // will never take the same post.
+  let claimedTotal = 0;
+  while (claimedTotal < summary.due) {
+    if (now().getTime() - startedAt > claimBudgetMs) break;
+
+    const remaining = Math.min(batchSize, summary.due - claimedTotal);
+    const { data: batch, error: claimError } = await supabase.rpc(
+      "claim_scheduled_posts",
+      { batch: remaining },
+    );
+    if (claimError) {
+      log.error(`scheduler: claim failed — ${claimError.message}`);
+      break;
+    }
+
+    const rows = (batch ?? []) as Record<string, unknown>[];
+    if (rows.length === 0) break;
+
+    for (const raw of rows) {
+      claimedTotal += 1;
+      summary.claimed += 1;
+      const post = toPostRow(raw);
+
+      try {
+        const report = await publishPost({ store, budget, now, log }, post);
+        summary.reports.push(report);
+        // `deferred` here means "the shared budget said not yet, and the post
+        // is back in the queue" — not the same thing as the tick's own
+        // claiming budget running out, which is counted separately below.
+        if (report.status === "deferred") summary.rateLimited += 1;
+        else summary[report.status] += 1;
+      } catch (err) {
+        // publishPost records its own per-target failures; reaching here means
+        // something before or after that blew up (a store call threw). Leave a
+        // trace on the row so it is not stranded in `publishing` silently.
+        const message = err instanceof Error ? err.message : String(err);
+        log.error(`scheduler: publish crashed for ${post.id} — ${message}`);
+        await supabase
+          .from("scheduled_posts")
+          .update({
+            status: "failed",
+            claimed_at: null,
+            last_error: `scheduler: ${message}`.slice(0, 1000),
+          })
+          .eq("id", post.id)
+          .eq("status", "publishing");
+        summary.failed += 1;
+      }
     }
   }
+
+  // Anything still due that this tick did not reach waits for the next minute.
+  summary.deferred = Math.max(0, summary.due - claimedTotal);
 
   // Token renewal, after publishing so a slow token endpoint never delays a
   // post that is already due. Its query is indexed and returns nothing on

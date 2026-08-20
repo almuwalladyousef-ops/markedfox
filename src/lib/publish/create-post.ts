@@ -190,11 +190,15 @@ export async function createPost(
 
   if (!immediate) return { kind: "scheduled", post };
 
+  // No budget store: "post now" means the user is watching, so they get the
+  // platform's own answer rather than ours. That is also why `deferred` — the
+  // shared-rate-limit outcome — cannot arise here, and is narrowed away.
   const report = await publishPost({ store: createPublishStore(supabase) }, post);
+  const status = report.status === "deferred" ? "failed" : report.status;
   return {
     kind: "published",
-    post: { ...post, status: report.status },
-    status: report.status,
+    post: { ...post, status },
+    status,
     results: report.targets,
   };
 }

@@ -1,5 +1,11 @@
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import type { EntitlementSnapshot } from "@/lib/entitlements/types";
+import {
+  isRateLimited,
+  PlatformBudgetError,
+  requestBudget,
+  type BudgetStore,
+} from "@/lib/platforms/budget";
 import { PlatformApiError, PlatformAuthError } from "@/lib/platforms/errors";
 import { getPlatform } from "@/lib/platforms/registry";
 import type { Platform, PlatformAdapter } from "@/lib/platforms/types";
@@ -34,11 +40,21 @@ export type PublishDeps = {
   store: PublishStore;
   /** Adapter lookup, injectable so tests can register fakes. */
   getAdapter?: (platform: Platform) => PlatformAdapter;
+  /** The shared per-app rate-limit budget. Omitted = unmetered, which is right
+   *  for "post now" (the user is watching, and should get the platform's own
+   *  answer) and wrong for the scheduler, where a burst of a hundred posts
+   *  would otherwise spend an allowance every tenant shares. */
+  budget?: BudgetStore;
   now?: () => Date;
   log?: Pick<Console, "error" | "warn">;
 };
 
 const MAX_LAST_ERROR = 1000;
+
+// How long a post waits after being held back by the shared rate-limit budget.
+// Long enough that the retry does not itself become the burst, short enough
+// that a scheduled post is still roughly on time.
+const RATE_LIMIT_RETRY_MS = 2 * 60_000;
 
 export async function publishPost(
   deps: PublishDeps,
@@ -124,6 +140,21 @@ export async function publishPost(
       return failed(connection.id, platform, name, decision.code, decision.reason);
     }
 
+    // The shared budget, asked for AFTER the plan gate so a denied post never
+    // spends from an allowance every tenant draws on.
+    if (deps.budget) {
+      const permit = await requestBudget(deps.budget, platform);
+      if (!permit.allowed) {
+        // Retryable: the row goes back to the queue, not to the user as an
+        // error. Nothing is wrong except the clock.
+        return failed(
+          connection.id, platform, name, "rate_limited",
+          `${platform} is at its shared rate limit; retrying in about ${permit.retryAfterSeconds}s`,
+          true,
+        );
+      }
+    }
+
     try {
       const tokens = await store.getTokens(connection.id);
       const result = await adapter.publish({
@@ -154,7 +185,17 @@ export async function publishPost(
         return failed(connection.id, platform, name, "auth_error",
           `${name ?? platform} needs to be reconnected: ${error.message}`);
       }
+      if (error instanceof PlatformBudgetError) {
+        return failed(connection.id, platform, name, "rate_limited", error.message, true);
+      }
       if (error instanceof PlatformApiError) {
+        // A platform that actually throttled us is app-wide news: record it so
+        // every other worker stops asking before the platform escalates.
+        if (deps.budget && isRateLimited(error.status ?? 0, error.message)) {
+          await deps.budget
+            .throttle(platform, error.retryAfterSeconds ?? 300, error.message)
+            .catch((e) => log.error(`publish: could not record ${platform} throttle`, e));
+        }
         return failed(connection.id, platform, name, "platform_error",
           error.message, error.retryable);
       }
@@ -221,24 +262,47 @@ export async function publishPost(
     }
   }
 
-  const status: PublishReport["status"] =
-    published.length === outcomes.length && outcomes.length > 0
+  const failures = outcomes.filter(
+    (o): o is Extract<TargetOutcome, { outcome: "failed" }> => o.outcome === "failed",
+  );
+
+  // Nothing went out, and the ONLY reason was the shared per-app rate limit.
+  // That is not a failed post — it is a post that has not been tried yet, and
+  // telling the user it failed would make the burst protection look like data
+  // loss. Back to the queue, at the time the budget says to come back.
+  const rateLimitedOnly =
+    published.length === 0 &&
+    failures.length === outcomes.length &&
+    outcomes.length > 0 &&
+    failures.every((f) => f.code === "rate_limited");
+
+  const status: PublishReport["status"] = rateLimitedOnly
+    ? "deferred"
+    : published.length === outcomes.length && outcomes.length > 0
       ? "published"
       : published.length > 0
         ? "partial"
         : "failed";
 
-  const lastError = outcomes
-    .filter((o): o is Extract<TargetOutcome, { outcome: "failed" }> => o.outcome === "failed")
+  const lastError = failures
     .map((o) => `${o.platform ?? "unknown"}${o.accountName ? ` (${o.accountName})` : ""}: ${o.error}`)
     .join("; ")
     .slice(0, MAX_LAST_ERROR);
 
-  await store.finishPost(post, {
-    status,
-    publishedAt: published.length > 0 ? at : null,
-    lastError: lastError || null,
-  });
+  if (status === "deferred") {
+    await store.finishPost(post, {
+      status: "scheduled",
+      publishedAt: null,
+      lastError: lastError || null,
+      retryAt: new Date(at.getTime() + RATE_LIMIT_RETRY_MS),
+    });
+  } else {
+    await store.finishPost(post, {
+      status,
+      publishedAt: published.length > 0 ? at : null,
+      lastError: lastError || null,
+    });
+  }
 
   return { postId: post.id, status, targets: outcomes };
 }

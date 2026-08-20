@@ -73,7 +73,13 @@ export interface PublishStore {
   recordUsage(entry: UsageEntry): Promise<void>;
   finishPost(
     post: PostRow,
-    result: { status: PostStatus; publishedAt: Date | null; lastError: string | null },
+    result: {
+      status: PostStatus;
+      publishedAt: Date | null;
+      lastError: string | null;
+      /** Set only when status returns to `scheduled`: when to try again. */
+      retryAt?: Date;
+    },
   ): Promise<void>;
 }
 
@@ -121,6 +127,7 @@ export type TargetFailureCode =
   | "research_locked"
   | "research_credits_cap"
   | "auth_error"
+  | "rate_limited"
   | "platform_error"
   | "unexpected_error";
 
@@ -136,7 +143,7 @@ export type TargetOutcome = {
 
 export type PublishReport = {
   postId: string;
-  status: "published" | "partial" | "failed";
+  status: "published" | "partial" | "failed" | "deferred";
   targets: TargetOutcome[];
 };
 

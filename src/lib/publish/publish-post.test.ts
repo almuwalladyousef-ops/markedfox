@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { EntitlementSnapshot } from "@/lib/entitlements/types";
+import type { BudgetStore } from "@/lib/platforms/budget";
 import { PlatformApiError, PlatformAuthError } from "@/lib/platforms/errors";
 import { getPlatform } from "@/lib/platforms/registry";
 import type {
@@ -120,7 +121,7 @@ class MemoryStore implements PublishStore {
   history: HistoryEntry[] = [];
   usage: UsageEntry[] = [];
   expired: string[] = [];
-  finished: { status: string; publishedAt: Date | null; lastError: string | null } | null = null;
+  finished: { status: string; publishedAt: Date | null; lastError: string | null; retryAt?: Date } | null = null;
   tokenFailure: Error | null = null;
 
   async loadTargets(p: PostRow) {
@@ -147,7 +148,15 @@ class MemoryStore implements PublishStore {
   async recordUsage(entry: UsageEntry) {
     this.usage.push(entry);
   }
-  async finishPost(_p: PostRow, result: { status: string; publishedAt: Date | null; lastError: string | null }) {
+  async finishPost(
+    _p: PostRow,
+    result: {
+      status: string;
+      publishedAt: Date | null;
+      lastError: string | null;
+      retryAt?: Date;
+    },
+  ) {
     this.finished = result;
   }
 }
@@ -505,5 +514,215 @@ describe("publishPost", () => {
     expect(publish.mock.calls[0][0]).toMatchObject({
       options: { privacy_level: "SELF_ONLY", allow_comment: true },
     });
+  });
+});
+
+// ── the shared per-app rate-limit budget ─────────────────────────────────
+// Meta and TikTok rate-limit per APP, so every tenant spends one allowance.
+// A launch burst that exhausts it must degrade into "later", never into
+// "your post failed" — that distinction is the whole point of these tests.
+
+function budgetThatRefuses(retryAfterSeconds = 45): BudgetStore {
+  return {
+    async consume() {
+      return { allowed: false, retryAfterSeconds };
+    },
+    async throttle() {},
+  };
+}
+
+describe("publishPost — shared rate-limit budget", () => {
+  it("requeues rather than failing when the budget refuses every target", async () => {
+    const store = new MemoryStore();
+    store.connections = [connection("c-ig", "instagram")];
+    let published = false;
+    const adapters: Partial<Record<Platform, PlatformAdapter>> = {
+      instagram: fakeAdapter("instagram", async () => {
+        published = true;
+        return { platformPostId: "ig-1" };
+      }),
+    };
+
+    const report = await publishPost(
+      {
+        store,
+        budget: budgetThatRefuses(45),
+        getAdapter: (p) => adapters[p]!,
+        log: quiet,
+      },
+      post({ target_connection_ids: ["c-ig"] }),
+    );
+
+    // Never reached the platform, and the post is NOT failed.
+    expect(published).toBe(false);
+    expect(report.status).toBe("deferred");
+    expect(store.finished?.status).toBe("scheduled");
+    expect(store.finished?.retryAt).toBeInstanceOf(Date);
+    expect(store.finished?.publishedAt).toBeNull();
+    // No usage: nothing went out, so nothing is billed or counted.
+    expect(store.usage).toHaveLength(0);
+  });
+
+  it("marks the refusal retryable so a human reading history sees 'later', not 'broken'", async () => {
+    const store = new MemoryStore();
+    store.connections = [connection("c-ig", "instagram")];
+
+    const report = await publishPost(
+      {
+        store,
+        budget: budgetThatRefuses(30),
+        getAdapter: () => fakeAdapter("instagram", async () => ({ platformPostId: "x" })),
+        log: quiet,
+      },
+      post({ target_connection_ids: ["c-ig"] }),
+    );
+
+    const target = report.targets[0];
+    expect(target.outcome).toBe("failed");
+    if (target.outcome === "failed") {
+      expect(target.code).toBe("rate_limited");
+      expect(target.retryable).toBe(true);
+      expect(target.error).toContain("30s");
+    }
+  });
+
+  it("is a real failure, not a deferral, when something else also failed", async () => {
+    // One target refused by the budget and one genuinely broken is NOT a
+    // "come back later" post: the broken one needs the user to act.
+    const store = new MemoryStore();
+    store.connections = [connection("c-ig", "instagram"), connection("c-fb", "facebook")];
+    let asked = 0;
+    const budget: BudgetStore = {
+      async consume() {
+        asked += 1;
+        return asked === 1
+          ? { allowed: false, retryAfterSeconds: 60 }
+          : { allowed: true, retryAfterSeconds: 0 };
+      },
+      async throttle() {},
+    };
+    const adapters: Partial<Record<Platform, PlatformAdapter>> = {
+      instagram: fakeAdapter("instagram", async () => ({ platformPostId: "ig" })),
+      facebook: fakeAdapter("facebook", async () => {
+        throw new PlatformApiError("facebook", "caption rejected", false);
+      }),
+    };
+
+    const report = await publishPost(
+      { store, budget, getAdapter: (p) => adapters[p]!, log: quiet },
+      post({ target_connection_ids: ["c-ig", "c-fb"] }),
+    );
+
+    expect(report.status).toBe("failed");
+    expect(store.finished?.status).toBe("failed");
+    expect(store.finished?.retryAt).toBeUndefined();
+  });
+
+  it("publishes normally when the budget allows, and only asks once per target", async () => {
+    const store = new MemoryStore();
+    store.connections = [connection("c-ig", "instagram")];
+    const asked: string[] = [];
+    const budget: BudgetStore = {
+      async consume(platform) {
+        asked.push(platform);
+        return { allowed: true, retryAfterSeconds: 0 };
+      },
+      async throttle() {},
+    };
+
+    const report = await publishPost(
+      {
+        store,
+        budget,
+        getAdapter: () => fakeAdapter("instagram", async () => ({ platformPostId: "ig-1" })),
+        log: quiet,
+      },
+      post({ target_connection_ids: ["c-ig"] }),
+    );
+
+    expect(report.status).toBe("published");
+    expect(asked).toEqual(["instagram"]);
+  });
+
+  it("tells the budget when a platform actually throttles us, so other workers stop", async () => {
+    const store = new MemoryStore();
+    store.connections = [connection("c-ig", "instagram")];
+    const throttles: { platform: string; seconds: number }[] = [];
+    const budget: BudgetStore = {
+      async consume() {
+        return { allowed: true, retryAfterSeconds: 0 };
+      },
+      async throttle(platform, seconds) {
+        throttles.push({ platform, seconds });
+      },
+    };
+
+    await publishPost(
+      {
+        store,
+        budget,
+        getAdapter: () =>
+          fakeAdapter("instagram", async () => {
+            throw new PlatformApiError(
+              "instagram",
+              "(#4) Application request limit reached",
+              true,
+              { status: 400, retryAfterSeconds: 120 },
+            );
+          }),
+        log: quiet,
+      },
+      post({ target_connection_ids: ["c-ig"] }),
+    );
+
+    // Meta reports throttling inside a 400, which a plain status check misses.
+    expect(throttles).toEqual([{ platform: "instagram", seconds: 120 }]);
+  });
+
+  it("does not report an ordinary platform error as a throttle", async () => {
+    const store = new MemoryStore();
+    store.connections = [connection("c-ig", "instagram")];
+    const throttles: unknown[] = [];
+    const budget: BudgetStore = {
+      async consume() {
+        return { allowed: true, retryAfterSeconds: 0 };
+      },
+      async throttle(...args) {
+        throttles.push(args);
+      },
+    };
+
+    await publishPost(
+      {
+        store,
+        budget,
+        getAdapter: () =>
+          fakeAdapter("instagram", async () => {
+            throw new PlatformApiError("instagram", "caption too long", false, {
+              status: 400,
+            });
+          }),
+        log: quiet,
+      },
+      post({ target_connection_ids: ["c-ig"] }),
+    );
+
+    expect(throttles).toHaveLength(0);
+  });
+
+  it("never asks the budget when none is injected — 'post now' gets the platform's own answer", async () => {
+    const store = new MemoryStore();
+    store.connections = [connection("c-ig", "instagram")];
+
+    const report = await publishPost(
+      {
+        store,
+        getAdapter: () => fakeAdapter("instagram", async () => ({ platformPostId: "ig-1" })),
+        log: quiet,
+      },
+      post({ target_connection_ids: ["c-ig"] }),
+    );
+
+    expect(report.status).toBe("published");
   });
 });

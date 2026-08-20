@@ -104,6 +104,12 @@ export function createPublishStore(supabase: SupabaseClient): PublishStore {
           status: result.status,
           published_at: result.publishedAt?.toISOString() ?? null,
           last_error: result.lastError,
+          // Releasing the claim matters: a post going back to `scheduled`
+          // must not still look leased to the recovery sweep.
+          claimed_at: null,
+          ...(result.retryAt
+            ? { scheduled_for: result.retryAt.toISOString() }
+            : {}),
         })
         .eq("id", post.id)
         .eq("user_id", post.user_id);
