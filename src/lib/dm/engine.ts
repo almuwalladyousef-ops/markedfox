@@ -1,5 +1,6 @@
 import type { Platform } from "@/lib/platforms/types";
 
+import { extractEmail } from "./email";
 import { planJobs, ruleMatches } from "./match";
 import type { DmEventKind, DmJobDraft, DmRule, InboundEvent } from "./types";
 
@@ -31,7 +32,11 @@ export interface DmEngineStore {
     username?: string;
     /** Set when the person messaged the account — opens the 24h window. */
     inboundAt?: Date;
-  }): Promise<{ id: string }>;
+  }): Promise<{ id: string; awaitingEmailRuleId: string | null }>;
+  /** Store a captured address and clear the awaiting flag. */
+  saveContactEmail(contactId: string, email: string): Promise<void>;
+  /** Give up waiting: their reply was not an address. */
+  clearAwaitingEmail(contactId: string): Promise<void>;
   /** Has this rule already produced a send for this contact? */
   hasContactFired(ruleId: string, contactId: string): Promise<boolean>;
   /** Insert drafts; duplicates on dedupe_key are dropped. Returns inserted ids. */
@@ -102,6 +107,30 @@ export async function processInboundEvent(
       continue;
     }
     if (isOwn || !contact) continue;
+
+    // A message from somebody a rule has just asked for their email is an
+    // ANSWER, not a trigger. Letting it fall through to the matcher would fire
+    // whichever keyword rule happens to match the address, which is both wrong
+    // and, from the person's chair, unhinged.
+    if (contact.awaitingEmailRuleId && event.kind === "message") {
+      const email = extractEmail(event.text);
+      if (email) {
+        await store.saveContactEmail(contact.id, email);
+        await store.recordEvent({
+          userId: connection.user_id,
+          workspaceId: connection.workspace_id,
+          ruleId: contact.awaitingEmailRuleId,
+          contactId: contact.id,
+          kind: "email_captured",
+        });
+      } else {
+        // One attempt only. Somebody who answered with something else has
+        // moved on, and staying in "awaiting" would swallow every message they
+        // send afterwards.
+        await store.clearAwaitingEmail(contact.id);
+      }
+      continue;
+    }
 
     const rules = await store.listEnabledRules(connection.id);
     for (const rule of rules) {

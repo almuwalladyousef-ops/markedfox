@@ -81,6 +81,11 @@ export interface DmWorkerStore {
   }): Promise<void>;
   markConnectionExpired(connectionId: string): Promise<void>;
   touchContactOutbound(contactId: string, at: Date): Promise<void>;
+  /** Has this contact already clicked a tracked link from this rule? */
+  hasClicked(ruleId: string, contactId: string): Promise<boolean>;
+  /** Read this contact's next inbound message as an answer to what we just
+   *  sent, rather than as a new trigger. */
+  markAwaitingEmail(contactId: string, ruleId: string | null): Promise<void>;
 }
 
 export type WorkerSummary = {
@@ -171,6 +176,16 @@ export async function runDmWorker(
         continue;
       }
 
+      // The nudge that only chases people who did not act. Checked at send
+      // time rather than at queue time, because the whole point is what
+      // happened during the delay in between.
+      if (job.payload.skipIfClicked && job.rule_id && job.contact_id) {
+        if (await store.hasClicked(job.rule_id, job.contact_id)) {
+          await fail("they already clicked the link", "skipped");
+          continue;
+        }
+      }
+
       // The plan's pooled DM cap, checked before the send so the 201st DM on
       // Free never goes out. Public comment replies are not DMs.
       const isDm = job.kind !== "comment_reply";
@@ -206,6 +221,13 @@ export async function runDmWorker(
         await store.recordUsage({ userId: job.user_id, workspaceId: job.workspace_id, platform: connection.platform, refId: job.rule_id ?? job.id });
         if (contact) await store.touchContactOutbound(contact.id, at);
       }
+      // Flagged only once the message actually went out: a contact left
+      // "awaiting" by a send that failed would have their next ordinary
+      // message swallowed as an answer to a question they never received.
+      if (job.payload.collect === "email" && job.contact_id) {
+        await store.markAwaitingEmail(job.contact_id, job.rule_id);
+      }
+
       await store.recordEvent({ ...base, kind: "sent", metadata: { kind: job.kind, step: job.payload.stepIndex } });
       summary.sent += 1;
     } catch (error) {

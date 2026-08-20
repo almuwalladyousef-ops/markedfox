@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { builderAccounts } from "@/lib/dm/builder-accounts";
 import { parseRuleRow } from "@/lib/dm/rules";
@@ -34,15 +35,18 @@ export default async function EditRulePage({ params }: { params: Promise<{ id: s
 
   return (
     <>
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Edit rule</h1>
-          <p className="mt-1 text-sm text-neutral-400">{rule.name}</p>
-        </div>
-        <Link href="/dashboard/automations" className="rounded-md border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50">
-          Back
-        </Link>
-      </header>
+      <PageHeader
+        title="Edit automation"
+        subtitle={rule.name}
+        actions={
+          <Link
+            href="/dashboard/automations"
+            className="rounded-lg border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+          >
+            Back
+          </Link>
+        }
+      />
       <RuleBuilder accounts={accounts} rule={rule} />
     </>
   );

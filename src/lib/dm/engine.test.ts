@@ -14,7 +14,10 @@ class MemoryStore implements DmEngineStore {
   /** account id → connections */
   accounts = new Map<string, string[]>();
   rules: DmRule[] = [];
-  contacts = new Map<string, { id: string; userId: string }>();
+  contacts = new Map<
+    string,
+    { id: string; userId: string; awaitingEmailRuleId: string | null }
+  >();
   jobs = new Map<string, DmJobDraft & { contactId: string }>();
   events: { kind: DmEventKind; ruleId?: string; userId: string; metadata?: Record<string, unknown> }[] = [];
   fired = new Set<string>();
@@ -30,9 +33,22 @@ class MemoryStore implements DmEngineStore {
     const key = `${input.connectionId}:${input.platformUserId}`;
     const existing = this.contacts.get(key);
     if (existing) return existing;
-    const created = { id: `contact-${this.contacts.size + 1}`, userId: input.userId };
+    const created = {
+      id: `contact-${this.contacts.size + 1}`,
+      userId: input.userId,
+      awaitingEmailRuleId: this.awaitingEmailFor.get(key) ?? null,
+    };
     this.contacts.set(key, created);
     return created;
+  }
+  awaitingEmailFor = new Map<string, string>();
+  emails: { contactId: string; email: string }[] = [];
+  cleared: string[] = [];
+  async saveContactEmail(contactId: string, email: string) {
+    this.emails.push({ contactId, email });
+  }
+  async clearAwaitingEmail(contactId: string) {
+    this.cleared.push(contactId);
   }
   async hasContactFired(ruleId: string, contactId: string) {
     return this.fired.has(`${ruleId}:${contactId}`);
@@ -193,5 +209,61 @@ describe("processInboundEvent", () => {
       occurredAt: NOW,
     });
     expect(seen).toEqual([{ inboundAt: undefined }, { inboundAt: NOW }]);
+  });
+});
+
+describe("email capture", () => {
+  function awaiting() {
+    const store = twoTenants();
+    // The rule already asked; the contact is flagged as awaiting an answer.
+    store.awaitingEmailFor.set("conn-A:fan-1", "rule-A");
+    return store;
+  }
+
+  const dm = (text: string): InboundEvent => ({
+    kind: "message",
+    platform: "instagram",
+    externalId: "ig-msg:1",
+    platformAccountId: "ig-A",
+    from: { id: "fan-1", username: "fan" },
+    text,
+    storyReply: false,
+    echo: false,
+    occurredAt: NOW,
+  });
+
+  it("stores the address and fires no rule", async () => {
+    const store = awaiting();
+    // A dm_keyword rule that would otherwise match anything.
+    store.rules.push(
+      rule({
+        id: "rule-dm",
+        user_id: "user-A",
+        workspace_id: "ws-A",
+        connection_id: "conn-A",
+        trigger_type: "dm_keyword",
+        keywords: ["com"],
+        actions: [{ type: "message", text: "hi" }],
+      }),
+    );
+
+    const result = await processInboundEvent(store, dm("sure, Me@Example.com!"), {
+      now: () => NOW,
+    });
+
+    expect(store.emails).toEqual([
+      { contactId: "contact-1", email: "me@example.com" },
+    ]);
+    // The answer is an answer, not a trigger — the keyword rule stays quiet.
+    expect(result.rulesMatched).toBe(0);
+    expect(result.jobsQueued).toBe(0);
+    expect(store.events.map((e) => e.kind)).toEqual(["email_captured"]);
+  });
+
+  it("gives up after one non-address reply rather than swallowing every later message", async () => {
+    const store = awaiting();
+    await processInboundEvent(store, dm("no thanks"), { now: () => NOW });
+    expect(store.emails).toEqual([]);
+    expect(store.cleared).toEqual(["contact-1"]);
   });
 });

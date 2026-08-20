@@ -38,7 +38,14 @@ export function parseStep(raw: unknown): DmStep | null {
       const delay = typeof s.delay_seconds === "number" && s.delay_seconds > 0
         ? Math.min(Math.floor(s.delay_seconds), MAX_DELAY_SECONDS)
         : undefined;
-      return { type: "message", text, buttons: parseButtons(s.buttons), delay_seconds: delay };
+      return {
+        type: "message",
+        text,
+        buttons: parseButtons(s.buttons),
+        delay_seconds: delay,
+        ...(s.skip_if_clicked === true ? { skip_if_clicked: true } : {}),
+        ...(s.collect === "email" ? { collect: "email" as const } : {}),
+      };
     }
     case "comment_reply":
       return { type: "comment_reply", text };

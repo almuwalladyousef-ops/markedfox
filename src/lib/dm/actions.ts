@@ -57,6 +57,7 @@ export async function saveRuleAction(_previous: RuleFormState, formData: FormDat
       .from("dm_rules")
       .update({
         name: parsed.draft.name,
+        folder: parsed.draft.folder,
         connection_id: parsed.draft.connection_id,
         trigger_type: parsed.draft.trigger_type,
         keywords: parsed.draft.keywords,
@@ -78,6 +79,10 @@ export async function saveRuleAction(_previous: RuleFormState, formData: FormDat
       workspace_id: active.id,
       connection_id: parsed.draft.connection_id,
       name: parsed.draft.name,
+      folder: parsed.draft.folder,
+      // Recorded on create only: a rule that started as a template and was
+      // then rewritten is still worth counting as that template.
+      template_id: parsed.draft.template_id,
       enabled: true,
       trigger_type: parsed.draft.trigger_type,
       keywords: parsed.draft.keywords,

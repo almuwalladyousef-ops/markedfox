@@ -2,10 +2,22 @@ import type { Metadata } from "next";
 
 import Link from "next/link";
 
+import {
+  ButtonLink,
+  Card,
+  CardTitle,
+  EmptyState,
+  Notice,
+  PageHeader,
+  Pill,
+} from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { listConnections, type ConnectionRow } from "@/lib/connections/store";
-import { deleteRuleAction, resubscribeWebhooksAction, toggleRuleAction } from "@/lib/dm/actions";
-import { describeRule } from "@/lib/dm/rule-form";
+import {
+  deleteRuleAction,
+  resubscribeWebhooksAction,
+  toggleRuleAction,
+} from "@/lib/dm/actions";
 import { parseRuleRow } from "@/lib/dm/rules";
 import type { DmRule } from "@/lib/dm/types";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
@@ -17,89 +29,173 @@ import { getActiveWorkspace } from "@/lib/workspaces/store";
 
 export const metadata: Metadata = { title: "Automations · MarkedFox" };
 
-// The DM & comment automation home: which accounts have automation on, the
-// rules in this workspace with their numbers, and the way in to the builder.
-// Everything reads through the user's client, so RLS is the filter.
+// The DM & comment automation home: which accounts have automation on, and
+// every rule with the four numbers that say whether it is working. Everything
+// reads through the user's client, so RLS is the filter.
 
 type RuleStats = Record<string, Partial<Record<string, number>>>;
+
+type RuleRow = DmRule & { folder: string | null; updated_at: string | null };
 
 export default async function AutomationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string; deleted?: string; connected?: string; subscribed?: string; resubscribe?: string }>;
+  searchParams: Promise<{
+    saved?: string;
+    deleted?: string;
+    connected?: string;
+    subscribed?: string;
+    resubscribe?: string;
+    q?: string;
+    trigger?: string;
+    status?: string;
+  }>;
 }) {
   const params = await searchParams;
   const user = await requireUser();
   const active = await getActiveWorkspace();
-  if (!active) {
-    return (
-      <>
-        <p>No workspace is selected.</p>
-      </>
-    );
-  }
-  const supabase = await createClient();
+  if (!active) return <Notice>No workspace is selected.</Notice>;
 
-  const messagingPlatforms = new Set(listRegisteredPlatforms().filter((a) => a.messaging).map((a) => a.id));
+  const supabase = await createClient();
+  const messagingPlatforms = new Set(
+    listRegisteredPlatforms()
+      .filter((a) => a.messaging)
+      .map((a) => a.id),
+  );
+
   const [connections, snapshot, rulesResult, statsResult] = await Promise.all([
     listConnections(supabase, active.id),
     getEntitlementSnapshot(supabase, user.id, active.id),
     supabase
       .from("dm_rules")
-      .select("id, user_id, workspace_id, connection_id, name, enabled, trigger_type, keywords, target_post_ids, actions, config, created_at")
+      .select(
+        "id, user_id, workspace_id, connection_id, name, folder, enabled, trigger_type, keywords, target_post_ids, actions, config, created_at, updated_at",
+      )
       .eq("workspace_id", active.id)
-      .order("created_at", { ascending: false }),
+      .order("updated_at", { ascending: false }),
     supabase.rpc("dm_rule_stats", { p_workspace_id: active.id }),
   ]);
 
   const accounts = connections.filter((c) => messagingPlatforms.has(c.platform));
-  const rules = ((rulesResult.data ?? []) as Record<string, unknown>[])
-    .map((row) => parseRuleRow(row))
-    .filter((r): r is DmRule => r !== null);
+  const allRules = ((rulesResult.data ?? []) as Record<string, unknown>[])
+    .map((row) => {
+      const rule = parseRuleRow(row);
+      return rule
+        ? ({
+            ...rule,
+            folder: (row.folder as string | null) ?? null,
+            updated_at: (row.updated_at as string | null) ?? null,
+          } satisfies RuleRow)
+        : null;
+    })
+    .filter((r): r is RuleRow => r !== null);
+
+  // Filters are applied here rather than in the query: a workspace has tens of
+  // rules, not tens of thousands, and the trigger filter needs the parsed row.
+  const search = (params.q ?? "").trim().toLowerCase();
+  const rules = allRules.filter((rule) => {
+    if (params.trigger && rule.trigger_type !== params.trigger) return false;
+    if (params.status === "live" && !rule.enabled) return false;
+    if (params.status === "stopped" && rule.enabled) return false;
+    if (!search) return true;
+    return (
+      rule.name.toLowerCase().includes(search) ||
+      rule.keywords.some((k) => k.toLowerCase().includes(search)) ||
+      (rule.folder ?? "").toLowerCase().includes(search)
+    );
+  });
+
   const stats: RuleStats = {};
-  for (const row of (statsResult.data ?? []) as { rule_id: string; kind: string; count: number }[]) {
+  for (const row of (statsResult.data ?? []) as {
+    rule_id: string;
+    kind: string;
+    count: number;
+  }[]) {
     (stats[row.rule_id] ??= {})[row.kind] = Number(row.count);
   }
+
   const connectionById = new Map(connections.map((c) => [c.id, c]));
   const canCreate = canUserDo(snapshot, { type: "create_dm_rule" });
 
+  // Folders are a label, so grouping happens here. Ungrouped rules come first:
+  // most workspaces never make a folder, and burying their rules under an
+  // "Other" heading would be filing for its own sake.
+  const folders = new Map<string, RuleRow[]>();
+  for (const rule of rules) {
+    const key = rule.folder ?? "";
+    const bucket = folders.get(key);
+    if (bucket) bucket.push(rule);
+    else folders.set(key, [rule]);
+  }
+  const groups = [...folders.entries()].sort(([a], [b]) =>
+    a === "" ? -1 : b === "" ? 1 : a.localeCompare(b),
+  );
+
   return (
     <>
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Automations</h1>
-          <p className="mt-1 text-sm text-neutral-400">
+      <PageHeader
+        title="Automations"
+        subtitle={
+          <>
             Comment-to-DM, keyword replies, and follow-ups for{" "}
             <span className="text-neutral-200">{active.name}</span>.
-          </p>
-        </div>
-        <Link
-          href="/dashboard"
-          className="rounded-md border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
-        >
-          Dashboard
-        </Link>
-      </header>
+          </>
+        }
+        actions={
+          <>
+            <ButtonLink href="/dashboard/automations/templates">
+              Templates
+            </ButtonLink>
+            {canCreate.allowed && accounts.length > 0 ? (
+              <ButtonLink href="/dashboard/automations/new" tone="primary">
+                + New automation
+              </ButtonLink>
+            ) : !canCreate.allowed ? (
+              <ButtonLink
+                href="/pricing"
+                title={canCreate.reason}
+                className="border border-amber-800/60 bg-amber-950/40 text-amber-300"
+              >
+                💎 More rules
+              </ButtonLink>
+            ) : null}
+          </>
+        }
+      />
 
       {params.saved ? <Notice tone="ok">Rule saved. It is live now.</Notice> : null}
-      {params.deleted ? <Notice tone="neutral">Rule deleted.</Notice> : null}
+      {params.deleted ? <Notice>Rule deleted.</Notice> : null}
       {params.connected ? (
         <Notice tone="ok">
-          Automation turned on for {PLATFORM_LABELS[params.connected as keyof typeof PLATFORM_LABELS] ?? params.connected}
-          {params.subscribed !== undefined ? ` — ${params.subscribed} account(s) subscribed to events.` : "."}
+          Automation turned on for{" "}
+          {PLATFORM_LABELS[params.connected as keyof typeof PLATFORM_LABELS] ??
+            params.connected}
+          {params.subscribed !== undefined
+            ? ` — ${params.subscribed} account(s) subscribed to events.`
+            : "."}
         </Notice>
       ) : null}
       {params.resubscribe ? (
         params.resubscribe === "subscribed" ? (
           <Notice tone="ok">Webhook subscription refreshed.</Notice>
         ) : (
-          <Notice tone="warn">Could not refresh the subscription: {params.resubscribe.replace(/^failed:/, "")}</Notice>
+          <Notice tone="warn">
+            Could not refresh the subscription:{" "}
+            {params.resubscribe.replace(/^failed:/, "")}
+          </Notice>
         )
       ) : null}
 
-      {/* accounts */}
-      <section className="rounded-lg border border-neutral-900 p-4">
-        <h2 className="text-sm font-medium text-neutral-300">Accounts</h2>
+      <Card className="p-4">
+        <CardTitle
+          hint={
+            accounts.length === 0
+              ? undefined
+              : "Instagram sends this app every comment and message on an account with automation on."
+          }
+        >
+          Accounts
+        </CardTitle>
         {accounts.length === 0 ? (
           <p className="mt-2 text-sm text-neutral-400">
             Connect an Instagram account on the{" "}
@@ -115,95 +211,219 @@ export default async function AutomationsPage({
             ))}
           </ul>
         )}
-      </section>
+      </Card>
 
-      {/* rules */}
-      <section className="rounded-lg border border-neutral-900 p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-sm font-medium text-neutral-300">Rules</h2>
-            <p className="mt-1 text-xs text-neutral-500">
-              {snapshot.usage.dmRuleCount}
-              {snapshot.limits.dmRulesMax === null ? "" : ` / ${snapshot.limits.dmRulesMax}`} rules across your workspaces ·{" "}
-              {snapshot.usage.dmSendsThisMonth} / {snapshot.limits.dmSendsPerMonth} DMs sent this month (pooled).
-            </p>
-          </div>
-          {canCreate.allowed && accounts.length > 0 ? (
-            <Link
-              href="/dashboard/automations/new"
-              className="rounded-md bg-neutral-50 px-3 py-2 text-sm font-semibold text-neutral-950 transition hover:bg-white"
-            >
-              New rule
-            </Link>
-          ) : canCreate.allowed ? null : (
-            <Link
-              href="/pricing"
-              title={canCreate.reason}
-              className="rounded-md border border-amber-800/60 bg-amber-950/40 px-3 py-2 text-sm text-amber-300"
-            >
-              💎 More rules on Pro
-            </Link>
-          )}
-        </div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <form method="get" className="flex flex-wrap items-center gap-2">
+          <input
+            name="q"
+            defaultValue={params.q ?? ""}
+            placeholder="Search automations"
+            className="w-56 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm outline-none focus:border-neutral-600"
+          />
+          <select
+            name="trigger"
+            defaultValue={params.trigger ?? ""}
+            className="rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-neutral-600"
+          >
+            <option value="">Any trigger</option>
+            <option value="comment">Comment</option>
+            <option value="dm_keyword">DM</option>
+            <option value="story_reply">Story reply</option>
+          </select>
+          <select
+            name="status"
+            defaultValue={params.status ?? ""}
+            className="rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-neutral-600"
+          >
+            <option value="">Any state</option>
+            <option value="live">Live</option>
+            <option value="stopped">Stopped</option>
+          </select>
+          <button
+            type="submit"
+            className="rounded-lg border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600"
+          >
+            Filter
+          </button>
+        </form>
 
-        {rules.length === 0 ? (
-          <p className="mt-4 text-sm text-neutral-400">
-            No rules yet. The classic one: when someone comments a keyword on your post, DM them the
-            link and reply publicly so others see it works.
-          </p>
-        ) : (
-          <ul className="mt-4 flex flex-col gap-3">
-            {rules.map((rule) => {
-              const s = stats[rule.id] ?? {};
-              const account = connectionById.get(rule.connection_id);
-              return (
-                <li key={rule.id} className="rounded-md border border-neutral-900 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <Link href={`/dashboard/automations/${rule.id}`} className="font-medium text-neutral-100 hover:underline">
-                        {rule.name}
-                      </Link>
-                      <p className="mt-0.5 text-xs text-neutral-500">
-                        {account ? `${PLATFORM_LABELS[account.platform]} · ${account.platform_account_name ?? account.platform_account_id}` : "account disconnected"}
-                      </p>
-                      <p className="mt-1 text-sm text-neutral-300">{describeRule(rule)}</p>
-                    </div>
-                    <form action={toggleRuleAction} className="shrink-0">
-                      <input type="hidden" name="rule_id" value={rule.id} />
-                      <input type="hidden" name="enabled" value={rule.enabled ? "false" : "true"} />
-                      <button
-                        type="submit"
-                        aria-label={rule.enabled ? `Pause ${rule.name}` : `Resume ${rule.name}`}
-                        className={`relative inline-flex h-5 w-10 items-center rounded-full transition ${rule.enabled ? "bg-emerald-600" : "bg-neutral-700"}`}
-                      >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${rule.enabled ? "translate-x-5" : "translate-x-1"}`} />
-                      </button>
-                    </form>
-                  </div>
-                  <dl className="mt-3 grid grid-cols-4 gap-2 text-xs">
-                    <Stat label="Triggered" value={s.triggered ?? 0} />
-                    <Stat label="DMs sent" value={s.sent ?? 0} />
-                    <Stat label="Link clicks" value={s.clicked ?? 0} />
-                    <Stat label="Skipped" value={(s.skipped ?? 0) + (s.failed ?? 0)} title="Outside the 24-hour window, over the plan cap, or already answered" />
-                  </dl>
-                  <div className="mt-3 flex items-center gap-3 text-xs">
-                    <Link href={`/dashboard/automations/${rule.id}`} className="text-neutral-300 underline-offset-2 hover:underline">
-                      Edit
-                    </Link>
-                    <form action={deleteRuleAction}>
-                      <input type="hidden" name="rule_id" value={rule.id} />
-                      <button type="submit" className="text-neutral-500 underline-offset-2 hover:text-red-300 hover:underline">
-                        Delete
-                      </button>
-                    </form>
-                    {!rule.enabled ? <span className="text-neutral-500">Paused</span> : null}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+        <p className="text-xs text-neutral-500">
+          {snapshot.usage.dmRuleCount}
+          {snapshot.limits.dmRulesMax === null
+            ? ""
+            : ` / ${snapshot.limits.dmRulesMax}`}{" "}
+          rules across your workspaces · {snapshot.usage.dmSendsThisMonth} /{" "}
+          {snapshot.limits.dmSendsPerMonth} DMs sent this month (pooled).
+        </p>
+      </div>
+
+      {allRules.length === 0 ? (
+        <EmptyState
+          title="No automations yet"
+          action={
+            accounts.length > 0 ? (
+              <ButtonLink href="/dashboard/automations/templates" tone="primary">
+                Browse templates
+              </ButtonLink>
+            ) : null
+          }
+        >
+          The classic one: somebody comments a keyword on your post, they get the
+          link in a DM, and a public reply under the comment shows everyone else
+          watching that it works.
+        </EmptyState>
+      ) : rules.length === 0 ? (
+        <EmptyState title="Nothing matches those filters" />
+      ) : (
+        groups.map(([folder, folderRules]) => (
+          <section key={folder || "__none"}>
+            {folder ? (
+              <h2 className="mb-2 text-[10px] font-semibold tracking-widest text-neutral-500 uppercase">
+                {folder}
+              </h2>
+            ) : null}
+            <ul className="flex flex-col gap-3">
+              {folderRules.map((rule) => {
+                const s = stats[rule.id] ?? {};
+                const sent = s.sent ?? 0;
+                const clicked = s.clicked ?? 0;
+                const account = connectionById.get(rule.connection_id);
+                return (
+                  <li key={rule.id}>
+                    <Card className="p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Pill tone={rule.enabled ? "danger" : "neutral"}>
+                              {rule.enabled ? "LIVE" : "STOPPED"}
+                            </Pill>
+                            <Link
+                              href={`/dashboard/automations/${rule.id}`}
+                              className="font-medium text-neutral-100 hover:underline"
+                            >
+                              {rule.name}
+                            </Link>
+                          </div>
+
+                          {/* The rule as a sentence, with the keywords as the
+                              chips they are in the builder — so the list and
+                              the builder describe the same thing the same way. */}
+                          <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm text-neutral-400">
+                            <span>
+                              {rule.trigger_type === "comment"
+                                ? `Someone comments on ${rule.target_post_ids.length ? `${rule.target_post_ids.length} chosen post${rule.target_post_ids.length === 1 ? "" : "s"}` : "any post or reel"}`
+                                : rule.trigger_type === "dm_keyword"
+                                  ? "Someone sends a DM"
+                                  : "Someone replies to a story"}
+                            </span>
+                            {rule.keywords.length > 0 ? (
+                              <>
+                                <span className="text-neutral-600">
+                                  containing
+                                </span>
+                                {rule.keywords.map((word) => (
+                                  <Pill key={word}>{word}</Pill>
+                                ))}
+                              </>
+                            ) : null}
+                          </p>
+
+                          <p className="mt-1 text-xs text-neutral-500">
+                            {account
+                              ? `${PLATFORM_LABELS[account.platform]} · ${account.platform_account_name ?? account.platform_account_id}`
+                              : "account disconnected"}
+                            {rule.updated_at
+                              ? ` · edited ${new Date(rule.updated_at).toLocaleDateString()}`
+                              : ""}
+                          </p>
+                        </div>
+
+                        <form action={toggleRuleAction} className="shrink-0">
+                          <input type="hidden" name="rule_id" value={rule.id} />
+                          <input
+                            type="hidden"
+                            name="enabled"
+                            value={rule.enabled ? "false" : "true"}
+                          />
+                          <button
+                            type="submit"
+                            aria-label={
+                              rule.enabled
+                                ? `Stop ${rule.name}`
+                                : `Start ${rule.name}`
+                            }
+                            className={`relative inline-flex h-5 w-10 items-center rounded-full transition ${rule.enabled ? "bg-emerald-600" : "bg-neutral-700"}`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${rule.enabled ? "translate-x-5" : "translate-x-1"}`}
+                            />
+                          </button>
+                        </form>
+                      </div>
+
+                      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                        <Stat label="Runs" value={s.triggered ?? 0} />
+                        <Stat label="Sends" value={sent} />
+                        <Stat label="Clicks" value={clicked} />
+                        <Stat
+                          label="CTR"
+                          value={sent === 0 ? "—" : `${Math.round((clicked / sent) * 100)}%`}
+                          title="Clicks over DMs sent. Undefined until something has been sent."
+                        />
+                        <Stat
+                          label="Emails"
+                          value={s.email_captured ?? 0}
+                          title="Addresses this rule collected"
+                        />
+                      </dl>
+
+                      {(s.triggered ?? 0) === 0 ? (
+                        <p className="mt-3 text-xs text-neutral-600">
+                          No data yet. Ask a friend to{" "}
+                          {rule.trigger_type === "comment"
+                            ? "comment"
+                            : "message"}{" "}
+                          {rule.keywords[0]
+                            ? `“${rule.keywords[0]}”`
+                            : "anything"}{" "}
+                          and watch it run.
+                        </p>
+                      ) : null}
+
+                      <div className="mt-3 flex items-center gap-3 text-xs">
+                        <Link
+                          href={`/dashboard/automations/${rule.id}`}
+                          className="text-neutral-300 underline-offset-2 hover:underline"
+                        >
+                          Edit
+                        </Link>
+                        <form action={deleteRuleAction}>
+                          <input type="hidden" name="rule_id" value={rule.id} />
+                          <button
+                            type="submit"
+                            className="text-neutral-500 underline-offset-2 hover:text-red-300 hover:underline"
+                          >
+                            Delete
+                          </button>
+                        </form>
+                        {(s.skipped ?? 0) + (s.failed ?? 0) > 0 ? (
+                          <span
+                            className="ml-auto text-neutral-600"
+                            title="Outside the 24-hour window, over the plan cap, already answered, or the person had already clicked"
+                          >
+                            {(s.skipped ?? 0) + (s.failed ?? 0)} not sent
+                          </span>
+                        ) : null}
+                      </div>
+                    </Card>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))
+      )}
     </>
   );
 }
@@ -214,18 +434,26 @@ function AccountRow({ connection }: { connection: ConnectionRow }) {
   const granted = required.every((scope) => connection.scopes.includes(scope));
   const name = connection.platform_account_name ?? connection.platform_account_id;
   return (
-    <li className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-neutral-900 px-3 py-2 text-sm">
+    <li className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-800 px-3 py-2 text-sm">
       <span>
         <span className="font-medium">{name}</span>
-        <span className="ml-2 text-xs text-neutral-500">{PLATFORM_LABELS[connection.platform]}</span>
-        {connection.status !== "active" ? <span className="ml-2 text-xs text-red-400">reconnect needed</span> : null}
+        <span className="ml-2 text-xs text-neutral-500">
+          {PLATFORM_LABELS[connection.platform]}
+        </span>
+        {connection.status !== "active" ? (
+          <span className="ml-2 text-xs text-red-400">reconnect needed</span>
+        ) : null}
       </span>
       {granted ? (
         <span className="flex items-center gap-3">
           <span className="text-xs text-emerald-400">Automation on</span>
           <form action={resubscribeWebhooksAction}>
             <input type="hidden" name="connection_id" value={connection.id} />
-            <button type="submit" className="text-xs text-neutral-500 underline-offset-2 hover:text-neutral-200 hover:underline" title="Ask Instagram again to send this account's comments and messages here">
+            <button
+              type="submit"
+              className="text-xs text-neutral-500 underline-offset-2 hover:text-neutral-200 hover:underline"
+              title="Ask Instagram again to send this account's comments and messages here"
+            >
               Refresh events
             </button>
           </form>
@@ -233,7 +461,7 @@ function AccountRow({ connection }: { connection: ConnectionRow }) {
       ) : (
         <a
           href={`/api/connect/${connection.platform}/start?features=messaging`}
-          className="rounded-md bg-neutral-50 px-3 py-1.5 text-xs font-semibold text-neutral-950 transition hover:bg-white"
+          className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-black transition hover:bg-neutral-200"
         >
           Turn on automation
         </a>
@@ -242,21 +470,19 @@ function AccountRow({ connection }: { connection: ConnectionRow }) {
   );
 }
 
-function Stat({ label, value, title }: { label: string; value: number; title?: string }) {
+function Stat({
+  label,
+  value,
+  title,
+}: {
+  label: string;
+  value: number | string;
+  title?: string;
+}) {
   return (
     <div title={title}>
-      <dt className="text-neutral-500">{label}</dt>
-      <dd className="text-base text-neutral-100">{value}</dd>
+      <dt className="text-xs text-neutral-500">{label}</dt>
+      <dd className="text-lg font-semibold text-neutral-100">{value}</dd>
     </div>
   );
-}
-
-function Notice({ tone, children }: { tone: "ok" | "warn" | "neutral"; children: React.ReactNode }) {
-  const cls =
-    tone === "ok"
-      ? "border-emerald-900 bg-emerald-950/50 text-emerald-300"
-      : tone === "warn"
-        ? "border-amber-900 bg-amber-950/40 text-amber-200"
-        : "border-neutral-800 bg-neutral-900/60 text-neutral-300";
-  return <p className={`rounded-md border px-3 py-2 text-sm ${cls}`}>{children}</p>;
 }

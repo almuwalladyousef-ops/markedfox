@@ -120,6 +120,14 @@ class MemoryStore implements DmWorkerStore {
   async touchContactOutbound(id: string) {
     this.touched.push(id);
   }
+  clicked = false;
+  awaitingEmail: { contactId: string; ruleId: string | null }[] = [];
+  async hasClicked() {
+    return this.clicked;
+  }
+  async markAwaitingEmail(contactId: string, ruleId: string | null) {
+    this.awaitingEmail.push({ contactId, ruleId });
+  }
 }
 
 const quiet = { error: () => {}, warn: () => {} };
@@ -225,6 +233,65 @@ describe("runDmWorker", () => {
     const store = new MemoryStore();
     store.stale = 3;
     expect((await runDmWorker(store, { now: () => NOW, log: quiet })).recovered).toBe(3);
+  });
+});
+
+describe("the follow-up that only chases people who did not click", () => {
+  it("skips the send when this rule already got a click from this contact", async () => {
+    const store = new MemoryStore();
+    store.contact = { id: "contact", platform_user_id: "fan", last_inbound_at: NOW.toISOString() };
+    store.clicked = true;
+    store.queue = [
+      job({ kind: "message", payload: { text: "Did you see it?", stepIndex: 1, skipIfClicked: true } }),
+    ];
+
+    const summary = await runDmWorker(store, { now: () => NOW, log: quiet });
+
+    expect(summary.sent).toBe(0);
+    expect(summary.skipped).toBe(1);
+    expect(store.sent).toEqual([]);
+    expect(store.finished[0].patch).toMatchObject({
+      status: "skipped",
+      lastError: "they already clicked the link",
+    });
+  });
+
+  it("sends it when they did not", async () => {
+    const store = new MemoryStore();
+    store.contact = { id: "contact", platform_user_id: "fan", last_inbound_at: NOW.toISOString() };
+    store.clicked = false;
+    store.queue = [
+      job({ kind: "message", payload: { text: "Did you see it?", stepIndex: 1, skipIfClicked: true } }),
+    ];
+
+    expect((await runDmWorker(store, { now: () => NOW, log: quiet })).sent).toBe(1);
+  });
+});
+
+describe("asking for an email", () => {
+  it("flags the contact only after the question actually went out", async () => {
+    const store = new MemoryStore();
+    store.contact = { id: "contact", platform_user_id: "fan", last_inbound_at: NOW.toISOString() };
+    store.queue = [
+      job({ kind: "message", payload: { text: "What is your email?", stepIndex: 1, collect: "email" } }),
+    ];
+
+    await runDmWorker(store, { now: () => NOW, log: quiet });
+    expect(store.awaitingEmail).toEqual([{ contactId: "contact", ruleId: "rule" }]);
+  });
+
+  it("does not flag them when the send failed", async () => {
+    const store = new MemoryStore();
+    store.contact = { id: "contact", platform_user_id: "fan", last_inbound_at: NOW.toISOString() };
+    store.sendError = new Error("instagram said no");
+    store.queue = [
+      job({ kind: "message", payload: { text: "What is your email?", stepIndex: 1, collect: "email" } }),
+    ];
+
+    await runDmWorker(store, { now: () => NOW, log: quiet });
+    // Otherwise their next ordinary message is swallowed as an answer to a
+    // question they never received.
+    expect(store.awaitingEmail).toEqual([]);
   });
 });
 

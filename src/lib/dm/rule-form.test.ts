@@ -4,6 +4,8 @@ import { describeRule, readRuleForm, validateRuleForm, type RuleFormValues } fro
 
 const base: RuleFormValues = {
   name: "Send the guide",
+  folder: "",
+  templateId: "",
   connectionId: "conn-1",
   trigger: "comment",
   keywordMode: "keywords",
@@ -15,8 +17,10 @@ const base: RuleFormValues = {
   buttonTitle: "Get the guide",
   buttonUrl: "https://example.com/guide",
   commentReplyText: "Sent you a DM 📩",
-  followUps: [{ text: "Did you get it?", delayMinutes: 60 }],
+  followUps: [{ text: "Did you get it?", delayMinutes: 60, skipIfClicked: false }],
   oncePerContact: true,
+  collectEmail: false,
+  emailPrompt: "",
 };
 
 describe("validateRuleForm", () => {
@@ -26,6 +30,8 @@ describe("validateRuleForm", () => {
     if (!out.ok) return;
     expect(out.draft).toEqual({
       name: "Send the guide",
+      folder: null,
+      template_id: null,
       connection_id: "conn-1",
       trigger_type: "comment",
       keywords: ["link", "guide"],
@@ -66,7 +72,7 @@ describe("validateRuleForm", () => {
   });
 
   it("caps follow-up delays at 7 days and turns DM triggers into plain messages", () => {
-    const tooLong = validateRuleForm({ ...base, followUps: [{ text: "x", delayMinutes: 8 * 24 * 60 }] });
+    const tooLong = validateRuleForm({ ...base, followUps: [{ text: "x", delayMinutes: 8 * 24 * 60, skipIfClicked: false }] });
     expect(tooLong.ok).toBe(false);
     const dm = validateRuleForm({ ...base, trigger: "dm_keyword", commentReplyText: "ignored" });
     expect(dm.ok).toBe(true);
@@ -102,8 +108,8 @@ describe("readRuleForm", () => {
       postScope: "specific",
       postIds: ["m1", "m2"],
       followUps: [
-        { text: "one", delayMinutes: 30 },
-        { text: "three", delayMinutes: 1440 },
+        { text: "one", delayMinutes: 30, skipIfClicked: false },
+        { text: "three", delayMinutes: 1440, skipIfClicked: false },
       ],
       oncePerContact: false,
     });
@@ -118,5 +124,70 @@ describe("describeRule", () => {
     expect(describeRule({ trigger_type: "dm_keyword", keywords: ["price"], target_post_ids: [], actions: [{ type: "message", text: "x" }] })).toBe(
       "When someone DMs “price” → send a DM",
     );
+  });
+});
+
+describe("the newer steps", () => {
+  it("asks for the email before any follow-up", () => {
+    const out = validateRuleForm({
+      ...base,
+      collectEmail: true,
+      emailPrompt: "What's your email?",
+    });
+    if (!out.ok) throw new Error("expected ok");
+    const kinds = out.draft.actions.map((a) =>
+      a.type === "message" && a.collect === "email"
+        ? "email"
+        : a.type === "message"
+          ? "followup"
+          : a.type,
+    );
+    // Asking after a nudge reads as an afterthought, and the 24-hour window
+    // makes the earliest ask the likeliest answer.
+    expect(kinds.indexOf("email")).toBeLessThan(kinds.indexOf("followup"));
+  });
+
+  it("falls back to a sensible question when none was typed", () => {
+    const out = validateRuleForm({ ...base, collectEmail: true, emailPrompt: "" });
+    if (!out.ok) throw new Error("expected ok");
+    const step = out.draft.actions.find(
+      (a) => a.type === "message" && a.collect === "email",
+    );
+    expect(step).toMatchObject({ text: "What's the best email to send it to?" });
+  });
+
+  it("keeps a click-gated follow-up only when there is a link to click", () => {
+    const withLink = validateRuleForm({
+      ...base,
+      followUps: [{ text: "Still there?", delayMinutes: 60, skipIfClicked: true }],
+    });
+    if (!withLink.ok) throw new Error("expected ok");
+    expect(
+      withLink.draft.actions.some(
+        (a) => a.type === "message" && a.skip_if_clicked === true,
+      ),
+    ).toBe(true);
+
+    // No button means no click is possible, so the gate would hold the message
+    // forever. Dropping the flag is better than never sending.
+    const noLink = validateRuleForm({
+      ...base,
+      buttonTitle: "",
+      buttonUrl: "",
+      followUps: [{ text: "Still there?", delayMinutes: 60, skipIfClicked: true }],
+    });
+    if (!noLink.ok) throw new Error("expected ok");
+    expect(
+      noLink.draft.actions.some(
+        (a) => a.type === "message" && a.skip_if_clicked === true,
+      ),
+    ).toBe(false);
+  });
+
+  it("carries the folder and template through", () => {
+    const out = validateRuleForm({ ...base, folder: "Launch", templateId: "comment-to-link" });
+    if (!out.ok) throw new Error("expected ok");
+    expect(out.draft.folder).toBe("Launch");
+    expect(out.draft.template_id).toBe("comment-to-link");
   });
 });

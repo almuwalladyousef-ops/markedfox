@@ -28,6 +28,13 @@ export type DmStep =
       buttons?: DmButton[];
       /** Wait this long after the trigger before sending (follow-ups). */
       delay_seconds?: number;
+      /** Do not send if this person already tapped a link from this rule.
+       *  The "nudge whoever did not click" follow-up: chasing somebody who
+       *  already took the action is the fastest way to be muted. */
+      skip_if_clicked?: boolean;
+      /** Treat this person's NEXT message as an answer to this one rather than
+       *  as a new trigger. "email" stores it on the contact. */
+      collect?: "email";
     }
   | {
       /** A public reply under the triggering comment. */
@@ -112,6 +119,10 @@ export type DmJobPayload = {
   commentId?: string;
   /** Which step of the rule this is (for analytics). */
   stepIndex: number;
+  /** Carried from the step: drop this send if the person already clicked. */
+  skipIfClicked?: boolean;
+  /** Carried from the step: what the reply to this message will be read as. */
+  collect?: "email";
 };
 
 export type DmJobDraft = {
@@ -150,4 +161,5 @@ export type DmEventKind =
   | "skipped"
   | "clicked"
   | "tapped"
-  | "replied";
+  | "replied"
+  | "email_captured";

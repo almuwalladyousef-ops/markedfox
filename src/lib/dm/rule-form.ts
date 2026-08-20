@@ -8,6 +8,10 @@ import type { DmRuleConfig, DmStep, DmTriggerType, KeywordMatch } from "./types"
 
 export type RuleFormValues = {
   name: string;
+  /** A label, not a table — see the migration note on dm_rules.folder. */
+  folder: string;
+  /** Which starter this began as, kept so we can see which ones people use. */
+  templateId: string;
   connectionId: string;
   trigger: DmTriggerType;
   /** "any" | "keywords" */
@@ -21,12 +25,17 @@ export type RuleFormValues = {
   buttonTitle: string;
   buttonUrl: string;
   commentReplyText: string;
-  followUps: { text: string; delayMinutes: number }[];
+  followUps: { text: string; delayMinutes: number; skipIfClicked: boolean }[];
   oncePerContact: boolean;
+  /** Ask for an email as a second message, and read the reply as the answer. */
+  collectEmail: boolean;
+  emailPrompt: string;
 };
 
 export type RuleDraft = {
   name: string;
+  folder: string | null;
+  template_id: string | null;
   connection_id: string;
   trigger_type: DmTriggerType;
   keywords: string[];
@@ -46,12 +55,20 @@ export function readRuleForm(formData: FormData): RuleFormValues {
     const text = str(`followup_text_${i}`);
     const delay = Number(str(`followup_delay_${i}`) || 0);
     if (!text && !formData.has(`followup_text_${i}`)) continue;
-    if (text) followUps.push({ text, delayMinutes: Number.isFinite(delay) ? delay : 0 });
+    if (text) {
+      followUps.push({
+        text,
+        delayMinutes: Number.isFinite(delay) ? delay : 0,
+        skipIfClicked: formData.get(`followup_skip_${i}`) === "on",
+      });
+    }
   }
   const trigger = str("trigger");
   const keywordMatch = str("keyword_match");
   return {
     name: str("name"),
+    folder: str("folder"),
+    templateId: str("template_id"),
     connectionId: str("connection_id"),
     trigger: (TRIGGERS as string[]).includes(trigger) ? (trigger as DmTriggerType) : "comment",
     keywordMode: str("keyword_mode") === "keywords" ? "keywords" : "any",
@@ -66,6 +83,8 @@ export function readRuleForm(formData: FormData): RuleFormValues {
     followUps,
     // A checkbox: present as "on" when ticked, absent when not.
     oncePerContact: formData.get("once_per_contact") === "on",
+    collectEmail: formData.get("collect_email") === "on",
+    emailPrompt: str("email_prompt"),
   };
 }
 
@@ -117,8 +136,31 @@ export function validateRuleForm(values: RuleFormValues): RuleFormResult {
       errors[`followup_delay_${i}`] = "Follow-ups can wait at most 7 days.";
       return;
     }
-    followUps.push({ type: "message", text, delay_seconds: delaySeconds });
+    followUps.push({
+      type: "message",
+      text,
+      delay_seconds: delaySeconds,
+      // Only meaningful when there is a link to have clicked. Silently
+      // dropping it otherwise beats a rule that never sends because it is
+      // waiting on a click that can never happen.
+      ...(f.skipIfClicked && buttons.length > 0 ? { skip_if_clicked: true } : {}),
+    });
   });
+
+  // The email question is its own step and comes before any follow-up: asking
+  // for an address after a nudge reads as an afterthought, and Instagram's
+  // 24-hour window makes the earliest ask the likeliest answer.
+  const emailStep: DmStep | null = values.collectEmail
+    ? {
+        type: "message",
+        text:
+          (values.emailPrompt || "What's the best email to send it to?").slice(
+            0,
+            MAX_STEP_TEXT,
+          ),
+        collect: "email",
+      }
+    : null;
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
@@ -131,12 +173,15 @@ export function validateRuleForm(values: RuleFormValues): RuleFormResult {
   } else {
     actions.push({ type: "message", text: dmText, ...(buttons.length ? { buttons } : {}) });
   }
+  if (emailStep) actions.push(emailStep);
   actions.push(...followUps);
 
   return {
     ok: true,
     draft: {
       name,
+      folder: values.folder ? values.folder.slice(0, 60) : null,
+      template_id: values.templateId ? values.templateId.slice(0, 60) : null,
       connection_id: values.connectionId,
       trigger_type: values.trigger,
       keywords,
@@ -162,9 +207,13 @@ export function describeRule(rule: {
         : `someone replies to a story${rule.keywords.length ? ` with “${rule.keywords.join("” or “")}”` : ""}`;
   const dm = rule.actions.filter((a) => a.type !== "comment_reply").length;
   const publicReply = rule.actions.some((a) => a.type === "comment_reply");
+  const asksEmail = rule.actions.some(
+    (a) => a.type === "message" && a.collect === "email",
+  );
   const then = [
     dm > 0 ? `send ${dm === 1 ? "a DM" : `${dm} DMs`}` : null,
     publicReply ? "reply publicly" : null,
+    asksEmail ? "ask for their email" : null,
   ]
     .filter(Boolean)
     .join(" and ");

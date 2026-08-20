@@ -136,10 +136,34 @@ export function createDmEngineStore(service: SupabaseClient): DmEngineStore {
           },
           { onConflict: "connection_id,platform_user_id" },
         )
-        .select("id")
+        .select("id,awaiting_email_rule_id")
         .single();
       if (error) throw error;
-      return { id: String(data.id) };
+      return {
+        id: String(data.id),
+        awaitingEmailRuleId:
+          (data.awaiting_email_rule_id as string | null) ?? null,
+      };
+    },
+
+    async saveContactEmail(contactId: string, email: string) {
+      const { error } = await service
+        .from("dm_contacts")
+        .update({
+          email,
+          email_captured_at: new Date().toISOString(),
+          awaiting_email_rule_id: null,
+        })
+        .eq("id", contactId);
+      if (error) throw error;
+    },
+
+    async clearAwaitingEmail(contactId: string) {
+      const { error } = await service
+        .from("dm_contacts")
+        .update({ awaiting_email_rule_id: null })
+        .eq("id", contactId);
+      if (error) throw error;
     },
 
     async hasContactFired(ruleId: string, contactId: string): Promise<boolean> {
@@ -207,6 +231,8 @@ function toJobRow(row: Record<string, unknown>): DmJobRow {
       buttons: Array.isArray(payload.buttons) ? (payload.buttons as DmJobRow["payload"]["buttons"]) : undefined,
       commentId: typeof payload.commentId === "string" ? payload.commentId : undefined,
       stepIndex: typeof payload.stepIndex === "number" ? payload.stepIndex : 0,
+      skipIfClicked: payload.skipIfClicked === true ? true : undefined,
+      collect: payload.collect === "email" ? "email" : undefined,
     },
     dedupe_key: String(row.dedupe_key),
     run_at: String(row.run_at),
@@ -337,6 +363,26 @@ export function createDmWorkerStore(service: SupabaseClient, options: { siteUrl:
 
     async touchContactOutbound(contactId: string, at: Date) {
       await service.from("dm_contacts").update({ last_outbound_at: at.toISOString() }).eq("id", contactId);
+    },
+
+    async hasClicked(ruleId: string, contactId: string): Promise<boolean> {
+      // One row is enough to answer the question, so head-count rather than
+      // fetching every click this person has ever made.
+      const { count, error } = await service
+        .from("dm_events")
+        .select("id", { count: "exact", head: true })
+        .eq("rule_id", ruleId)
+        .eq("contact_id", contactId)
+        .eq("kind", "clicked");
+      if (error) throw error;
+      return (count ?? 0) > 0;
+    },
+
+    async markAwaitingEmail(contactId: string, ruleId: string | null) {
+      await service
+        .from("dm_contacts")
+        .update({ awaiting_email_rule_id: ruleId })
+        .eq("id", contactId);
     },
   };
 }

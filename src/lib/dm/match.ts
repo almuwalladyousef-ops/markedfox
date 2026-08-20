@@ -82,7 +82,13 @@ export function planJobs(rule: DmRule, event: InboundEvent, now: Date): DmJobDra
         drafts.push({
           ...base,
           kind: "message",
-          payload: { text: step.text, buttons: step.buttons, stepIndex: index },
+          payload: {
+            text: step.text,
+            buttons: step.buttons,
+            stepIndex: index,
+            ...(step.skip_if_clicked ? { skipIfClicked: true } : {}),
+            ...(step.collect ? { collect: step.collect } : {}),
+          },
           runAt: new Date(now.getTime() + (step.delay_seconds ?? 0) * 1000),
         });
         break;

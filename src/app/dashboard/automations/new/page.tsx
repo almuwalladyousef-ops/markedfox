@@ -3,8 +3,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { builderAccounts } from "@/lib/dm/builder-accounts";
+import { getRuleTemplate } from "@/lib/dm/templates";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { createClient } from "@/lib/supabase/server";
@@ -14,7 +16,12 @@ import { RuleBuilder } from "../rule-builder";
 
 export const metadata: Metadata = { title: "New rule · MarkedFox" };
 
-export default async function NewRulePage() {
+export default async function NewRulePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ template?: string }>;
+}) {
+  const { template: templateId } = await searchParams;
   const user = await requireUser();
   const active = await getActiveWorkspace();
   if (!active) redirect("/dashboard");
@@ -25,19 +32,27 @@ export default async function NewRulePage() {
   if (!decision.allowed) redirect("/dashboard/automations");
 
   const accounts = await builderAccounts(active.id);
+  const template = templateId ? getRuleTemplate(templateId) : null;
 
   return (
     <>
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">New rule</h1>
-          <p className="mt-1 text-sm text-neutral-400">When something happens, send a DM.</p>
-        </div>
-        <Link href="/dashboard/automations" className="rounded-md border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50">
-          Back
-        </Link>
-      </header>
-      <RuleBuilder accounts={accounts} />
+      <PageHeader
+        title="New automation"
+        subtitle={
+          template
+            ? template.description
+            : "When something happens on your account, send a DM."
+        }
+        actions={
+          <Link
+            href="/dashboard/automations/templates"
+            className="rounded-lg border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+          >
+            Browse templates
+          </Link>
+        }
+      />
+      <RuleBuilder accounts={accounts} template={template} />
     </>
   );
 }
