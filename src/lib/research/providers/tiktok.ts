@@ -217,6 +217,7 @@ export const tiktokResearch: ResearchProvider = {
   platform: "tiktok",
   label: "TikTok",
   capabilities: {
+    searchChannels: false,
     discoverAnyChannel: false,
     requiresConnection: true,
     ownContentOnly: true,

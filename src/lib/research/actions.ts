@@ -45,6 +45,7 @@ import {
   toStoredSource,
   upsertSource,
 } from "./store";
+import { upsertIdea } from "./studio-store";
 import { syncSource } from "./sync";
 import {
   RESEARCH_PLATFORMS,
@@ -384,6 +385,17 @@ export async function breakdownVideoAction(
       model: result.model,
     });
 
+    // A breakdown that stops at the breakdown is a receipt. Every analysis puts
+    // an idea in the inbox, which is the queue the user actually works from —
+    // and `upsertIdea` will not resurrect one they already discarded.
+    await upsertIdea(supabase, {
+      userId: user.id,
+      workspaceId: video.workspace_id,
+      videoId,
+      title: breakdown.ideaSeed ?? breakdown.uniqueAngle ?? video.title,
+      summary: breakdown.summary ?? breakdown.takeaway ?? null,
+    });
+
     await recordUsage(supabase, {
       userId: user.id,
       workspaceId: active.id,
@@ -407,6 +419,7 @@ export async function breakdownVideoAction(
   }
 
   revalidatePath(`/dashboard/research/${videoId}`);
+  revalidatePath("/dashboard/research/ideas");
   return { ok: true, message: "Broken down." };
 }
 

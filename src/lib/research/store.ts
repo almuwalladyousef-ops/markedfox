@@ -46,13 +46,16 @@ export interface VideoRow {
   comment_count: number | null;
   outlier_score: number | null;
   baseline_views: number | null;
+  /** (likes + comments) / views, computed by the database. Null when we have
+      no view count to divide by. */
+  engagement_rate: number | null;
 }
 
 const SOURCE_COLUMNS =
   "id,user_id,workspace_id,platform,external_id,handle,title,thumbnail_url,follower_count,connection_id,baseline_views,baseline_sample,last_synced_at,last_error,created_at";
 
 const VIDEO_COLUMNS =
-  "id,source_id,external_id,title,description,url,thumbnail_url,published_at,duration_seconds,view_count,like_count,comment_count,outlier_score,baseline_views";
+  "id,source_id,external_id,title,description,url,thumbnail_url,published_at,duration_seconds,view_count,like_count,comment_count,outlier_score,baseline_views,engagement_rate";
 
 export async function listSources(
   supabase: SupabaseClient,
@@ -130,44 +133,136 @@ export async function deleteSource(
   if (error) throw error;
 }
 
+export type FeedSort =
+  | "outlier"
+  | "views"
+  | "engagement"
+  | "recent";
+
 export interface FeedFilters {
   /** Only videos at or above this multiple of their channel's baseline. */
   minScore?: number;
+  maxScore?: number;
+  /** Substring match over title and description. */
+  keywords?: string;
   sourceId?: string;
+  /** Several channels at once — the feed's channel picker is multi-select. */
+  sourceIds?: string[];
+  platform?: ResearchPlatform;
+  minViews?: number;
+  maxViews?: number;
+  /** Fractions, not percentages: 0.02 is 2%. */
+  minEngagement?: number;
+  maxEngagement?: number;
+  /** Only videos published within this many days. */
+  postedWithinDays?: number;
+  /** Undefined = both. True = only broken down, false = only not. */
+  analyzed?: boolean;
+  sort?: FeedSort;
   limit?: number;
 }
 
-/** The outlier feed: this workspace's videos, biggest multiple first. */
+export type FeedVideo = VideoRow & {
+  source: {
+    id: string;
+    title: string;
+    platform: ResearchPlatform;
+    handle: string | null;
+    thumbnail_url: string | null;
+    baseline_sample: number;
+  };
+};
+
+const FEED_ORDER: Record<FeedSort, { column: string; ascending: boolean }> = {
+  outlier: { column: "outlier_score", ascending: false },
+  views: { column: "view_count", ascending: false },
+  engagement: { column: "engagement_rate", ascending: false },
+  recent: { column: "published_at", ascending: false },
+};
+
+/**
+ * The outlier feed. Every filter here is applied by Postgres rather than in the
+ * page, because the point of a filter is to not load the rows you are throwing
+ * away — a workspace tracking 150 channels has tens of thousands of videos.
+ *
+ * `analyzed` is the exception: it needs the set of videos that have a breakdown,
+ * which lives in another table with no foreign key the PostgREST filter syntax
+ * can reach across cheaply. It is applied after the fetch, and the caller is
+ * told so by this comment rather than by a surprise.
+ */
 export async function listFeed(
   supabase: SupabaseClient,
   workspaceId: string,
   filters: FeedFilters = {},
-): Promise<(VideoRow & { source: { title: string; platform: ResearchPlatform; handle: string | null } })[]> {
+): Promise<FeedVideo[]> {
+  const sort = FEED_ORDER[filters.sort ?? "outlier"];
   let query = supabase
     .from("research_videos")
     .select(
-      `${VIDEO_COLUMNS},research_sources!inner(title,platform,handle)`,
+      `${VIDEO_COLUMNS},research_sources!inner(id,title,platform,handle,thumbnail_url,baseline_sample)`,
     )
     .eq("workspace_id", workspaceId)
-    .order("outlier_score", { ascending: false, nullsFirst: false })
+    .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
     .limit(filters.limit ?? 60);
 
   if (filters.minScore !== undefined) {
     query = query.gte("outlier_score", filters.minScore);
   }
+  if (filters.maxScore !== undefined) {
+    query = query.lte("outlier_score", filters.maxScore);
+  }
   if (filters.sourceId) {
     query = query.eq("source_id", filters.sourceId);
+  }
+  if (filters.sourceIds && filters.sourceIds.length > 0) {
+    query = query.in("source_id", filters.sourceIds);
+  }
+  if (filters.platform) {
+    query = query.eq("research_sources.platform", filters.platform);
+  }
+  if (filters.minViews !== undefined) {
+    query = query.gte("view_count", filters.minViews);
+  }
+  if (filters.maxViews !== undefined) {
+    query = query.lte("view_count", filters.maxViews);
+  }
+  if (filters.minEngagement !== undefined) {
+    query = query.gte("engagement_rate", filters.minEngagement);
+  }
+  if (filters.maxEngagement !== undefined) {
+    query = query.lte("engagement_rate", filters.maxEngagement);
+  }
+  if (filters.postedWithinDays !== undefined && filters.postedWithinDays > 0) {
+    const since = new Date(
+      Date.now() - filters.postedWithinDays * 24 * 60 * 60 * 1000,
+    );
+    query = query.gte("published_at", since.toISOString());
+  }
+  if (filters.keywords) {
+    // Escape the PostgREST `or` list separators before interpolating a user
+    // string into it, or a comma in someone's search turns into a second filter.
+    const safe = filters.keywords.replace(/[,()"\\]/g, " ").trim();
+    if (safe) {
+      query = query.or(`title.ilike.%${safe}%,description.ilike.%${safe}%`);
+    }
   }
 
   const { data, error } = await query;
   if (error) throw error;
 
-  return (data ?? []).map((row) => {
+  const rows = (data ?? []).map((row) => {
     const { research_sources: source, ...video } = row as unknown as VideoRow & {
-      research_sources: { title: string; platform: ResearchPlatform; handle: string | null };
+      research_sources: FeedVideo["source"];
     };
     return { ...video, source };
   });
+
+  if (filters.analyzed === undefined) return rows;
+  const withBreakdown = await breakdownVideoIds(
+    supabase,
+    rows.map((r) => r.id),
+  );
+  return rows.filter((r) => withBreakdown.has(r.id) === filters.analyzed);
 }
 
 export async function getVideo(
@@ -415,11 +510,23 @@ export async function refreshHoursForUser(
 
 export interface BreakdownRow {
   video_id: string;
+  summary: string | null;
+  topic: string | null;
+  idea_seed: string | null;
+  unique_angle: string | null;
+  common_belief: string | null;
+  contrarian_reality: string | null;
   hook: string | null;
   hook_type: string | null;
+  hook_formula: string | null;
+  text_hook: string | null;
+  hook_alignment: string | null;
   curiosity_loop: string | null;
   structure: unknown;
+  format_category: string | null;
   format_notes: string | null;
+  format_analysis: string | null;
+  visual_layout: string | null;
   takeaway: string | null;
   notes: string | null;
   model: string | null;
@@ -427,7 +534,7 @@ export interface BreakdownRow {
 }
 
 const BREAKDOWN_COLUMNS =
-  "video_id,hook,hook_type,curiosity_loop,structure,format_notes,takeaway,notes,model,created_at";
+  "video_id,summary,topic,idea_seed,unique_angle,common_belief,contrarian_reality,hook,hook_type,hook_formula,text_hook,hook_alignment,curiosity_loop,structure,format_category,format_notes,format_analysis,visual_layout,takeaway,notes,model,created_at";
 
 export async function getBreakdown(
   supabase: SupabaseClient,
@@ -458,11 +565,23 @@ export async function saveBreakdown(
       video_id: input.videoId,
       user_id: input.userId,
       workspace_id: input.workspaceId,
+      summary: breakdown.summary,
+      topic: breakdown.topic,
+      idea_seed: breakdown.ideaSeed,
+      unique_angle: breakdown.uniqueAngle,
+      common_belief: breakdown.commonBelief,
+      contrarian_reality: breakdown.contrarianReality,
       hook: breakdown.hook,
       hook_type: breakdown.hookType,
+      hook_formula: breakdown.hookFormula,
+      text_hook: breakdown.textHook,
+      hook_alignment: breakdown.hookAlignment,
       curiosity_loop: breakdown.curiosityLoop,
       structure: breakdown.structure,
+      format_category: breakdown.formatCategory,
       format_notes: breakdown.formatNotes,
+      format_analysis: breakdown.formatAnalysis,
+      visual_layout: breakdown.visualLayout,
       takeaway: breakdown.takeaway,
       notes: breakdown.notes,
       model: input.model,
@@ -498,11 +617,23 @@ export function toBreakdown(row: BreakdownRow): Breakdown {
     : [];
 
   return {
+    summary: row.summary,
+    topic: row.topic,
+    ideaSeed: row.idea_seed,
+    uniqueAngle: row.unique_angle,
+    commonBelief: row.common_belief,
+    contrarianReality: row.contrarian_reality,
     hook: row.hook,
     hookType: (row.hook_type as Breakdown["hookType"]) ?? null,
+    hookFormula: row.hook_formula,
+    textHook: row.text_hook,
+    hookAlignment: row.hook_alignment,
     curiosityLoop: row.curiosity_loop,
     structure,
+    formatCategory: row.format_category,
     formatNotes: row.format_notes,
+    formatAnalysis: row.format_analysis,
+    visualLayout: row.visual_layout,
     takeaway: row.takeaway,
     notes: row.notes,
   };

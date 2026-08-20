@@ -200,6 +200,7 @@ export const instagramResearch: ResearchProvider = {
   platform: "instagram",
   label: "Instagram",
   capabilities: {
+    searchChannels: false,
     discoverAnyChannel: true,
     requiresConnection: true,
     ownContentOnly: false,

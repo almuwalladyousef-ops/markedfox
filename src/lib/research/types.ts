@@ -21,6 +21,10 @@ export const RESEARCH_PLATFORMS: readonly ResearchPlatform[] = [
 export interface ResearchCapabilities {
   /** Can look up any public channel by handle or URL — YouTube only today. */
   readonly discoverAnyChannel: boolean;
+  /** Can answer a free-text query with a LIST of channels. Different from
+   *  discoverAnyChannel, which resolves one exact handle: Instagram can do the
+   *  second and not the first, because business discovery needs the username. */
+  readonly searchChannels: boolean;
   /** Reads through a connected account's token rather than an API key. */
   readonly requiresConnection: boolean;
   /** Reads only the connected user's OWN content. True for TikTok, whose
@@ -76,6 +80,13 @@ export interface ResearchProvider {
 
   /** Turn what the user typed (a handle, a URL, an id) into a real channel. */
   resolveSource(input: string, ctx: ProviderContext): Promise<SourceIdentity>;
+
+  /** Only called when capabilities.searchChannels is true. */
+  searchChannels?(
+    query: string,
+    ctx: ProviderContext,
+    limit: number,
+  ): Promise<SourceIdentity[]>;
 
   /** The channel's recent uploads, newest first, at most `limit`. */
   listVideos(

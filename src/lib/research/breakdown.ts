@@ -49,21 +49,68 @@ export interface StructureBeat {
 }
 
 export interface Breakdown {
+  /** A paragraph a person can read instead of the transcript. */
+  summary: string | null;
+
+  // ── the idea ─────────────────────────────────────────────────────────────
+  // Separated from the execution on purpose. Copying someone's structure while
+  // keeping their idea is plagiarism; keeping your own idea and borrowing their
+  // structure is a different video. The generator only ever sees this half plus
+  // the shape — never the original wording.
+  topic: string | null;
+  /** The seed a remix starts from, stated as an intent rather than a title. */
+  ideaSeed: string | null;
+  /** What stops this being the generic version of the topic. */
+  uniqueAngle: string | null;
+  /** The belief the video argues against… */
+  commonBelief: string | null;
+  /** …and what it replaces it with. The pair is the engine of the video. */
+  contrarianReality: string | null;
+
+  // ── the hook ─────────────────────────────────────────────────────────────
   hook: string | null;
   hookType: HookType | null;
+  /** The pattern with its variables in brackets, which is the reusable part. */
+  hookFormula: string | null;
+  /** The on-screen text, frequently NOT the spoken line — the pairing is the
+   *  technique, and a breakdown that records only one of them misses it. */
+  textHook: string | null;
+  hookAlignment: string | null;
+
   curiosityLoop: string | null;
   structure: StructureBeat[];
+
+  // ── the execution ────────────────────────────────────────────────────────
+  /** Named storytelling format, e.g. "Breakdown explainer". */
+  formatCategory: string | null;
   formatNotes: string | null;
+  /** Why this format suits this idea. */
+  formatAnalysis: string | null;
+  /** Shot types, text density, cut rhythm, b-roll. */
+  visualLayout: string | null;
+
   takeaway: string | null;
   notes: string | null;
 }
 
 export const EMPTY_BREAKDOWN: Breakdown = {
+  summary: null,
+  topic: null,
+  ideaSeed: null,
+  uniqueAngle: null,
+  commonBelief: null,
+  contrarianReality: null,
   hook: null,
   hookType: null,
+  hookFormula: null,
+  textHook: null,
+  hookAlignment: null,
   curiosityLoop: null,
   structure: [],
+  formatCategory: null,
   formatNotes: null,
+  formatAnalysis: null,
+  visualLayout: null,
   takeaway: null,
   notes: null,
 };
@@ -133,11 +180,23 @@ export function parseBreakdown(raw: string): Breakdown | null {
   const o = parsed as Record<string, unknown>;
 
   const breakdown: Breakdown = {
-    hook: str(o.hook),
+    summary: str(o.summary),
+    topic: str(o.topic, 200),
+    ideaSeed: str(o.idea_seed ?? o.ideaSeed),
+    uniqueAngle: str(o.unique_angle ?? o.uniqueAngle),
+    commonBelief: str(o.common_belief ?? o.commonBelief),
+    contrarianReality: str(o.contrarian_reality ?? o.contrarianReality),
+    hook: str(o.hook ?? o.spoken_hook ?? o.spokenHook),
     hookType: hookType(o.hook_type ?? o.hookType),
+    hookFormula: str(o.hook_formula ?? o.hookFormula ?? o.formula),
+    textHook: str(o.text_hook ?? o.textHook),
+    hookAlignment: str(o.hook_alignment ?? o.hookAlignment),
     curiosityLoop: str(o.curiosity_loop ?? o.curiosityLoop),
     structure: beats(o.structure ?? o.beats),
+    formatCategory: str(o.format_category ?? o.formatCategory, 80),
     formatNotes: str(o.format_notes ?? o.formatNotes ?? o.format),
+    formatAnalysis: str(o.format_analysis ?? o.formatAnalysis),
+    visualLayout: str(o.visual_layout ?? o.visualLayout ?? o.visuals),
     takeaway: str(o.takeaway),
     notes: str(o.notes),
   };
@@ -148,7 +207,9 @@ export function parseBreakdown(raw: string): Breakdown | null {
     breakdown.hook ||
     breakdown.curiosityLoop ||
     breakdown.structure.length > 0 ||
-    breakdown.takeaway;
+    breakdown.takeaway ||
+    breakdown.ideaSeed ||
+    breakdown.uniqueAngle;
   return hasContent ? breakdown : null;
 }
 
@@ -169,6 +230,7 @@ export function extractJson(raw: string): string | null {
 /** One-line summary for a feed row or a card. */
 export function summariseBreakdown(breakdown: Breakdown): string {
   if (breakdown.takeaway) return breakdown.takeaway;
+  if (breakdown.uniqueAngle) return breakdown.uniqueAngle;
   if (breakdown.hookType) return HOOK_TYPE_LABELS[breakdown.hookType];
   if (breakdown.hook) return `Opens: "${breakdown.hook.slice(0, 80)}"`;
   return "Breakdown available";

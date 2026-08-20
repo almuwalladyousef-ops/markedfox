@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -32,20 +33,11 @@ export default async function ResearchProjectsPage() {
   const projects = await listProjects(supabase, active.id);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 px-4 py-16">
-      <header>
-        <Link
-          href="/dashboard/research"
-          className="text-sm text-neutral-500 hover:text-neutral-300"
-        >
-          ← Research
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold">Projects</h1>
-        <p className="mt-1 text-sm text-neutral-400">
-          Collect the ideas worth acting on, and track which ones you actually
-          made.
-        </p>
-      </header>
+    <>
+      <PageHeader
+        title="Projects"
+        subtitle="Collect the ideas worth acting on, and track which ones you actually made."
+      />
 
       <NewProjectForm />
 
@@ -86,6 +78,6 @@ export default async function ResearchProjectsPage() {
           ))}
         </ul>
       )}
-    </main>
+    </>
   );
 }

@@ -167,6 +167,7 @@ export const xResearch: ResearchProvider = {
   platform: "x",
   label: "X",
   capabilities: {
+    searchChannels: false,
     discoverAnyChannel: true,
     requiresConnection: false,
     ownContentOnly: false,

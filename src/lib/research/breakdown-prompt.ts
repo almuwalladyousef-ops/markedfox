@@ -41,17 +41,31 @@ export function buildBreakdownPrompt(subject: BreakdownSubject): string {
     "",
     "Rules:",
     "- Quote the hook VERBATIM from the transcript when there is one. Do not paraphrase it; the exact wording is the thing that worked.",
+    "- Separate the IDEA from the EXECUTION. The idea fields (topic, seed, angle, belief) are what a remix keeps; the execution fields (hook pattern, structure, format, visuals) are what it borrows. Somebody reading only the idea fields should still know what the video argues.",
+    "- The hook formula must be reusable: replace the specifics with [bracketed placeholders] so the same shape works for an unrelated topic.",
     "- If the transcript is missing or too short to tell, write \"unknown\" for that field rather than guessing. The user can watch this video, and an invented detail costs you every other field's credibility.",
     "- Be specific and concrete. \"Strong hook\" is worthless; \"opens by contradicting the advice the audience has already heard\" is usable.",
     "- Answer with JSON only, no prose before or after, no code fence.",
     "",
     "JSON shape:",
     "{",
-    '  "hook": "the opening line, quoted",',
+    '  "summary": "two or three sentences on what this video is and does",',
+    '  "topic": "the subject, in a few words",',
+    '  "idea_seed": "the idea a remix would start from, stated as an intent",',
+    '  "unique_angle": "what stops this being the generic version of the topic",',
+    '  "common_belief": "the belief the audience holds that this video argues against",',
+    '  "contrarian_reality": "what the video says is true instead",',
+    '  "hook": "the opening spoken line, quoted",',
     `  "hook_type": one of ${HOOK_TYPES.join(" | ")},`,
+    '  "hook_formula": "the same hook with its variable parts in [brackets], so it can be reused for another topic",',
+    '  "text_hook": "the on-screen text at the open, if any — often NOT the same as the spoken line",',
+    '  "hook_alignment": "how the spoken and text hooks work together, and how to reproduce that pairing",',
     '  "curiosity_loop": "what question is opened and when it is answered",',
     '  "structure": [{"label": "hook|setup|turn|payoff|cta", "detail": "what happens in this beat"}],',
+    '  "format_category": "a short name for the storytelling format, e.g. breakdown explainer, listicle, case study, reaction, day-in-the-life",',
     '  "format_notes": "delivery, cut rhythm, text on screen, b-roll",',
+    '  "format_analysis": "why this format suits this particular idea",',
+    '  "visual_layout": "shot types, framing, text density, colour, pacing of cuts",',
     '  "takeaway": "the single most transferable thing to copy",',
     '  "notes": "anything else worth knowing"',
     "}",
@@ -102,6 +116,8 @@ export function renderBreakdownForPrompt(breakdown: Breakdown): string {
   const lines: string[] = ["The framework this is built on, taken from a video that beat its channel's average:"];
 
   if (breakdown.hookType) lines.push(`- Hook pattern: ${breakdown.hookType.replace(/_/g, " ")}`);
+  if (breakdown.hookFormula) lines.push(`- Hook formula: ${breakdown.hookFormula}`);
+  if (breakdown.hookAlignment) lines.push(`- Spoken vs on-screen hook: ${breakdown.hookAlignment}`);
   if (breakdown.curiosityLoop) lines.push(`- What holds attention: ${breakdown.curiosityLoop}`);
   if (breakdown.structure.length > 0) {
     lines.push("- Beat structure:");
@@ -109,8 +125,23 @@ export function renderBreakdownForPrompt(breakdown: Breakdown): string {
       lines.push(`    ${beat.label}: ${beat.detail}`);
     }
   }
-  if (breakdown.formatNotes) lines.push(`- Format: ${breakdown.formatNotes}`);
+  if (breakdown.formatCategory) lines.push(`- Format: ${breakdown.formatCategory}`);
+  if (breakdown.formatNotes) lines.push(`- Delivery: ${breakdown.formatNotes}`);
+  if (breakdown.formatAnalysis) lines.push(`- Why that format fits: ${breakdown.formatAnalysis}`);
+  if (breakdown.visualLayout) lines.push(`- Visual treatment: ${breakdown.visualLayout}`);
   if (breakdown.takeaway) lines.push(`- The transferable part: ${breakdown.takeaway}`);
+
+  // The contrast is passed as a SHAPE, never as the original's claim: "it
+  // overturned a widely held belief" transfers, "luxury vanilla is synthetic"
+  // does not — that is the other video's idea, and reusing it is the failure
+  // this whole separation exists to prevent.
+  if (breakdown.commonBelief && breakdown.contrarianReality) {
+    lines.push(
+      "- It works by naming a belief the audience already holds and replacing it with a",
+      "  specific, checkable claim. Find the equivalent pair inside the new topic — do not",
+      "  reuse the original's belief or its claim.",
+    );
+  }
 
   lines.push(
     "",

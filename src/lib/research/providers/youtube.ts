@@ -172,6 +172,43 @@ async function resolveSource(input: string): Promise<SourceIdentity> {
   return toIdentity(item);
 }
 
+/**
+ * Free-text channel search.
+ *
+ * search.list costs 100 quota units against a 10,000/day allowance, so this is
+ * 1% of the day per search — fine for a person picking channels once, ruinous
+ * if it were ever called on a page render. It is only reachable from an
+ * explicit submit for exactly that reason.
+ */
+async function searchChannels(
+  query: string,
+  _ctx: ProviderContext,
+  limit: number,
+): Promise<SourceIdentity[]> {
+  const search = await call<{
+    items?: { id?: { channelId?: string } }[];
+  }>("search", {
+    part: "snippet",
+    type: "channel",
+    maxResults: String(Math.min(Math.max(limit, 1), 25)),
+    q: query.slice(0, 100),
+  });
+
+  const ids = (search.items ?? [])
+    .map((item) => item.id?.channelId)
+    .filter((id): id is string => Boolean(id));
+  if (ids.length === 0) return [];
+
+  // One channels.list for all of them (1 unit) rather than one per result:
+  // search.list's snippet has no subscriber count, and follower count is the
+  // number that tells the user whether a channel is worth tracking.
+  const data = await call<{ items?: ChannelItem[] }>("channels", {
+    part: CHANNEL_PARTS,
+    id: ids.join(","),
+  });
+  return (data.items ?? []).map(toIdentity);
+}
+
 /** ISO 8601 duration (PT4M13S) to seconds. */
 export function parseIsoDuration(iso: string | undefined): number | null {
   if (!iso) return null;
@@ -329,6 +366,7 @@ export const youtubeResearch: ResearchProvider = {
   label: "YouTube",
   capabilities: {
     discoverAnyChannel: true,
+    searchChannels: true,
     requiresConnection: false,
     ownContentOnly: false,
     meteredReads: false,
@@ -336,6 +374,7 @@ export const youtubeResearch: ResearchProvider = {
   },
   requiredEnv: ["YOUTUBE_API_KEY"],
   resolveSource,
+  searchChannels,
   listVideos,
   fetchTranscript,
 };

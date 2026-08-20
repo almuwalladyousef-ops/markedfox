@@ -66,14 +66,7 @@ export default async function ResearchVideoPage({
   const forThisVideo = scripts.filter((s) => s.video_id === id);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-4 py-16">
-      <Link
-        href="/dashboard/research"
-        className="text-sm text-neutral-500 hover:text-neutral-300"
-      >
-        ← Research
-      </Link>
-
+    <>
       <header>
         <h1 className="text-xl font-semibold leading-snug">{video.title}</h1>
         <p className="mt-2 text-sm text-neutral-400">
@@ -197,6 +190,6 @@ export default async function ResearchVideoPage({
           </ul>
         </section>
       ) : null}
-    </main>
+    </>
   );
 }

@@ -33,9 +33,9 @@ export default async function AutomationsPage({
   const active = await getActiveWorkspace();
   if (!active) {
     return (
-      <main className="mx-auto max-w-2xl px-4 py-16">
+      <>
         <p>No workspace is selected.</p>
-      </main>
+      </>
     );
   }
   const supabase = await createClient();
@@ -64,7 +64,7 @@ export default async function AutomationsPage({
   const canCreate = canUserDo(snapshot, { type: "create_dm_rule" });
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 px-4 py-16">
+    <>
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Automations</h1>
@@ -204,7 +204,7 @@ export default async function AutomationsPage({
           </ul>
         )}
       </section>
-    </main>
+    </>
   );
 }
 

@@ -55,7 +55,7 @@ export default async function ProjectPage({
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 px-4 py-16">
+    <>
       <header>
         <Link
           href="/dashboard/research/projects"
@@ -155,6 +155,6 @@ export default async function ProjectPage({
           })}
         </div>
       )}
-    </main>
+    </>
   );
 }

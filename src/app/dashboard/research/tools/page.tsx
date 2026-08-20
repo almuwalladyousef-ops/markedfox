@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -47,20 +47,11 @@ export default async function ResearchToolsPage() {
   );
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-4 py-16">
-      <header>
-        <Link
-          href="/dashboard/research"
-          className="text-sm text-neutral-500 hover:text-neutral-300"
-        >
-          ← Research
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold">Tools</h1>
-        <p className="mt-1 text-sm text-neutral-400">
-          Hooks, transcripts, and a channel audit — without walking the whole
-          engine first.
-        </p>
-      </header>
+    <>
+      <PageHeader
+        title="Tools"
+        subtitle="Hooks, transcripts, and a channel audit — without walking the whole engine first."
+      />
 
       <HookGeneratorForm enabled={enabled} creditsLeft={creditsLeft} />
       <TranscriptForm />
@@ -122,6 +113,6 @@ export default async function ResearchToolsPage() {
           </ul>
         </section>
       ) : null}
-    </main>
+    </>
   );
 }

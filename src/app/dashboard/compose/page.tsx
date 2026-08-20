@@ -24,10 +24,10 @@ export default async function ComposePage() {
   const active = await getActiveWorkspace();
   if (!active) {
     return (
-      <main className="mx-auto max-w-2xl px-4 py-16">
+      <>
         <h1 className="text-2xl font-semibold">Account setup incomplete</h1>
         <p className="mt-2 text-neutral-400">No workspace exists for this account.</p>
-      </main>
+      </>
     );
   }
 
@@ -57,7 +57,7 @@ export default async function ComposePage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-16">
+    <>
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Compose</h1>
@@ -107,6 +107,6 @@ export default async function ComposePage() {
           }}
         />
       )}
-    </main>
+    </>
   );
 }

@@ -49,9 +49,9 @@ export default async function PostsPage() {
   const active = await getActiveWorkspace();
   if (!active) {
     return (
-      <main className="mx-auto max-w-2xl px-4 py-16">
+      <>
         <h1 className="text-2xl font-semibold">Account setup incomplete</h1>
-      </main>
+      </>
     );
   }
 
@@ -106,7 +106,7 @@ export default async function PostsPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-16">
+    <>
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Posts</h1>
@@ -221,6 +221,6 @@ export default async function PostsPage() {
           })}
         </ul>
       )}
-    </main>
+    </>
   );
 }
