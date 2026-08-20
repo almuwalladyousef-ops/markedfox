@@ -926,10 +926,36 @@ schedule; filing early is the only lever we control.
   the model answers. 342 tests; `research-smoke` 19/19 on live rows including
   RLS in both directions.
 
-  **Still owner-blocked, unchanged:** Meta webhook configuration (three
-  dashboard steps), X/TikTok/YouTube/Snapchat credentials, a YouTube Data API
-  key and an AI key for research, Cloudflare Email Routing, and the role
-  account's 2FA.
+  *Phase 6 begins — burst survival* (`f5e3abf`): the two things that turn
+  launch day into an outage rather than a busy afternoon. **The shared
+  rate-limit budget**, because Meta and TikTok limit per *app*, not per user —
+  every customer including free ones spends one allowance, so a burst can
+  throttle the whole product and the failure lands on people who did nothing.
+  Permission is asked before spending, through a Postgres function whose
+  increment-and-check is atomic (proven: twenty simultaneous requests against a
+  budget of five let exactly five through), and a real 429 is recorded so every
+  other worker stops. Crucially, a post refused by **our own** budget goes back
+  to the queue with a retry time rather than to the user as a failure —
+  otherwise burst protection reads as data loss. "Post now" is unmetered: the
+  user is watching and should get the platform's own answer. **And a real queue
+  claim**: `FOR UPDATE SKIP LOCKED` plus a 15-minute lease, so a worker killed
+  mid-publish no longer strands its post in `publishing` forever (a deploy
+  restart used to do exactly that). The lease is generous on purpose —
+  reclaiming a post that is still publishing would post it twice, which is worse
+  than posting it late. 367 tests; `burst-smoke` 22/22 on live Postgres.
+
+  **Deployed and live: `f5e3abf`.** Production smokes: dm 26/26, research 19/19,
+  burst 22/22, publish 13/15 (the two are the smoke reaching `/api/internal/*`,
+  which Caddy 404s publicly by design).
+
+  **Still owner-blocked:** Meta webhook configuration (three dashboard steps,
+  and the screencast it unlocks is what Phase 5 is waiting for),
+  X/TikTok/YouTube/Snapchat credentials, a YouTube Data API key and an AI key
+  for research, Cloudflare Email Routing, and the role account's 2FA.
+
+  **Phase 6 still to do:** Stripe, onboarding, data export, the PWA, health
+  checks and alerts, cost tracking. None of them can take the box down, which is
+  why the burst work came first.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
