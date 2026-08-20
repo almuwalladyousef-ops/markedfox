@@ -953,9 +953,50 @@ schedule; filing early is the only lever we control.
   X/TikTok/YouTube/Snapchat credentials, a YouTube Data API key and an AI key
   for research, Cloudflare Email Routing, and the role account's 2FA.
 
-  **Phase 6 still to do:** Stripe, onboarding, data export, the PWA, health
-  checks and alerts, cost tracking. None of them can take the box down, which is
-  why the burst work came first.
+- **2026-08-20 — research completed to the full engine, then Stripe.**
+
+  *Research, part two* (`70a8fde`, `708fc81`, see
+  `sessions/2026-08-19-research.md`): the owner supplied a detailed
+  Sandcastles breakdown that showed step 3 — deconstructing WHY a video
+  worked — was missing, and it is the step the pillar exists for. Built: the
+  **breakdown** (hook quoted verbatim, ten named hook patterns, curiosity
+  loop, beats, format, takeaway; the parser forgives fenced/prefaced/
+  string-beat answers because a correct answer in the wrong shape still cost
+  a credit). Generation now feeds on the breakdown and **never sees the
+  original wording** — a remix by construction. **"Validated outlier" means
+  something**: tiers under/normal/strong/outlier/validated, where validated
+  requires >10x AND a ≥10-video baseline. Plus **projects** (5-stage
+  pipeline), a standalone **hook generator**, a **transcript downloader**
+  (any YouTube link, free), and a **channel audit** (a channel judged only
+  against its own history). Tracking became a tier: Studio 150 channels at
+  12h refresh, Enterprise unlimited at 1h, enforced per owner in the sweep.
+  409 tests; research-smoke 30/30 on live rows.
+
+  *Stripe* (`147f5a5`, see `sessions/2026-08-20-billing.md`): the Phase 2
+  rule made real — the processor's only job is writing to `subscriptions`
+  via webhook. Thin fetch client, no SDK; signature verification pure and
+  tested (timestamp window, HMAC over `timestamp.body`, timing-safe).
+  Only `customer.subscription.*` events move entitlements; replays dedupe on
+  Stripe's event id; out-of-order events cannot roll a subscription
+  backwards (`last_event_at` gate inside the UPDATE filter); unknown
+  statuses map to `canceled` — less access is always the safe wrong answer;
+  an active subscription on an unknown plan fails loudly while a dying one
+  still gets its downgrade. Checkout and portal are Stripe-hosted; price ids
+  are `plans` table columns, so repricing is a row edit. **Failed payment →
+  Free limits proven on live rows.** 437 tests; billing-smoke 16/16 against
+  production with self-signed events.
+
+  **Deployed and live: `147f5a5`.** Production smokes: billing 16/16,
+  dm 26/26, research 30/30, burst 22/22.
+
+  **Owner: 5 Stripe dashboard steps turn payments on** (secret key, four
+  price ids into the plans rows, webhook endpoint + real `whsec_`,
+  statement descriptor MARKEDFOX) — listed in the session log. The
+  `STRIPE_WEBHOOK_SECRET` deployed today is a generated placeholder.
+
+  **Phase 6 still to do:** onboarding, data export, the PWA, health checks
+  and alerts that reach a phone, cost tracking for X and AI. None can take
+  the box down.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
