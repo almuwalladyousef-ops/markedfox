@@ -3,23 +3,58 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { requireUser } from "@/lib/auth/session";
+import { getStripeCustomerId } from "@/lib/billing/store";
+import { isStripeConfigured } from "@/lib/billing/stripe";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
+import { BillingPanel } from "./billing-panel";
 import { DeleteAccountForm } from "./delete-account-form";
 
 export const metadata: Metadata = { title: "Settings · MarkedFox" };
 
 // Account settings. Small on purpose: the things a user needs that are not
 // about a workspace — which plan they are on, and the door out.
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ checkout?: string }>;
+}) {
+  const params = await searchParams;
   const user = await requireUser();
   const active = await getActiveWorkspace();
   const supabase = await createClient();
   const snapshot = active
     ? await getEntitlementSnapshot(supabase, user.id, active.id)
     : null;
+
+  const stripeReady = isStripeConfigured();
+  const customerId = stripeReady
+    ? await getStripeCustomerId(supabase, user.id)
+    : null;
+  // Which plans can be bought right now: public, priced, and mapped to Stripe.
+  const { data: planRows } = await supabase
+    .from("plans")
+    .select("id, name, price_monthly_cents, price_annual_cents, is_public, stripe_price_monthly, stripe_price_annual")
+    .eq("is_public", true)
+    .gt("price_monthly_cents", 0)
+    .order("price_monthly_cents");
+  const checkoutPlans = ((planRows ?? []) as {
+    id: string;
+    name: string;
+    price_monthly_cents: number;
+    price_annual_cents: number | null;
+    stripe_price_monthly: string | null;
+    stripe_price_annual: string | null;
+  }[])
+    .filter((plan) => plan.stripe_price_monthly || plan.stripe_price_annual)
+    .map((plan) => ({
+      id: plan.id,
+      name: plan.name,
+      monthly: `$${(plan.price_monthly_cents / 100).toFixed(0)}`,
+      annual: `$${((plan.price_annual_cents ?? 0) / 100).toFixed(0)}`,
+    }));
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-4 py-16">
@@ -35,6 +70,17 @@ export default async function SettingsPage() {
           Back to dashboard
         </Link>
       </header>
+
+      {params.checkout === "success" ? (
+        <p className="rounded-lg border border-emerald-900/50 bg-emerald-950/20 px-4 py-3 text-sm text-emerald-200">
+          Payment received. Your plan updates within a few seconds of
+          Stripe&rsquo;s confirmation — reload if it has not yet.
+        </p>
+      ) : params.checkout === "canceled" ? (
+        <p className="rounded-lg border border-neutral-800 bg-neutral-950 px-4 py-3 text-sm text-neutral-400">
+          Checkout canceled — nothing was charged.
+        </p>
+      ) : null}
 
       <section className="rounded-lg border border-neutral-900 p-4">
         <h2 className="text-sm font-medium text-neutral-300">Plan</h2>
@@ -55,6 +101,13 @@ export default async function SettingsPage() {
           Compare plans
         </Link>
       </section>
+
+      <BillingPanel
+        planId={snapshot?.planId ?? "free"}
+        configured={stripeReady}
+        hasBillingHistory={customerId !== null}
+        plans={checkoutPlans}
+      />
 
       <section className="rounded-lg border border-neutral-900 p-4">
         <h2 className="text-sm font-medium text-neutral-300">Your data</h2>
