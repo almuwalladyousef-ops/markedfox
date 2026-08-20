@@ -44,6 +44,7 @@ const proSnapshot = (): EntitlementSnapshot => ({
     dmSendsThisMonth: 0,
     dmRuleCount: 0,
     videoMinutesThisMonth: 0,
+    researchCreditsThisMonth: 0,
     connectedAccountsInWorkspace: 3,
     workspaceCount: 1,
   },

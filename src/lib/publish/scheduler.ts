@@ -7,6 +7,7 @@ import { createRefreshStore, REFRESH_WINDOW_MS } from "@/lib/connections/store";
 import { drainDmEngine, type DrainSummary } from "@/lib/dm/drain";
 import { purgeMedia } from "@/lib/media/purge";
 import { createMediaPurgeStore, isMediaStorageConfigured } from "@/lib/media/store";
+import { sweepResearchSources, type SweepSummary } from "@/lib/research/sweep";
 
 import { publishPost } from "./publish-post";
 import { createPublishStore, POST_COLUMNS, toPostRow } from "./store";
@@ -52,6 +53,7 @@ export type TickSummary = {
   orphansPurged: number;
   /** The DM engine's pass: events matched, DMs sent, retried, failed. */
   dm: DrainSummary | null;
+  research: SweepSummary | null;
   reports: PublishReport[];
 };
 
@@ -83,6 +85,7 @@ export async function runSchedulerTick(
     purged: 0,
     orphansPurged: 0,
     dm: null,
+    research: null,
     reports: [],
   };
 
@@ -174,6 +177,17 @@ export async function runSchedulerTick(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log.error(`scheduler: dm engine drain failed — ${message}`);
+  }
+
+  // Research: refresh a few watched channels whose numbers are a day stale.
+  // Deliberately a small batch per tick — every platform meters these reads
+  // (YouTube by quota, X by the dollar), and the tick runs every minute, so a
+  // batch of three still covers thousands of refreshes a day.
+  try {
+    summary.research = await sweepResearchSources({ now: now() });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log.error(`scheduler: research sweep failed — ${message}`);
   }
 
   // Storage cleanup. Media exists only so the platforms can fetch it once; a

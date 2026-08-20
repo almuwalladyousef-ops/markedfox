@@ -47,6 +47,7 @@ const ZERO_USAGE: EntitlementSnapshot["usage"] = {
   dmSendsThisMonth: 0,
   dmRuleCount: 0,
   videoMinutesThisMonth: 0,
+  researchCreditsThisMonth: 0,
 };
 
 function free(usage: Partial<EntitlementSnapshot["usage"]> = {}): EntitlementSnapshot {
@@ -260,5 +261,49 @@ describe("parsePlanLimits", () => {
     expect(() => parsePlanLimits({ ...VALID_JSONB, x_posts_per_month: null })).toThrow(PlanLimitsParseError);
     expect(() => parsePlanLimits({ ...VALID_JSONB, x_links_allowed: "no" })).toThrow(PlanLimitsParseError);
     expect(() => parsePlanLimits({ ...VALID_JSONB, platforms: [1, 2] })).toThrow(PlanLimitsParseError);
+  });
+});
+
+describe("canUserDo — research", () => {
+  // Research is the Studio pillar: Free and Pro carry zero credits, so the
+  // capability itself is off, not merely capped.
+  const studioLimits = { ...PRO_LIMITS, researchCreditsPerMonth: 100 };
+  const studio = (usage: Partial<EntitlementSnapshot["usage"]> = {}) => ({
+    planId: "studio",
+    limits: studioLimits,
+    usage: { ...ZERO_USAGE, ...usage },
+  });
+
+  it("is locked on a plan with no credit allowance", () => {
+    expect(denialCode(free(), { type: "use_research" })).toBe("research_locked");
+    expect(denialCode(pro(), { type: "use_research" })).toBe("research_locked");
+  });
+
+  it("is open on a plan that has credits", () => {
+    expect(canUserDo(studio(), { type: "use_research" }).allowed).toBe(true);
+  });
+
+  it("refuses to spend a credit on a plan without research at all", () => {
+    expect(
+      denialCode(pro(), { type: "spend_research_credits", credits: 1 }),
+    ).toBe("research_locked");
+  });
+
+  it("allows a generation that fits inside the month's allowance", () => {
+    expect(
+      canUserDo(studio({ researchCreditsThisMonth: 99 }), {
+        type: "spend_research_credits",
+        credits: 1,
+      }).allowed,
+    ).toBe(true);
+  });
+
+  it("refuses the generation that would cross the cap", () => {
+    expect(
+      denialCode(studio({ researchCreditsThisMonth: 100 }), {
+        type: "spend_research_credits",
+        credits: 1,
+      }),
+    ).toBe("research_credits_cap");
   });
 });

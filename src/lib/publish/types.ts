@@ -118,6 +118,8 @@ export type TargetFailureCode =
   | "dm_send_cap"
   | "video_minutes_cap"
   | "funnels_locked"
+  | "research_locked"
+  | "research_credits_cap"
   | "auth_error"
   | "platform_error"
   | "unexpected_error";

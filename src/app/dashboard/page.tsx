@@ -201,6 +201,12 @@ export default async function DashboardPage({
           Automations
         </Link>
         <Link
+          href="/dashboard/research"
+          className="rounded-md border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+        >
+          Research
+        </Link>
+        <Link
           href="/dashboard/settings"
           className="rounded-md border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
         >

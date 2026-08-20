@@ -1,0 +1,379 @@
+import "server-only";
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import { getFreshConnectionTokens } from "@/lib/connections/store";
+
+import type { StoredSource, SyncStore, VideoUpsert } from "./sync";
+import type { ProviderContext, ResearchPlatform } from "./types";
+
+// The Supabase side of research. Everything here runs through whichever client
+// it is handed: the user's own client from a server action (so RLS scopes it),
+// or the service-role client from the scheduler sweep (which filters by
+// user_id explicitly, because RLS is not there to catch a mistake).
+
+export interface SourceRow {
+  id: string;
+  user_id: string;
+  workspace_id: string;
+  platform: ResearchPlatform;
+  external_id: string;
+  handle: string | null;
+  title: string;
+  thumbnail_url: string | null;
+  follower_count: number | null;
+  connection_id: string | null;
+  baseline_views: number | null;
+  baseline_sample: number;
+  last_synced_at: string | null;
+  last_error: string | null;
+  created_at: string;
+}
+
+export interface VideoRow {
+  id: string;
+  source_id: string;
+  external_id: string;
+  title: string;
+  description: string | null;
+  url: string;
+  thumbnail_url: string | null;
+  published_at: string | null;
+  duration_seconds: number | null;
+  view_count: number | null;
+  like_count: number | null;
+  comment_count: number | null;
+  outlier_score: number | null;
+  baseline_views: number | null;
+}
+
+const SOURCE_COLUMNS =
+  "id,user_id,workspace_id,platform,external_id,handle,title,thumbnail_url,follower_count,connection_id,baseline_views,baseline_sample,last_synced_at,last_error,created_at";
+
+const VIDEO_COLUMNS =
+  "id,source_id,external_id,title,description,url,thumbnail_url,published_at,duration_seconds,view_count,like_count,comment_count,outlier_score,baseline_views";
+
+export async function listSources(
+  supabase: SupabaseClient,
+  workspaceId: string,
+): Promise<SourceRow[]> {
+  const { data, error } = await supabase
+    .from("research_sources")
+    .select(SOURCE_COLUMNS)
+    .eq("workspace_id", workspaceId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as unknown as SourceRow[];
+}
+
+export async function getSource(
+  supabase: SupabaseClient,
+  sourceId: string,
+): Promise<SourceRow | null> {
+  const { data, error } = await supabase
+    .from("research_sources")
+    .select(SOURCE_COLUMNS)
+    .eq("id", sourceId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as unknown as SourceRow) ?? null;
+}
+
+export async function upsertSource(
+  supabase: SupabaseClient,
+  input: {
+    userId: string;
+    workspaceId: string;
+    platform: ResearchPlatform;
+    externalId: string;
+    handle: string | null;
+    title: string;
+    thumbnailUrl: string | null;
+    followerCount: number | null;
+    connectionId: string | null;
+  },
+): Promise<SourceRow> {
+  // onConflict on (workspace_id, platform, external_id): adding a channel that
+  // is already watched refreshes its details instead of erroring.
+  const { data, error } = await supabase
+    .from("research_sources")
+    .upsert(
+      {
+        user_id: input.userId,
+        workspace_id: input.workspaceId,
+        platform: input.platform,
+        external_id: input.externalId,
+        handle: input.handle,
+        title: input.title,
+        thumbnail_url: input.thumbnailUrl,
+        follower_count: input.followerCount,
+        connection_id: input.connectionId,
+        last_error: null,
+      },
+      { onConflict: "workspace_id,platform,external_id" },
+    )
+    .select(SOURCE_COLUMNS)
+    .single();
+  if (error) throw error;
+  return data as unknown as SourceRow;
+}
+
+export async function deleteSource(
+  supabase: SupabaseClient,
+  sourceId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("research_sources")
+    .delete()
+    .eq("id", sourceId);
+  if (error) throw error;
+}
+
+export interface FeedFilters {
+  /** Only videos at or above this multiple of their channel's baseline. */
+  minScore?: number;
+  sourceId?: string;
+  limit?: number;
+}
+
+/** The outlier feed: this workspace's videos, biggest multiple first. */
+export async function listFeed(
+  supabase: SupabaseClient,
+  workspaceId: string,
+  filters: FeedFilters = {},
+): Promise<(VideoRow & { source: { title: string; platform: ResearchPlatform; handle: string | null } })[]> {
+  let query = supabase
+    .from("research_videos")
+    .select(
+      `${VIDEO_COLUMNS},research_sources!inner(title,platform,handle)`,
+    )
+    .eq("workspace_id", workspaceId)
+    .order("outlier_score", { ascending: false, nullsFirst: false })
+    .limit(filters.limit ?? 60);
+
+  if (filters.minScore !== undefined) {
+    query = query.gte("outlier_score", filters.minScore);
+  }
+  if (filters.sourceId) {
+    query = query.eq("source_id", filters.sourceId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data ?? []).map((row) => {
+    const { research_sources: source, ...video } = row as unknown as VideoRow & {
+      research_sources: { title: string; platform: ResearchPlatform; handle: string | null };
+    };
+    return { ...video, source };
+  });
+}
+
+export async function getVideo(
+  supabase: SupabaseClient,
+  videoId: string,
+): Promise<(VideoRow & { workspace_id: string; user_id: string }) | null> {
+  const { data, error } = await supabase
+    .from("research_videos")
+    .select(`${VIDEO_COLUMNS},workspace_id,user_id`)
+    .eq("id", videoId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as unknown as VideoRow & { workspace_id: string; user_id: string }) ?? null;
+}
+
+export async function getTranscript(
+  supabase: SupabaseClient,
+  videoId: string,
+): Promise<{ text: string; origin: string; language: string | null } | null> {
+  const { data, error } = await supabase
+    .from("research_transcripts")
+    .select("text,origin,language")
+    .eq("video_id", videoId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as { text: string; origin: string; language: string | null }) ?? null;
+}
+
+export async function saveTranscript(
+  supabase: SupabaseClient,
+  input: {
+    videoId: string;
+    userId: string;
+    workspaceId: string;
+    text: string;
+    language: string | null;
+    origin: "captions" | "unavailable";
+  },
+): Promise<void> {
+  const { error } = await supabase.from("research_transcripts").upsert(
+    {
+      video_id: input.videoId,
+      user_id: input.userId,
+      workspace_id: input.workspaceId,
+      text: input.text,
+      language: input.language,
+      origin: input.origin,
+      fetched_at: new Date().toISOString(),
+    },
+    { onConflict: "video_id" },
+  );
+  if (error) throw error;
+}
+
+export async function saveScript(
+  supabase: SupabaseClient,
+  input: {
+    userId: string;
+    workspaceId: string;
+    videoId: string | null;
+    kind: string;
+    topic: string | null;
+    output: string;
+    model: string | null;
+    creditsSpent: number;
+  },
+): Promise<{ id: string }> {
+  const { data, error } = await supabase
+    .from("research_scripts")
+    .insert({
+      user_id: input.userId,
+      workspace_id: input.workspaceId,
+      video_id: input.videoId,
+      kind: input.kind,
+      topic: input.topic,
+      output: input.output,
+      model: input.model,
+      credits_spent: input.creditsSpent,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data as { id: string };
+}
+
+export async function listScripts(
+  supabase: SupabaseClient,
+  workspaceId: string,
+  limit = 25,
+): Promise<
+  {
+    id: string;
+    kind: string;
+    topic: string | null;
+    output: string;
+    model: string | null;
+    created_at: string;
+    video_id: string | null;
+  }[]
+> {
+  const { data, error } = await supabase
+    .from("research_scripts")
+    .select("id,kind,topic,output,model,created_at,video_id")
+    .eq("workspace_id", workspaceId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as never;
+}
+
+export function toStoredSource(row: SourceRow): StoredSource {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    workspaceId: row.workspace_id,
+    platform: row.platform,
+    externalId: row.external_id,
+    handle: row.handle,
+    title: row.title,
+    connectionId: row.connection_id,
+  };
+}
+
+/** The SyncStore the pure orchestrator writes through. */
+export function createSyncStore(supabase: SupabaseClient): SyncStore {
+  return {
+    async contextFor(source: StoredSource): Promise<ProviderContext> {
+      if (!source.connectionId) {
+        throw new Error(
+          "This source reads through a connected account, and its connection was removed. Reconnect the account, then re-add the source.",
+        );
+      }
+      const { row, tokens } = await getFreshConnectionTokens(
+        supabase,
+        source.connectionId,
+      );
+      return {
+        accessToken: tokens.accessToken,
+        platformAccountId: row.platform_account_id,
+      };
+    },
+
+    async upsertVideos(rows: VideoUpsert[]): Promise<void> {
+      if (rows.length === 0) return;
+      // onConflict (source_id, external_id): a re-sync updates counts and
+      // rescoring in place rather than duplicating the channel's back catalogue
+      // on every sweep.
+      const { error } = await supabase.from("research_videos").upsert(
+        rows.map((row) => ({
+          source_id: row.sourceId,
+          user_id: row.userId,
+          workspace_id: row.workspaceId,
+          external_id: row.externalId,
+          title: row.title,
+          description: row.description,
+          url: row.url,
+          thumbnail_url: row.thumbnailUrl,
+          published_at: row.publishedAt,
+          duration_seconds: row.durationSeconds,
+          view_count: row.viewCount,
+          like_count: row.likeCount,
+          comment_count: row.commentCount,
+          outlier_score: row.outlierScore,
+          baseline_views: row.baselineViews,
+          stats_updated_at: new Date().toISOString(),
+        })),
+        { onConflict: "source_id,external_id" },
+      );
+      if (error) throw error;
+    },
+
+    async updateSourceBaseline(input): Promise<void> {
+      const { error } = await supabase
+        .from("research_sources")
+        .update({
+          baseline_views: input.baselineViews,
+          baseline_sample: input.baselineSample,
+          last_synced_at: input.syncedAt,
+          last_error: null,
+        })
+        .eq("id", input.sourceId);
+      if (error) throw error;
+    },
+
+    async recordSourceError(sourceId: string, message: string): Promise<void> {
+      const { error } = await supabase
+        .from("research_sources")
+        .update({ last_error: message, last_synced_at: new Date().toISOString() })
+        .eq("id", sourceId);
+      if (error) throw error;
+    },
+  };
+}
+
+/** Sources the background sweep should refresh: the stalest first, capped so
+ *  one tick cannot spend a whole day's YouTube quota. */
+export async function listStaleSources(
+  service: SupabaseClient,
+  olderThan: Date,
+  limit: number,
+): Promise<SourceRow[]> {
+  const { data, error } = await service
+    .from("research_sources")
+    .select(SOURCE_COLUMNS)
+    .or(`last_synced_at.is.null,last_synced_at.lt.${olderThan.toISOString()}`)
+    .order("last_synced_at", { ascending: true, nullsFirst: true })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as unknown as SourceRow[];
+}

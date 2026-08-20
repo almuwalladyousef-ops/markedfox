@@ -134,6 +134,35 @@ export function canUserDo(
       return { allowed: true };
     }
 
+    case "use_research": {
+      if (limits.researchCreditsPerMonth <= 0) {
+        return deny(
+          "research_locked",
+          `Research is not included in the ${snapshot.planId} plan`,
+        );
+      }
+      return { allowed: true };
+    }
+
+    case "spend_research_credits": {
+      if (limits.researchCreditsPerMonth <= 0) {
+        return deny(
+          "research_locked",
+          `Research is not included in the ${snapshot.planId} plan`,
+        );
+      }
+      if (
+        usage.researchCreditsThisMonth + action.credits >
+        limits.researchCreditsPerMonth
+      ) {
+        return deny(
+          "research_credits_cap",
+          `Research credits are capped at ${limits.researchCreditsPerMonth} per month`,
+        );
+      }
+      return { allowed: true };
+    }
+
     case "use_funnels": {
       if (!limits.funnels) {
         return deny(

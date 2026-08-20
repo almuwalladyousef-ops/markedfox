@@ -37,6 +37,7 @@ const snapshot = (over: { dmSendsThisMonth?: number; dmSendsPerMonth?: number } 
     dmSendsThisMonth: over.dmSendsThisMonth ?? 0,
     dmRuleCount: 1,
     videoMinutesThisMonth: 0,
+    researchCreditsThisMonth: 0,
     connectedAccountsInWorkspace: 1,
     workspaceCount: 1,
   },

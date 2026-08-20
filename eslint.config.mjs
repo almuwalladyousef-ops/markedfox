@@ -5,7 +5,15 @@ const eslintConfig = [
   ...coreWebVitals,
   ...typescript,
   {
-    ignores: [".next/**", "node_modules/**", "next-env.d.ts", "coverage/**"],
+    ignores: [
+      ".next/**",
+      "node_modules/**",
+      "next-env.d.ts",
+      "coverage/**",
+      // Git worktrees live inside the repo, so their build output and installed
+      // packages would otherwise be linted as if they were source.
+      ".claude/worktrees/**",
+    ],
   },
 ];
 

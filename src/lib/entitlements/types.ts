@@ -55,6 +55,9 @@ export interface EntitlementSnapshot {
     dmRuleCount: number;
     /** Pooled. usage kind 'video_upload' amounts summed, current UTC month. */
     videoMinutesThisMonth: number;
+    /** Pooled. usage kind 'ai_call' amounts summed, current UTC month. One
+     *  credit is one AI generation; research is the only spender today. */
+    researchCreditsThisMonth: number;
     /** PER WORKSPACE — connections in the workspace being acted in. */
     connectedAccountsInWorkspace: number;
     /** count(workspaces) the user owns. */
@@ -69,7 +72,13 @@ export type Action =
   | { type: "create_dm_rule" }
   | { type: "send_dm" }
   | { type: "upload_video"; minutes: number }
-  | { type: "use_funnels" };
+  | { type: "use_funnels" }
+  /** Watching channels and reading the outlier feed. Gated on the plan having
+   *  any research allowance at all, so Free and Pro see the upgrade prompt. */
+  | { type: "use_research" }
+  /** One AI generation (hooks, script, outline). Checked BEFORE the call, so
+   *  a denial costs nothing upstream. */
+  | { type: "spend_research_credits"; credits: number };
 
 export type DenialCode =
   | "plan_platform_locked"
@@ -81,7 +90,9 @@ export type DenialCode =
   | "dm_rule_cap"
   | "dm_send_cap"
   | "video_minutes_cap"
-  | "funnels_locked";
+  | "funnels_locked"
+  | "research_locked"
+  | "research_credits_cap";
 
 export type Decision =
   | { allowed: true }
