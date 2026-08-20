@@ -2,7 +2,24 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type {
+  AutomationRow,
+  HookOption,
+  HookTemplateRow,
+  IdeaRow,
+  IdeaStatus,
+  IdeaWithVideo,
+  PersonaRow,
+  SavedFilterRow,
+  ScriptDraftRow,
+  ScriptStage,
+} from "./studio-types";
 import type { ResearchPlatform } from "./types";
+
+// Re-exported so callers that already reach for the store keep working; the
+// declarations themselves live in studio-types.ts, which carries no
+// "server-only" and can therefore be imported by client components.
+export * from "./studio-types";
 
 // The Supabase side of the research studio: the idea queue, the hook vault,
 // the auto-analyze rules, saved filters, the persona, and script drafts.
@@ -13,38 +30,6 @@ import type { ResearchPlatform } from "./types";
 // carries RLS and the scheduler's service-role client does not pretend to.
 
 // ── ideas ──────────────────────────────────────────────────────────────────
-
-export type IdeaStatus = "inbox" | "shortlisted" | "discarded";
-
-export interface IdeaRow {
-  id: string;
-  video_id: string;
-  title: string;
-  summary: string | null;
-  status: IdeaStatus;
-  note: string | null;
-  origin: "manual" | "automation";
-  created_at: string;
-}
-
-export type IdeaWithVideo = IdeaRow & {
-  video: {
-    id: string;
-    title: string;
-    url: string;
-    thumbnail_url: string | null;
-    view_count: number | null;
-    outlier_score: number | null;
-    engagement_rate: number | null;
-    published_at: string | null;
-    source: {
-      title: string;
-      handle: string | null;
-      platform: ResearchPlatform;
-      baseline_sample: number;
-    };
-  };
-};
 
 const IDEA_COLUMNS = "id,video_id,title,summary,status,note,origin,created_at";
 
@@ -208,18 +193,6 @@ export async function discardAllInbox(
 
 // ── hook vault ─────────────────────────────────────────────────────────────
 
-export interface HookTemplateRow {
-  id: string;
-  video_id: string | null;
-  formula: string;
-  example: string | null;
-  category: string | null;
-  source_handle: string | null;
-  source_views: number | null;
-  favorite: boolean;
-  created_at: string;
-}
-
 const HOOK_COLUMNS =
   "id,video_id,formula,example,category,source_handle,source_views,favorite,created_at";
 
@@ -315,20 +288,6 @@ export async function getHookTemplates(
 
 // ── auto-analyze rules ─────────────────────────────────────────────────────
 
-export interface AutomationRow {
-  id: string;
-  name: string;
-  source_id: string | null;
-  min_outlier_score: number;
-  min_views: number;
-  min_engagement_rate: number;
-  daily_limit: number;
-  active: boolean;
-  last_run_at: string | null;
-  user_id: string;
-  workspace_id: string;
-}
-
 const AUTOMATION_COLUMNS =
   "id,name,source_id,min_outlier_score,min_views,min_engagement_rate,daily_limit,active,last_run_at,user_id,workspace_id";
 
@@ -416,12 +375,6 @@ export async function markAutomationRun(
 
 // ── saved filters ──────────────────────────────────────────────────────────
 
-export interface SavedFilterRow {
-  id: string;
-  name: string;
-  filters: Record<string, string>;
-}
-
 export async function listSavedFilters(
   supabase: SupabaseClient,
   workspaceId: string,
@@ -466,13 +419,6 @@ export async function deleteSavedFilter(
 
 // ── persona ────────────────────────────────────────────────────────────────
 
-export interface PersonaRow {
-  niche: string | null;
-  audience: string | null;
-  tone: string | null;
-  avoid: string | null;
-}
-
 export async function getPersona(
   supabase: SupabaseClient,
   workspaceId: string,
@@ -505,49 +451,6 @@ export async function savePersona(
 }
 
 // ── script drafts ──────────────────────────────────────────────────────────
-
-export const SCRIPT_STAGES = [
-  "topic",
-  "research",
-  "hook",
-  "style",
-  "script",
-] as const;
-
-export type ScriptStage = (typeof SCRIPT_STAGES)[number];
-
-export const STAGE_LABELS: Record<ScriptStage, string> = {
-  topic: "Topic",
-  research: "Research",
-  hook: "Hook",
-  style: "Style",
-  script: "Script",
-};
-
-export interface HookOption {
-  text: string;
-  /** Which analysed video's pattern produced it — the social proof. */
-  sourceHandle?: string;
-  sourceViews?: number;
-  thumbnailUrl?: string;
-}
-
-export interface ScriptDraftRow {
-  id: string;
-  title: string;
-  video_id: string | null;
-  idea_id: string | null;
-  project_id: string | null;
-  stage: ScriptStage;
-  topic: string | null;
-  research_notes: string | null;
-  hook_options: HookOption[];
-  chosen_hook: string | null;
-  style_notes: string | null;
-  script: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
 const DRAFT_COLUMNS =
   "id,title,video_id,idea_id,project_id,stage,topic,research_notes,hook_options,chosen_hook,style_notes,script,created_at,updated_at";

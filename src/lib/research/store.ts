@@ -857,3 +857,37 @@ export async function countSources(
   if (error) throw error;
   return count ?? 0;
 }
+
+/**
+ * The videos either side of this one in the feed's default order.
+ *
+ * Paging through analyses is how somebody actually works a feed — open the best
+ * one, read it, press next. Computed by fetching the ordered id list rather than
+ * by two window queries: the list is at most a few hundred ids and one round
+ * trip beats being clever.
+ */
+export async function neighborVideos(
+  supabase: SupabaseClient,
+  workspaceId: string,
+  videoId: string,
+): Promise<{ previous: string | null; next: string | null; index: number; total: number }> {
+  const { data, error } = await supabase
+    .from("research_videos")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .order("outlier_score", { ascending: false, nullsFirst: false })
+    .limit(500);
+  if (error) throw error;
+
+  const ids = (data as { id: string }[] | null)?.map((row) => row.id) ?? [];
+  const index = ids.indexOf(videoId);
+  if (index === -1) {
+    return { previous: null, next: null, index: 0, total: ids.length };
+  }
+  return {
+    previous: index > 0 ? ids[index - 1] : null,
+    next: index < ids.length - 1 ? ids[index + 1] : null,
+    index: index + 1,
+    total: ids.length,
+  };
+}

@@ -3,11 +3,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import {
+  Card,
+  CardTitle,
+  MetricPills,
+  Notice,
+  Pill,
+  formatCount,
+} from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
-import { fetchTranscriptAction, saveToProjectAction } from "@/lib/research/actions";
-import { toBreakdown } from "@/lib/research/store";
+import { fetchTranscriptAction } from "@/lib/research/actions";
+import { exportAnalysis } from "@/lib/research/export";
 import { configuredModel } from "@/lib/research/generate";
 import { describeScore } from "@/lib/research/outlier";
 import { getResearchProvider } from "@/lib/research/providers";
@@ -18,16 +26,24 @@ import {
   getVideo,
   listProjects,
   listScripts,
+  neighborVideos,
+  toBreakdown,
 } from "@/lib/research/store";
+import {
+  getIdeaForVideo,
+  listHookTemplates,
+} from "@/lib/research/studio-store";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
+import { ActionStack } from "./action-stack";
+import { AnalysisTabs } from "./analysis-tabs";
 import { BreakdownPanel } from "./breakdown-panel";
 import { GeneratePanel } from "./generate-panel";
 
 export const metadata: Metadata = { title: "Video · MarkedFox" };
 
-// One outlier, everything known about it, and the way to turn it into a script.
+// One outlier, everything known about it, and every way to turn it into work.
 
 export default async function ResearchVideoPage({
   params,
@@ -44,152 +60,252 @@ export default async function ResearchVideoPage({
   const video = await getVideo(supabase, id);
   if (!video) notFound();
 
-  const [source, transcript, snapshot, scripts, breakdownRow, projects] =
-    await Promise.all([
-      getSource(supabase, video.source_id),
-      getTranscript(supabase, id),
-      getEntitlementSnapshot(supabase, user.id, active.id),
-      listScripts(supabase, active.id, 10),
-      getBreakdown(supabase, id),
-      listProjects(supabase, active.id),
-    ]);
-  const breakdown = breakdownRow ? toBreakdown(breakdownRow) : null;
+  const [
+    source,
+    transcript,
+    snapshot,
+    scripts,
+    breakdownRow,
+    projects,
+    idea,
+    hooks,
+    neighbors,
+  ] = await Promise.all([
+    getSource(supabase, video.source_id),
+    getTranscript(supabase, id),
+    getEntitlementSnapshot(supabase, user.id, active.id),
+    listScripts(supabase, active.id, 10),
+    getBreakdown(supabase, id),
+    listProjects(supabase, active.id),
+    getIdeaForVideo(supabase, active.id, id),
+    listHookTemplates(supabase, active.id, { limit: 200 }),
+    neighborVideos(supabase, active.id, id),
+  ]);
 
   const allowed = canUserDo(snapshot, { type: "use_research" });
   if (!allowed.allowed) notFound();
 
+  const breakdown = breakdownRow ? toBreakdown(breakdownRow) : null;
   const provider = source ? getResearchProvider(source.platform) : null;
   const transcriptsPossible = Boolean(provider?.capabilities.transcripts);
   const creditsLeft =
     snapshot.limits.researchCreditsPerMonth -
     snapshot.usage.researchCreditsThisMonth;
   const forThisVideo = scripts.filter((s) => s.video_id === id);
+  const score =
+    video.outlier_score === null ? null : Number(video.outlier_score);
+
+  const transcriptText =
+    transcript?.origin === "captions" ? transcript.text : null;
+  const transcriptNote =
+    transcript?.origin === "unavailable"
+      ? "This video has no captions to pull. The breakdown still works from the title, description, and how it performed."
+      : !transcriptsPossible
+        ? `${source?.platform ?? "This platform"} serves no transcripts through its API.`
+        : "No transcript pulled yet.";
 
   return (
     <>
-      <header>
-        <h1 className="text-xl font-semibold leading-snug">{video.title}</h1>
-        <p className="mt-2 text-sm text-neutral-400">
-          {source?.title ?? "Unknown channel"} · {source?.platform}
-        </p>
-        <p className="mt-1 text-sm text-emerald-300">
-          {describeScore(
-            video.outlier_score === null ? null : Number(video.outlier_score),
-            source?.baseline_sample ?? 0,
-          )}
-          {video.baseline_views !== null ? (
-            <span className="text-neutral-500">
-              {" "}
-              — this channel normally does{" "}
-              {video.baseline_views.toLocaleString()}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl leading-snug font-semibold">{video.title}</h1>
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-400">
+            <span>
+              {source?.handle ? `@${source.handle}` : (source?.title ?? "Unknown channel")}
             </span>
-          ) : null}
-        </p>
-        <a
-          href={video.url}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="mt-3 inline-block text-xs text-neutral-500 underline hover:text-neutral-300"
-        >
-          Open on {source?.platform ?? "the platform"} ↗
-        </a>
-      </header>
-
-      <section className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-5">
-        <h2 className="text-sm font-semibold">Transcript</h2>
-        {transcript?.origin === "captions" ? (
-          <p className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-neutral-400">
-            {transcript.text}
+            <span className="text-neutral-700">·</span>
+            <span className="uppercase">{source?.platform}</span>
+            {video.published_at ? (
+              <>
+                <span className="text-neutral-700">·</span>
+                <span>{new Date(video.published_at).toLocaleDateString()}</span>
+              </>
+            ) : null}
           </p>
-        ) : transcript?.origin === "unavailable" ? (
-          <p className="mt-2 text-xs text-neutral-500">
-            This video has no captions to pull. The generator still works from
-            the title, description, and how it performed.
-          </p>
-        ) : !transcriptsPossible ? (
-          <p className="mt-2 text-xs text-neutral-500">
-            {source?.platform ?? "This platform"} serves no transcripts through
-            its API.
-          </p>
-        ) : (
-          <form action={fetchTranscriptAction} className="mt-3">
-            <input type="hidden" name="video_id" value={id} />
-            <button
-              type="submit"
-              className="rounded-lg border border-neutral-700 px-3 py-2 text-xs font-medium transition hover:bg-neutral-900"
-            >
-              Fetch transcript
-            </button>
-            <span className="ml-2 text-xs text-neutral-600">
-              Free — no credit is used.
-            </span>
-          </form>
-        )}
-      </section>
+        </div>
 
-      {projects.length > 0 ? (
-        <form
-          action={saveToProjectAction}
-          className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-950/60 px-4 py-3"
-        >
-          <input type="hidden" name="video_id" value={id} />
-          <span className="text-xs text-neutral-500">Save to</span>
-          <select
-            name="project_id"
-            className="rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-xs outline-none"
-          >
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs transition hover:bg-neutral-900"
-          >
-            Save
-          </button>
-        </form>
-      ) : null}
+        {/* Paging through analyses is how a feed actually gets worked: open the
+            best one, read it, press next. */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="mr-1 text-xs text-neutral-600">
+            {neighbors.index} of {neighbors.total}
+          </span>
+          <NeighborLink href={neighbors.previous} label="←" />
+          <NeighborLink href={neighbors.next} label="→" />
+        </div>
+      </div>
 
-      <BreakdownPanel
-        videoId={id}
-        breakdown={breakdown}
-        enabled={configuredModel() !== null}
-        creditsLeft={creditsLeft}
-        hasTranscript={transcript?.origin === "captions"}
-      />
-
-      <GeneratePanel
-        videoId={id}
-        enabled={configuredModel() !== null}
-        creditsLeft={creditsLeft}
-        hasBreakdown={breakdown !== null}
-      />
-
-      {forThisVideo.length > 0 ? (
-        <section>
-          <h2 className="text-sm font-semibold">Generated from this video</h2>
-          <ul className="mt-3 flex flex-col gap-3">
-            {forThisVideo.map((script) => (
-              <li
-                key={script.id}
-                className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-4"
+      <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
+        <div className="flex flex-col gap-4">
+          <Card className="overflow-hidden p-0">
+            <div className="relative aspect-[9/16] w-full bg-neutral-900">
+              {video.thumbnail_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={video.thumbnail_url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : null}
+              <a
+                href={video.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="absolute inset-0 flex items-center justify-center bg-black/30 text-3xl text-white/80 opacity-0 transition hover:opacity-100"
+                aria-label="Play on the platform"
               >
+                ▶
+              </a>
+            </div>
+            <div className="flex flex-col gap-2 p-3">
+              <MetricPills
+                score={score === null ? null : `${score.toFixed(1)}x`}
+                views={video.view_count}
+                engagement={
+                  video.engagement_rate === null
+                    ? null
+                    : Number(video.engagement_rate)
+                }
+                viewsLabel={
+                  source?.platform === "instagram" ? "likes" : "views"
+                }
+              />
+              <p className="text-xs text-emerald-300">
+                {describeScore(score, source?.baseline_sample ?? 0)}
+              </p>
+              {video.baseline_views !== null ? (
                 <p className="text-xs text-neutral-500">
-                  {script.kind}
-                  {script.topic ? ` · ${script.topic}` : ""} ·{" "}
-                  {new Date(script.created_at).toLocaleString()}
+                  This channel normally does {formatCount(video.baseline_views)}.
                 </p>
-                <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-neutral-200">
-                  {script.output}
-                </pre>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+              ) : null}
+            </div>
+          </Card>
+
+          <ActionStack
+            videoId={id}
+            videoUrl={video.url}
+            breakdown={breakdown}
+            transcript={transcriptText}
+            projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+            hookSaved={hooks.some((hook) => hook.video_id === id)}
+            shortlisted={idea?.status === "shortlisted"}
+            exportText={exportAnalysis({
+              title: video.title,
+              url: video.url,
+              channel: source?.title ?? "Unknown channel",
+              platform: source?.platform ?? "unknown",
+              score,
+              baselineViews: video.baseline_views,
+              views: video.view_count,
+              breakdown,
+              transcript: transcriptText,
+            })}
+          />
+
+          {!transcriptText && transcriptsPossible && !transcript ? (
+            <form action={fetchTranscriptAction}>
+              <input type="hidden" name="video_id" value={id} />
+              <button
+                type="submit"
+                className="w-full rounded-lg border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600"
+              >
+                Fetch transcript
+                <span className="ml-2 text-xs text-neutral-600">Free</span>
+              </button>
+            </form>
+          ) : null}
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-6">
+          {breakdown?.summary ? (
+            <Card>
+              <CardTitle>Summary</CardTitle>
+              <p className="mt-2 text-sm leading-relaxed text-neutral-300">
+                {breakdown.summary}
+              </p>
+            </Card>
+          ) : null}
+
+          <AnalysisTabs
+            breakdown={breakdown}
+            transcript={transcriptText}
+            transcriptNote={transcriptNote}
+          />
+
+          <BreakdownPanel
+            videoId={id}
+            breakdown={breakdown}
+            enabled={configuredModel() !== null}
+            creditsLeft={creditsLeft}
+            hasTranscript={transcript?.origin === "captions"}
+          />
+
+          <GeneratePanel
+            videoId={id}
+            enabled={configuredModel() !== null}
+            creditsLeft={creditsLeft}
+            hasBreakdown={breakdown !== null}
+          />
+
+          {idea && idea.status === "discarded" ? (
+            <Notice tone="neutral">
+              This one was discarded from the idea inbox. Shortlisting it puts it
+              back.
+            </Notice>
+          ) : null}
+
+          {forThisVideo.length > 0 ? (
+            <section>
+              <h2 className="text-sm font-semibold">Generated from this video</h2>
+              <ul className="mt-3 flex flex-col gap-3">
+                {forThisVideo.map((script) => (
+                  <li
+                    key={script.id}
+                    className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-4"
+                  >
+                    <p className="flex items-center gap-2 text-xs text-neutral-500">
+                      <Pill>{script.kind}</Pill>
+                      {script.topic ? script.topic : null}
+                      <span className="ml-auto">
+                        {new Date(script.created_at).toLocaleDateString()}
+                      </span>
+                    </p>
+                    <pre className="mt-2 font-sans text-sm leading-relaxed whitespace-pre-wrap text-neutral-200">
+                      {script.output}
+                    </pre>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
+      </div>
     </>
+  );
+}
+
+function NeighborLink({
+  href,
+  label,
+}: {
+  href: string | null;
+  label: string;
+}) {
+  const className =
+    "rounded-lg border border-neutral-800 px-2.5 py-1.5 text-sm transition";
+  if (!href) {
+    return (
+      <span className={`${className} text-neutral-700`} aria-hidden>
+        {label}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={`/dashboard/research/${href}`}
+      className={`${className} text-neutral-300 hover:border-neutral-600 hover:text-neutral-50`}
+    >
+      {label}
+    </Link>
   );
 }

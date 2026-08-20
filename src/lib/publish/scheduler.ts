@@ -8,6 +8,7 @@ import { drainDmEngine, type DrainSummary } from "@/lib/dm/drain";
 import { purgeMedia } from "@/lib/media/purge";
 import { createMediaPurgeStore, isMediaStorageConfigured } from "@/lib/media/store";
 import { createBudgetStore } from "@/lib/platforms/budget-store";
+import { runAutoAnalyze, type AutoAnalyzeSummary } from "@/lib/research/auto-analyze";
 import { sweepResearchSources, type SweepSummary } from "@/lib/research/sweep";
 
 import { publishPost } from "./publish-post";
@@ -71,6 +72,7 @@ export type TickSummary = {
   /** The DM engine's pass: events matched, DMs sent, retried, failed. */
   dm: DrainSummary | null;
   research: SweepSummary | null;
+  autoAnalyze: AutoAnalyzeSummary | null;
   reports: PublishReport[];
 };
 
@@ -107,6 +109,7 @@ export async function runSchedulerTick(
     orphansPurged: 0,
     dm: null,
     research: null,
+    autoAnalyze: null,
     reports: [],
   };
 
@@ -240,6 +243,16 @@ export async function runSchedulerTick(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log.error(`scheduler: research sweep failed — ${message}`);
+  }
+
+  // Auto-analyze rules. The only place the product spends a user's credits with
+  // nobody present, so it takes one rule per tick and re-checks the plan before
+  // every single analysis — see lib/research/auto-analyze.ts.
+  try {
+    summary.autoAnalyze = await runAutoAnalyze({ now: now() });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log.error(`scheduler: auto-analyze failed — ${message}`);
   }
 
   // Storage cleanup. Media exists only so the platforms can fetch it once; a
