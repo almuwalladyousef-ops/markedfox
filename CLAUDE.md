@@ -872,6 +872,65 @@ schedule; filing early is the only lever we control.
   R2 keys, and still has 2FA off with no recovery phone. Owner has chosen to
   handle it later.
 
+- **2026-08-19 (Phase 4 built, then pillar 3 built).** See
+  `sessions/2026-08-19-markedfox-session.md` and
+  `sessions/2026-08-19-research.md`.
+
+  *Four adapters and the marketing site* (`198d1b3`): X, TikTok, YouTube,
+  Snapchat; landing, `/pricing`, `/privacy`, `/terms`, four-column footer.
+  Each adapter declares `requiredEnv`, so a platform without keys renders
+  "Coming soon" rather than failing.
+
+  *An adversarial multi-agent review, and everything it confirmed* (`f661c75`):
+  YouTube's 60s `AbortSignal` was killing every upload longer than a minute;
+  X and Snapchat token endpoints returned dead grants as HTTP 400 that we
+  classified as retryable, so a dead connection stayed "active" forever;
+  refresh-token rotation could redeem a single-use token twice under concurrent
+  publishes; Snapchat buffered whole videos two to three times in a 2GB box;
+  server-side media fetches had no SSRF guard; TikTok's `mediaMax` of 35
+  exceeded the composer's own cap of 20. **And the privacy policy promised
+  three things the product did not do** — so disconnect, working Meta
+  deauthorize/data-deletion callbacks, and self-serve account deletion were
+  built rather than the copy softened. They were Meta App Review requirements
+  anyway.
+
+  *TikTok Direct Post audit UX* (`7b33648`): privacy selector with no default,
+  interaction toggles gated by live `creator_info`, commercial-content
+  disclosure, and the consent line TikTok's guidelines require. Options ride
+  `platform_overrides[platform].options` — no new column.
+
+  *Phase 4 — the DM and comment automation engine* (`3704dc2`): webhook →
+  rules → queue → send. Signature-verified Meta webhooks deduplicated by the
+  platform's own event id; a matcher (keywords, per-post targeting, never the
+  account's own activity); a Postgres queue claimed with `FOR UPDATE SKIP
+  LOCKED`; a worker enforcing Meta's 24-hour window and the plan's send cap
+  **before** sending; tracked `/r/<token>` links; per-rule analytics through a
+  `SECURITY INVOKER` function so RLS scopes them. Tenant isolation is the
+  account→connection lookup itself. Deployed and proven: `dm-smoke` 26/26
+  against production.
+
+  *Pillar 3 — research and scripting* (`f62c72d`): watch a channel, score every
+  video against **that channel's own recent median**, generate hooks/outline/
+  script from the winners. Median not mean, a 20-video recent window, a 48-hour
+  maturity gate, and `null` rather than a confident wrong number — the small
+  channel's 30k breakout ranks above the big channel's ordinary 2.2M day, which
+  is the whole point and is an explicit test. Providers state their real limits:
+  YouTube reads any channel with a plain API key (separate from the publishing
+  OAuth client, so research works before the upload audit); Instagram reads any
+  public business account through a connection, with likes carrying the baseline
+  because business discovery hides views; **TikTok can only read the connected
+  account's own videos — its Research API is academic-only, and the UI says so
+  with the alternative**; X works but bills per read; Snapchat has no content
+  API and is absent from the registry. Gated by `use_research` and
+  `spend_research_credits`; credits are `ai_call` usage rows recorded only after
+  the model answers. 342 tests; `research-smoke` 19/19 on live rows including
+  RLS in both directions.
+
+  **Still owner-blocked, unchanged:** Meta webhook configuration (three
+  dashboard steps), X/TikTok/YouTube/Snapchat credentials, a YouTube Data API
+  key and an AI key for research, Cloudflare Email Routing, and the role
+  account's 2FA.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know

@@ -74,7 +74,8 @@ const PLANS: Plan[] = [
       "All platforms",
       "X: 300 posts per month, no external links — X charges per post, so it is never unlimited",
       "Unlimited DM rules · 10,000 DM sends per month",
-      "Research credits: find outperforming videos, pull transcripts, generate hooks",
+      "Research: watch any creator's channel and see which videos beat that channel's own average",
+      "100 AI generations per month — hooks, outlines, and scripts written from a winning video",
     ],
   },
   {
