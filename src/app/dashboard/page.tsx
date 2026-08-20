@@ -12,6 +12,10 @@ import { PLATFORMS } from "@/lib/platforms/types";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
+import { buildSteps, progress } from "@/lib/onboarding/steps";
+import { getOnboarding } from "@/lib/onboarding/store";
+
+import { OnboardingPanel } from "./onboarding-panel";
 import { PlatformToggles, type PlatformRow } from "./platform-toggles";
 
 export const metadata: Metadata = { title: "Dashboard · MarkedFox" };
@@ -77,10 +81,39 @@ export default async function DashboardPage({
   }
 
   const supabase = await createClient();
-  const [snapshot, connections] = await Promise.all([
+  const [snapshot, connections, onboarding] = await Promise.all([
     getEntitlementSnapshot(supabase, user.id, active.id),
     listConnections(supabase, active.id),
+    getOnboarding(supabase, user.id),
   ]);
+
+  // Counted rather than read: the checklist ticks a step when the thing is
+  // actually true, so it can never disagree with the rest of the dashboard.
+  // Head-counts, so this is three cheap queries and no rows.
+  const [posts, rules] = await Promise.all([
+    supabase
+      .from("scheduled_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .in("status", ["scheduled", "publishing", "published", "partial"]),
+    supabase
+      .from("dm_rules")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id),
+  ]);
+
+  const steps = buildSteps({
+    connectedPlatforms: connections.map((c) => c.platform),
+    postCount: posts.count ?? 0,
+    ruleCount: rules.count ?? 0,
+    researchSourceCount: snapshot.usage.researchSourceCount,
+    planId: snapshot.planId,
+    researchAllowed: canUserDo(snapshot, { type: "use_research" }).allowed,
+  });
+  const { done, total, next } = progress(steps);
+  // Hidden once it is finished or dismissed — a permanent checklist of ticks is
+  // clutter, and somebody who said "hide this" meant it.
+  const showOnboarding = !onboarding?.dismissed && next !== null;
 
   // "Buildable" to the toggle means clicking Connect can actually work: the
   // adapter exists AND the owner has put its credentials in the environment.
@@ -161,6 +194,15 @@ export default async function DashboardPage({
         <Notice tone="danger">
           That account was not found — it may already be disconnected.
         </Notice>
+      ) : null}
+
+      {showOnboarding ? (
+        <OnboardingPanel
+          steps={steps}
+          done={done}
+          total={total}
+          askQuestions={onboarding === null}
+        />
       ) : null}
 
       <Card>
