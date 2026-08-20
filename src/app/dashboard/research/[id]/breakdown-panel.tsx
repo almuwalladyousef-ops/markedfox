@@ -62,7 +62,9 @@ export function BreakdownPanel({
         )}
       </div>
 
-      {!enabled ? (
+      {/* Only worth saying when there is no breakdown yet and no button to
+          press. Beside a finished breakdown it explains nothing. */}
+      {!enabled && !breakdown ? (
         <p className="mt-4 rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 text-xs text-neutral-500">
           Breakdowns need an AI key on this deployment. Tracking and outlier
           scoring already work.

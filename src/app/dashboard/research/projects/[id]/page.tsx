@@ -110,10 +110,7 @@ export default async function ProjectPage({
                             item.video.outlier_score === null
                               ? null
                               : Number(item.video.outlier_score),
-                            // The project view has no channel sample to hand;
-                            // a score shown here is informational, and the
-                            // video page is where the validated tier is judged.
-                            0,
+                            item.video.source.baseline_sample,
                           )}
                         </p>
                       </div>

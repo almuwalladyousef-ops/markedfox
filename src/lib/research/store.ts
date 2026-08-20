@@ -577,7 +577,16 @@ export interface ProjectItemRow {
   stage: string;
   note: string | null;
   created_at: string;
-  video: VideoRow & { source: { title: string; platform: ResearchPlatform } };
+  /** `baseline_sample` rides along because the outlier TIER depends on it, and
+   *  the same video must not read "outlier" here and "validated outlier" in the
+   *  feed — an inconsistent label is worse than either label alone. */
+  video: VideoRow & {
+    source: {
+      title: string;
+      platform: ResearchPlatform;
+      baseline_sample: number;
+    };
+  };
 }
 
 export async function listProjectItems(
@@ -587,7 +596,7 @@ export async function listProjectItems(
   const { data, error } = await supabase
     .from("research_project_items")
     .select(
-      `id,stage,note,created_at,research_videos!inner(${VIDEO_COLUMNS},research_sources!inner(title,platform))`,
+      `id,stage,note,created_at,research_videos!inner(${VIDEO_COLUMNS},research_sources!inner(title,platform,baseline_sample))`,
     )
     .eq("project_id", projectId)
     .order("created_at", { ascending: false });
@@ -600,7 +609,11 @@ export async function listProjectItems(
       note: string | null;
       created_at: string;
       research_videos: VideoRow & {
-        research_sources: { title: string; platform: ResearchPlatform };
+        research_sources: {
+          title: string;
+          platform: ResearchPlatform;
+          baseline_sample: number;
+        };
       };
     };
     const { research_sources: source, ...rest } = video;
