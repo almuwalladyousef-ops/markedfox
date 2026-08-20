@@ -3,6 +3,7 @@ import { createHash, createHmac } from "node:crypto";
 import { requireEnv } from "@/lib/env";
 
 import { PlatformApiError, PlatformAuthError } from "./errors";
+import { optionValue } from "./publish-options";
 import type { ConnectionTokens, PlatformAdapter } from "./types";
 
 // X (Twitter) API v2, pay-per-use tier (the only tier open to new developers
@@ -251,7 +252,7 @@ export const x: PlatformAdapter = {
     });
   },
 
-  async publish({ caption, media, tokens }) {
+  async publish({ caption, media, tokens, options }) {
     if (media.length > 0) {
       // The composer and API validator both block this; the guard is for
       // callers that bypass them.
@@ -262,7 +263,16 @@ export const x: PlatformAdapter = {
       method: "POST",
       auth: `Bearer ${tokens.accessToken}`,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: caption }),
+      body: JSON.stringify({
+        text: caption,
+        // Omitted rather than defaulted when the user did not choose: X's own
+        // default is "everyone", and sending it explicitly would be us making
+        // the choice on their behalf for no gain.
+        ...(optionValue("x", options, "reply_settings") &&
+        optionValue("x", options, "reply_settings") !== "everyone"
+          ? { reply_settings: String(optionValue("x", options, "reply_settings")) }
+          : {}),
+      }),
     });
 
     return {

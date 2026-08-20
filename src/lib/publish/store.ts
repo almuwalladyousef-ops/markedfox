@@ -180,3 +180,17 @@ export function toPostRow(row: Record<string, unknown>): PostRow {
 }
 
 export { POST_COLUMNS };
+
+/** One post by id. RLS scopes it: another tenant's id reads as nothing. */
+export async function getPost(
+  supabase: SupabaseClient,
+  id: string,
+): Promise<PostRow | null> {
+  const { data, error } = await supabase
+    .from("scheduled_posts")
+    .select(POST_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? toPostRow(data as unknown as Record<string, unknown>) : null;
+}

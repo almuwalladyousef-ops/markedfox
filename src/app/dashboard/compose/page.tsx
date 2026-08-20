@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { listConnections } from "@/lib/connections/store";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { isMediaStorageConfigured } from "@/lib/media/store";
 import { PLATFORM_LABELS } from "@/lib/platforms/labels";
-import { listContentSpecs } from "@/lib/publish/specs";
+import { listRegisteredPlatforms } from "@/lib/platforms/registry";
+import { PLATFORMS } from "@/lib/platforms/types";
+import { getPost } from "@/lib/publish/store";
+import { listContentSpecs, listOptionSpecs } from "@/lib/publish/specs";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
@@ -19,7 +23,12 @@ export const metadata: Metadata = { title: "Compose · MarkedFox" };
 // own client (RLS) and hands it over as plain props. The rules the client
 // validates with are the adapters' own — the same ones POST /api/posts
 // enforces — so the composer can never be more permissive than the API.
-export default async function ComposePage() {
+export default async function ComposePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ draft?: string }>;
+}) {
+  const { draft: draftId } = await searchParams;
   const user = await requireUser();
   const active = await getActiveWorkspace();
   if (!active) {
@@ -37,6 +46,29 @@ export default async function ComposePage() {
     listConnections(supabase, active.id),
   ]);
   const specs = listContentSpecs();
+  const optionSpecs = listOptionSpecs();
+
+  // Reopening a draft. RLS scopes the read, and a row that is no longer a
+  // draft is ignored rather than reopened — publishing it again from a stale
+  // tab would double-post.
+  const draftRow =
+    draftId && /^[0-9a-f-]{36}$/i.test(draftId)
+      ? await getPost(supabase, draftId)
+      : null;
+  const draft =
+    draftRow && draftRow.status === "draft"
+      ? {
+          id: draftRow.id,
+          caption: draftRow.caption,
+          media: draftRow.media,
+          targetConnectionIds: draftRow.target_connection_ids,
+          platformOverrides: draftRow.platform_overrides as Record<
+            string,
+            { caption?: string; options?: Record<string, string | number | boolean> }
+          >,
+          scheduledFor: draftRow.scheduled_for,
+        }
+      : undefined;
 
   const accounts: ComposerAccount[] = connections.map((c) => ({
     id: c.id,
@@ -56,30 +88,35 @@ export default async function ComposePage() {
     }
   }
 
+  // Platforms with no account connected here. Shown in the composer rather
+  // than hidden, so the grid is the whole list of what the product does and a
+  // missing one is a click rather than a discovery problem.
+  const connectedPlatforms = new Set(connections.map((c) => c.platform));
+  const buildable = new Set(
+    listRegisteredPlatforms()
+      .filter((a) => a.requiredEnv.every((name) => Boolean(process.env[name])))
+      .map((a) => a.id),
+  );
+  const connectable = PLATFORMS.filter(
+    (platform) => !connectedPlatforms.has(platform),
+  ).map((platform) => ({
+    platform,
+    label: PLATFORM_LABELS[platform],
+    reason: buildable.has(platform)
+      ? undefined
+      : `${PLATFORM_LABELS[platform]} is not configured on this deployment yet.`,
+  }));
+
   return (
     <>
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Compose</h1>
-          <p className="mt-1 text-sm text-neutral-400">
+      <PageHeader
+        title={draft ? "Edit draft" : "Compose"}
+        subtitle={
+          <>
             Posting from <span className="text-neutral-200">{active.name}</span>
-          </p>
-        </div>
-        <nav className="flex gap-2 text-sm">
-          <Link
-            href="/dashboard/posts"
-            className="rounded-md border border-neutral-800 px-3 py-1.5 text-neutral-300 transition hover:border-neutral-600"
-          >
-            Posts
-          </Link>
-          <Link
-            href="/dashboard"
-            className="rounded-md border border-neutral-800 px-3 py-1.5 text-neutral-300 transition hover:border-neutral-600"
-          >
-            Dashboard
-          </Link>
-        </nav>
-      </header>
+          </>
+        }
+      />
 
       {accounts.length === 0 ? (
         <section className="rounded-lg border border-neutral-900 p-6 text-sm text-neutral-400">
@@ -94,6 +131,9 @@ export default async function ComposePage() {
           workspaceId={active.id}
           accounts={accounts}
           specs={specs}
+          optionSpecs={optionSpecs}
+          connectable={connectable}
+          draft={draft}
           labels={PLATFORM_LABELS}
           gates={gates}
           planId={snapshot.planId}

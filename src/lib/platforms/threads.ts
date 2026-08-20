@@ -2,6 +2,7 @@ import { requireEnv } from "@/lib/env";
 
 import { PlatformApiError, PlatformAuthError } from "./errors";
 import { pollDelays, pollTotalMs } from "./polling";
+import { optionValue } from "./publish-options";
 import type {
   ConnectionTokens,
   PlatformAdapter,
@@ -188,15 +189,27 @@ export const threadsAdapter: PlatformAdapter = {
     };
   },
 
-  async publish({ caption, media, tokens, platformAccountId }) {
+  async publish({ caption, media, tokens, platformAccountId, options }) {
     const token = tokens.accessToken;
+    // Threads takes reply_control on the container, not on the publish call.
+    const replyControl = optionValue("threads", options, "reply_control");
+    const replyParams: Record<string, string> =
+      typeof replyControl === "string" && replyControl !== "everyone"
+        ? { reply_control: replyControl }
+        : {};
 
     const createContainer = async (
       params: Record<string, string>,
     ): Promise<string> => {
       const c = await threads<{ id: string }>(`/${platformAccountId}/threads`, {
         method: "POST",
-        searchParams: { ...params, access_token: token },
+        // Carousel children reject reply_control — it belongs on the parent
+        // container only, and sending it on a child fails the whole post.
+        searchParams: {
+          ...params,
+          ...(params.is_carousel_item === "true" ? {} : replyParams),
+          access_token: token,
+        },
       });
       return c.id;
     };

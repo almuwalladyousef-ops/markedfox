@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
-import Link from "next/link";
-
+import { Card, CardTitle, Notice, PageHeader, Stat } from "@/components/ui";
 import { signOut } from "@/lib/auth/actions";
 import { requireUser } from "@/lib/auth/session";
 import { listConnections } from "@/lib/connections/store";
@@ -11,10 +10,9 @@ import { PLATFORM_LABELS as LABELS } from "@/lib/platforms/labels";
 import { listRegisteredPlatforms } from "@/lib/platforms/registry";
 import { PLATFORMS } from "@/lib/platforms/types";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveWorkspace, listWorkspaces } from "@/lib/workspaces/store";
+import { getActiveWorkspace } from "@/lib/workspaces/store";
 
 import { PlatformToggles, type PlatformRow } from "./platform-toggles";
-import { WorkspaceSwitcher } from "./workspace-switcher";
 
 export const metadata: Metadata = { title: "Dashboard · MarkedFox" };
 
@@ -47,10 +45,7 @@ export default async function DashboardPage({
   const params = await searchParams;
   const user = await requireUser();
 
-  const [workspaces, active] = await Promise.all([
-    listWorkspaces(),
-    getActiveWorkspace(),
-  ]);
+  const active = await getActiveWorkspace();
 
   if (!active) {
     // Two ways here: the signup trigger did not run (worth saying plainly),
@@ -128,175 +123,113 @@ export default async function DashboardPage({
     };
   });
 
-  const workspaceDecision = canUserDo(snapshot, { type: "create_workspace" });
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-4 py-16">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="mt-1 text-sm text-neutral-400">{user.email}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <WorkspaceSwitcher
-            workspaces={workspaces}
-            activeId={active.id}
-            canCreate={workspaceDecision.allowed}
-            createBlockedReason={
-              workspaceDecision.allowed ? undefined : workspaceDecision.reason
-            }
-          />
-          <form action={signOut}>
-            <button
-              type="submit"
-              className="rounded-md border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
-      </header>
+    <>
+      <PageHeader
+        title="Accounts"
+        subtitle={
+          <>
+            Connecting into{" "}
+            <span className="text-neutral-200">{active.name}</span>. Posts, DMs
+            and credits are shared across all your workspaces; connected
+            accounts belong to this one.
+          </>
+        }
+      />
 
       {params.connect_error ? (
-        <div className="rounded-md border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300">
-          <p>{CONNECT_ERRORS[params.connect_error] ?? "Connecting that account did not work."}</p>
+        <Notice tone="danger">
+          {CONNECT_ERRORS[params.connect_error] ??
+            "Connecting that account did not work."}
           {params.connect_detail ? (
-            <p className="mt-1 text-red-200/80">{params.connect_detail}</p>
+            <span className="mt-1 block text-red-200/80">
+              {params.connect_detail}
+            </span>
           ) : null}
-        </div>
+        </Notice>
       ) : null}
       {params.connected ? (
-        <p className="rounded-md border border-emerald-900 bg-emerald-950/50 px-3 py-2 text-sm text-emerald-300">
-          Connected {params.connected}.
-        </p>
+        <Notice tone="ok">Connected {params.connected}.</Notice>
       ) : null}
       {params.disconnected ? (
-        <p className="rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-300">
+        <Notice>
           Disconnected {params.disconnected}. Its stored tokens are deleted.
-        </p>
+        </Notice>
       ) : null}
       {params.disconnect_error ? (
-        <p className="rounded-md border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300">
+        <Notice tone="danger">
           That account was not found — it may already be disconnected.
-        </p>
+        </Notice>
       ) : null}
 
-      <nav className="flex gap-2">
-        <Link
-          href="/dashboard/compose"
-          className="rounded-md bg-neutral-50 px-3 py-2 text-sm font-semibold text-neutral-950 transition hover:bg-white"
+      <Card>
+        <CardTitle
+          hint="Pooled figures are shared across every workspace you own."
+          action={
+            <span className="text-lg font-semibold capitalize">
+              {snapshot.planId}
+            </span>
+          }
         >
-          Compose a post
-        </Link>
-        <Link
-          href="/dashboard/posts"
-          className="rounded-md border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
-        >
-          Posts
-        </Link>
-        <Link
-          href="/dashboard/automations"
-          className="rounded-md border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
-        >
-          Automations
-        </Link>
-        <Link
-          href="/dashboard/research"
-          className="rounded-md border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
-        >
-          Research
-        </Link>
-        <Link
-          href="/dashboard/settings"
-          className="rounded-md border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
-        >
-          Settings
-        </Link>
-      </nav>
+          Plan
+        </CardTitle>
 
-      <section className="rounded-lg border border-neutral-900 p-4">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-sm font-medium text-neutral-300">Plan</h2>
-          <span className="text-lg font-semibold capitalize">
-            {snapshot.planId}
-          </span>
-        </div>
-
-        <p className="mt-1 text-xs text-neutral-500">
-          Posts, DMs, and credits are shared across all your workspaces.
-          Connected accounts are per workspace.
-        </p>
-
-        <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
           <Stat
             label="Posts today"
-            used={snapshot.usage.postsToday}
-            limit={snapshot.limits.postsPerDay}
+            value={limitText(snapshot.usage.postsToday, snapshot.limits.postsPerDay)}
             note="pooled"
           />
           <Stat
             label="X posts this month"
-            used={snapshot.usage.xPostsThisMonth}
-            limit={snapshot.limits.xPostsPerMonth}
+            value={limitText(
+              snapshot.usage.xPostsThisMonth,
+              snapshot.limits.xPostsPerMonth,
+            )}
             note="X charges per post — never unlimited"
           />
           <Stat
             label="DM sends this month"
-            used={snapshot.usage.dmSendsThisMonth}
-            limit={snapshot.limits.dmSendsPerMonth}
+            value={limitText(
+              snapshot.usage.dmSendsThisMonth,
+              snapshot.limits.dmSendsPerMonth,
+            )}
             note="pooled"
           />
           <Stat
             label="DM rules"
-            used={snapshot.usage.dmRuleCount}
-            limit={snapshot.limits.dmRulesMax}
+            value={limitText(snapshot.usage.dmRuleCount, snapshot.limits.dmRulesMax)}
             note="pooled"
           />
           <Stat
-            label="Accounts in this workspace"
-            used={snapshot.usage.connectedAccountsInWorkspace}
-            limit={snapshot.limits.maxConnectedAccountsPerWorkspace}
+            label="Accounts here"
+            value={limitText(
+              snapshot.usage.connectedAccountsInWorkspace,
+              snapshot.limits.maxConnectedAccountsPerWorkspace,
+            )}
             note="per workspace"
           />
           <Stat
             label="Workspaces"
-            used={snapshot.usage.workspaceCount}
-            limit={snapshot.limits.maxWorkspaces}
+            value={limitText(
+              snapshot.usage.workspaceCount,
+              snapshot.limits.maxWorkspaces,
+            )}
           />
         </dl>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border border-neutral-900 p-4">
-        <h2 className="text-sm font-medium text-neutral-300">Platforms</h2>
-        <p className="mt-1 text-xs text-neutral-500">
-          Connecting into <span className="text-neutral-300">{active.name}</span>.
-        </p>
+      <Card>
+        <CardTitle hint="Every platform is shown. One outside your plan wears a 💎 and says what upgrading buys.">
+          Platforms
+        </CardTitle>
         <PlatformToggles rows={rows} />
-      </section>
-    </main>
+      </Card>
+    </>
   );
 }
 
-function Stat({
-  label,
-  used,
-  limit,
-  note,
-}: {
-  label: string;
-  used: number;
-  limit: number | null;
-  note?: string;
-}) {
-  return (
-    <div>
-      <dt className="text-neutral-500" title={note}>
-        {label}
-      </dt>
-      <dd>
-        {used}
-        {limit === null ? " / unlimited" : ` / ${limit}`}
-      </dd>
-    </div>
-  );
+function limitText(used: number, limit: number | null): string {
+  return limit === null ? `${used} / unlimited` : `${used} / ${limit}`;
 }

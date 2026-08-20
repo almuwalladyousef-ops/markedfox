@@ -158,3 +158,54 @@ describe("parseCreatePostRequest", () => {
     }
   });
 });
+
+describe("drafts", () => {
+  it("accepts one with no targets at all", () => {
+    // Half a post is exactly what a draft is; refusing to save one because no
+    // account is chosen yet is how people lose work.
+    const parsed = parseCreatePostRequest(
+      { workspaceId: WS, draft: true, caption: "half an idea" },
+      NOW,
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.draft).toBe(true);
+    expect(parsed.value.targetConnectionIds).toEqual([]);
+  });
+
+  it("still demands targets for a real post", () => {
+    const parsed = parseCreatePostRequest(
+      { workspaceId: WS, caption: "going out" },
+      NOW,
+    );
+    expect(parsed.ok).toBe(false);
+  });
+
+  it("keeps a time already in the past on a draft, and refuses it on a post", () => {
+    const past = new Date(NOW.getTime() - 60 * 60 * 1000).toISOString();
+
+    const asDraft = parseCreatePostRequest(
+      { workspaceId: WS, draft: true, scheduledFor: past },
+      NOW,
+    );
+    expect(asDraft.ok).toBe(true);
+    // Silently clearing it would lose something the user typed.
+    if (asDraft.ok) expect(asDraft.value.scheduledFor?.toISOString()).toBe(past);
+
+    const asPost = parseCreatePostRequest(
+      { ...valid(), scheduledFor: past },
+      NOW,
+    );
+    expect(asPost.ok).toBe(false);
+  });
+
+  it("refuses a draftId that is not an id", () => {
+    const parsed = parseCreatePostRequest(
+      { workspaceId: WS, draft: true, draftId: "nope" },
+      NOW,
+    );
+    expect(parsed.ok).toBe(false);
+    if (parsed.ok) return;
+    expect(parsed.issues.map((i) => i.field)).toContain("draftId");
+  });
+});

@@ -22,6 +22,17 @@ export type CreatePostRequest = {
   platformOverrides: PlatformOverrides;
   /** null = publish now. */
   scheduledFor: Date | null;
+  /**
+   * Park it instead of publishing or scheduling.
+   *
+   * A draft is half a post by definition, so it skips the target and content
+   * checks entirely — refusing to save one because the caption is still too
+   * long for X is how people lose work. Nothing about a draft is published, so
+   * nothing about it needs to be publishable yet.
+   */
+  draft: boolean;
+  /** The draft row being replaced, when one is being reopened and saved. */
+  draftId: string | null;
 };
 
 export type FieldIssue = { field: string; message: string };
@@ -133,10 +144,23 @@ export function parseCreatePostRequest(body: unknown, now = new Date()): ParsedR
     });
   }
 
+  const draft = b.draft === true;
+  let draftId: string | null = null;
+  if (b.draftId !== undefined && b.draftId !== null && b.draftId !== "") {
+    if (typeof b.draftId !== "string" || !UUID.test(b.draftId)) {
+      issue("draftId", "draftId must be a post id.");
+    } else {
+      draftId = b.draftId;
+    }
+  }
+
   // targets
   let targetConnectionIds: string[] = [];
   if (!Array.isArray(b.targetConnectionIds)) {
-    issue("targetConnectionIds", "Choose at least one account to post to.");
+    // A draft with nowhere to go yet is a normal draft.
+    if (!draft) {
+      issue("targetConnectionIds", "Choose at least one account to post to.");
+    }
   } else {
     const ids = b.targetConnectionIds.filter(
       (id): id is string => typeof id === "string" && UUID.test(id),
@@ -145,7 +169,7 @@ export function parseCreatePostRequest(body: unknown, now = new Date()): ParsedR
       issue("targetConnectionIds", "Every target must be a connection id.");
     }
     targetConnectionIds = Array.from(new Set(ids));
-    if (targetConnectionIds.length === 0) {
+    if (targetConnectionIds.length === 0 && !draft) {
       issue("targetConnectionIds", "Choose at least one account to post to.");
     } else if (targetConnectionIds.length > MAX_TARGETS) {
       issue("targetConnectionIds", `At most ${MAX_TARGETS} accounts per post.`);
@@ -211,14 +235,18 @@ export function parseCreatePostRequest(body: unknown, now = new Date()): ParsedR
       const parsed = new Date(b.scheduledFor);
       if (Number.isNaN(parsed.getTime())) {
         issue("scheduledFor", "scheduledFor must be an ISO 8601 timestamp.");
-      } else if (parsed.getTime() < now.getTime() - PAST_TOLERANCE_MS) {
+      } else if (!draft && parsed.getTime() < now.getTime() - PAST_TOLERANCE_MS) {
         issue("scheduledFor", "That time has already passed. Pick a future time or publish now.");
       } else if (parsed.getTime() > now.getTime() + MAX_SCHEDULE_AHEAD_MS) {
         issue("scheduledFor", "Posts can be scheduled up to a year ahead.");
       } else {
         // Within tolerance of now counts as now: it would be due on the very
         // next tick anyway, and the user asked for it "now-ish".
-        scheduledFor = parsed.getTime() <= now.getTime() ? null : parsed;
+        // A draft keeps whatever time was typed, even one in the past: it is
+        // not going anywhere until the user says so, and silently clearing it
+        // loses information they entered.
+        scheduledFor =
+          !draft && parsed.getTime() <= now.getTime() ? null : parsed;
       }
     }
   }
@@ -234,6 +262,8 @@ export function parseCreatePostRequest(body: unknown, now = new Date()): ParsedR
       targetConnectionIds,
       platformOverrides,
       scheduledFor,
+      draft,
+      draftId,
     },
   };
 }

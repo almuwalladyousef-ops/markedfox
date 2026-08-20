@@ -70,6 +70,17 @@ export async function POST(request: NextRequest) {
         { error: "plan_denied", issues: result.problems },
         { status: 403 },
       );
+    case "draft":
+      return NextResponse.json(
+        {
+          post: {
+            id: result.postId,
+            status: "draft",
+            scheduledFor: result.scheduledFor,
+          },
+        },
+        { status: 200 },
+      );
     case "scheduled":
       return NextResponse.json(
         {

@@ -1,8 +1,14 @@
-import { requireEnv } from "@/lib/env";
 import { fetchMedia, UnsafeMediaUrlError } from "@/lib/media/fetch-guard";
+import { requireEnv } from "@/lib/env";
 
 import { PlatformApiError, PlatformAuthError } from "./errors";
-import type { ConnectionTokens, PlatformAdapter, PublishResult } from "./types";
+import { optionValue } from "./publish-options";
+import type {
+  ConnectionTokens,
+  PlatformAdapter,
+  PlatformPublishOptions,
+  PublishResult,
+} from "./types";
 
 // YouTube Data API v3 — single-video uploads via the resumable protocol.
 //
@@ -104,6 +110,35 @@ function titleFrom(caption: string): string {
   const firstLine = sanitize(caption).split("\n")[0]?.trim() ?? "";
   const title = Array.from(firstLine).slice(0, 100).join("");
   return title || "New video";
+}
+
+/** The user's title if they wrote one, otherwise the caption's first line,
+ *  with #shorts appended when asked for — and the 100-character ceiling
+ *  applied AFTER the tag, because YouTube truncates and would eat it. */
+function youtubeTitle(
+  caption: string,
+  options: PlatformPublishOptions | undefined,
+): string {
+  const chosen = optionValue("youtube", options, "title");
+  const base =
+    typeof chosen === "string" && chosen.trim()
+      ? sanitize(chosen.trim())
+      : titleFrom(caption);
+  if (optionValue("youtube", options, "add_shorts_tag") !== true) {
+    return Array.from(base).slice(0, 100).join("");
+  }
+  const room = 100 - " #shorts".length;
+  return `${Array.from(base).slice(0, room).join("").trimEnd()} #shorts`;
+}
+
+function youtubeTags(options: PlatformPublishOptions | undefined): string[] {
+  const raw = optionValue("youtube", options, "tags");
+  if (typeof raw !== "string") return [];
+  return raw
+    .split(",")
+    .map((tag) => sanitize(tag).trim())
+    .filter(Boolean)
+    .slice(0, 30);
 }
 
 // The R2 fetch must answer with headers inside this window; the body is then
@@ -273,7 +308,7 @@ export const youtube: PlatformAdapter = {
     }
   },
 
-  async publish({ caption, media, tokens }): Promise<PublishResult> {
+  async publish({ caption, media, tokens, options }): Promise<PublishResult> {
     const video = media.find((m) => m.type === "video");
     if (!video || media.length !== 1) {
       throw new PlatformApiError("youtube", "YouTube takes exactly one video per post");
@@ -341,10 +376,26 @@ export const youtube: PlatformAdapter = {
         "X-Upload-Content-Type": mime,
       },
       body: JSON.stringify({
-        snippet: { title: titleFrom(caption), description },
-        // Public is the intent; unverified API projects get silently forced
-        // to private by YouTube until the Phase 5 audit passes.
-        status: { privacyStatus: "public", selfDeclaredMadeForKids: false },
+        snippet: {
+          title: youtubeTitle(caption, options),
+          description:
+            typeof optionValue("youtube", options, "description") === "string"
+              ? sanitize(String(optionValue("youtube", options, "description")))
+              : description,
+          ...(youtubeTags(options).length > 0 ? { tags: youtubeTags(options) } : {}),
+        },
+        status: {
+          // The user's choice; public is the default the spec declares.
+          // Note that until the Phase 5 audit passes, YouTube silently forces
+          // every upload from an unverified project to private regardless.
+          privacyStatus: String(
+            optionValue("youtube", options, "privacy_status") ?? "public",
+          ),
+          // COPPA. Answered by the user because the law makes it their answer,
+          // not ours to assume.
+          selfDeclaredMadeForKids:
+            optionValue("youtube", options, "made_for_kids") === "yes",
+        },
       }),
       signal: AbortSignal.timeout(30_000),
     });

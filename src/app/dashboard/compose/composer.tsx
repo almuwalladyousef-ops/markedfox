@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import {
@@ -8,12 +9,14 @@ import {
   type TikTokCreatorContext,
   type TikTokPublishOptions,
 } from "@/lib/platforms/tiktok-options";
+import type { OptionSpecs } from "@/lib/publish/specs";
 import type { MediaRef, Platform, PlatformPublishOptions } from "@/lib/platforms/types";
 import { containsExternalLink } from "@/lib/publish/links";
 import type { ContentSpecs } from "@/lib/publish/specs";
 import type { TargetOutcome } from "@/lib/publish/types";
 import { captionLength, validateContent } from "@/lib/publish/validate";
 
+import { PlatformOptionsPanel } from "./platform-options-panel";
 import { TikTokOptionsPanel, type ContextState } from "./tiktok-options-panel";
 
 // The composer. One caption, any combination of connected accounts, optional
@@ -41,7 +44,21 @@ type Props = {
   workspaceId: string;
   accounts: ComposerAccount[];
   specs: ContentSpecs;
+  /** Each platform's own publishing settings, declared in publish-options.ts. */
+  optionSpecs: OptionSpecs;
   labels: Record<Platform, string>;
+  /** Platforms with no connected account here, so the grid can still show them
+   *  with a way in rather than hiding what the product supports. */
+  connectable: { platform: Platform; label: string; reason?: string }[];
+  /** Reopened draft, when the composer was entered from /dashboard/drafts. */
+  draft?: {
+    id: string;
+    caption: string;
+    media: MediaRef[];
+    targetConnectionIds: string[];
+    platformOverrides: Record<string, { caption?: string; options?: PlatformPublishOptions }>;
+    scheduledFor: string | null;
+  };
   gates: Partial<Record<string, PlatformGate>>;
   planId: string;
   xLinksAllowed: boolean;
@@ -86,23 +103,63 @@ export function Composer({
   workspaceId,
   accounts,
   specs,
+  optionSpecs,
   labels,
+  connectable,
+  draft,
   gates,
   planId,
   xLinksAllowed,
   uploadsEnabled,
   usage,
 }: Props) {
-  const [caption, setCaption] = useState("");
-  const [media, setMedia] = useState<MediaRow[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [overrides, setOverrides] = useState<Partial<Record<Platform, string>>>({});
+  const router = useRouter();
+  const [caption, setCaption] = useState(draft?.caption ?? "");
+  const [media, setMedia] = useState<MediaRow[]>(
+    (draft?.media ?? []).map((item, index) => ({
+      key: -1 - index,
+      url: item.url,
+      type: item.type,
+    })),
+  );
+  const [selected, setSelected] = useState<string[]>(
+    draft?.targetConnectionIds ?? [],
+  );
+  const [overrides, setOverrides] = useState<Partial<Record<Platform, string>>>(
+    () => {
+      const out: Partial<Record<Platform, string>> = {};
+      for (const [platform, value] of Object.entries(
+        draft?.platformOverrides ?? {},
+      )) {
+        if (value.caption !== undefined) out[platform as Platform] = value.caption;
+      }
+      return out;
+    },
+  );
+  // Per-platform publishing settings, keyed by platform. TikTok keeps its own
+  // state below because its options depend on live creator_info.
+  const [platformOptions, setPlatformOptions] = useState<
+    Partial<Record<Platform, PlatformPublishOptions>>
+  >(() => {
+    const out: Partial<Record<Platform, PlatformPublishOptions>> = {};
+    for (const [platform, value] of Object.entries(draft?.platformOverrides ?? {})) {
+      if (platform !== "tiktok" && value.options) {
+        out[platform as Platform] = value.options;
+      }
+    }
+    return out;
+  });
+  const [savingDraft, setSavingDraft] = useState(false);
   // Per-platform publish options (today: TikTok's privacy level and toggles).
   const [tiktokOptions, setTiktokOptions] = useState<TikTokPublishOptions>({});
   // Live creator context per TikTok connection, fetched once it is selected.
   const [contexts, setContexts] = useState<Record<string, ContextState>>({});
-  const [mode, setMode] = useState<"now" | "schedule">("now");
-  const [scheduledFor, setScheduledFor] = useState("");
+  const [mode, setMode] = useState<"now" | "schedule">(
+    draft?.scheduledFor ? "schedule" : "now",
+  );
+  const [scheduledFor, setScheduledFor] = useState(
+    draft?.scheduledFor ? toLocalInputValue(new Date(draft.scheduledFor)) : "",
+  );
   // The picker's lower bound. Set from event handlers, never during render —
   // the clock is impure and React wants render idempotent.
   const [minSchedule, setMinSchedule] = useState("");
@@ -340,6 +397,86 @@ export function Composer({
     })();
   };
 
+  /** Caption overrides plus each platform's own settings, in the shape the API
+   *  stores on the row. */
+  const buildOverrides = () => {
+    const platformOverrides: Record<
+      string,
+      { caption?: string; options?: PlatformPublishOptions }
+    > = {};
+    for (const platform of selectedPlatforms) {
+      const override = overrides[platform];
+      if (override !== undefined) {
+        platformOverrides[platform] = { caption: override };
+      }
+      const options = platformOptions[platform];
+      if (options && Object.keys(options).length > 0) {
+        platformOverrides[platform] = {
+          ...(platformOverrides[platform] ?? {}),
+          options,
+        };
+      }
+    }
+    if (selectedPlatforms.includes("tiktok")) {
+      const options: PlatformPublishOptions = {};
+      for (const [key, value] of Object.entries(parseTikTokOptions(tiktokOptions))) {
+        if (value !== undefined) options[key] = value;
+      }
+      platformOverrides.tiktok = { ...(platformOverrides.tiktok ?? {}), options };
+    }
+    return platformOverrides;
+  };
+
+  /**
+   * Park it without publishing.
+   *
+   * Saved through the same endpoint with `draft: true` so it goes through the
+   * same parsing — but deliberately NOT through the same validation gate: half
+   * a post is exactly what a draft is, and refusing to save one because the
+   * caption is too long for X is how people lose work.
+   */
+  const saveDraft = async () => {
+    setSavingDraft(true);
+    setOutcome(null);
+    try {
+      const response = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          workspaceId,
+          draft: true,
+          draftId: draft?.id,
+          caption,
+          media: mediaRefs,
+          targetConnectionIds: selected,
+          platformOverrides: buildOverrides(),
+          scheduledFor:
+            mode === "schedule" && scheduledFor
+              ? new Date(scheduledFor).toISOString()
+              : null,
+        }),
+      });
+      const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!response.ok) {
+        setOutcome({
+          kind: "error",
+          message: "The draft was not saved.",
+          details: [String((body.message as string) ?? `HTTP ${response.status}`)],
+        });
+        return;
+      }
+      router.push("/dashboard/drafts?saved=1");
+    } catch (error) {
+      setOutcome({
+        kind: "error",
+        message: "Could not reach the server.",
+        details: [error instanceof Error ? error.message : String(error)],
+      });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   const submit = async () => {
     if (!canSubmit) return;
     if (mode === "schedule" && new Date(scheduledFor).getTime() <= Date.now()) {
@@ -349,18 +486,7 @@ export function Composer({
     setSubmitting(true);
     setOutcome(null);
     try {
-      const platformOverrides: Record<string, { caption?: string; options?: PlatformPublishOptions }> = {};
-      for (const platform of selectedPlatforms) {
-        const override = overrides[platform];
-        if (override !== undefined) platformOverrides[platform] = { caption: override };
-      }
-      if (selectedPlatforms.includes("tiktok")) {
-        const options: PlatformPublishOptions = {};
-        for (const [key, value] of Object.entries(parseTikTokOptions(tiktokOptions))) {
-          if (value !== undefined) options[key] = value;
-        }
-        platformOverrides.tiktok = { ...(platformOverrides.tiktok ?? {}), options };
-      }
+      const platformOverrides = buildOverrides();
       const response = await fetch("/api/posts", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -370,6 +496,7 @@ export function Composer({
           media: mediaRefs,
           targetConnectionIds: selected,
           platformOverrides,
+          draftId: draft?.id,
           scheduledFor: mode === "schedule" ? new Date(scheduledFor).toISOString() : null,
         }),
       });
@@ -487,6 +614,41 @@ export function Composer({
             );
           })}
         </ul>
+
+        {connectable.length > 0 ? (
+          <div className="mt-4 border-t border-neutral-900 pt-3">
+            <p className="text-xs text-neutral-500">
+              Not connected here yet
+            </p>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {connectable.map((item) => (
+                <li key={item.platform}>
+                  {/* Shown, never hidden: a person deciding whether this tool
+                      does what they need should see the whole list, and the
+                      ones they have not set up should be one click rather than
+                      a discovery problem. */}
+                  {item.reason ? (
+                    <span
+                      title={item.reason}
+                      className="inline-flex cursor-default items-center gap-1.5 rounded-lg border border-neutral-800 px-3 py-1.5 text-sm text-neutral-600"
+                    >
+                      {item.label}
+                      <span className="text-xs">soon</span>
+                    </span>
+                  ) : (
+                    <a
+                      href={`/api/connect/${item.platform}/start`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-neutral-700 px-3 py-1.5 text-sm text-neutral-400 transition hover:border-neutral-500 hover:text-neutral-200"
+                    >
+                      <span className="text-neutral-500">+</span>
+                      {item.label}
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
 
       {/* caption */}
@@ -561,6 +723,23 @@ export function Composer({
       </section>
 
       {/* per-platform options */}
+      {selectedPlatforms.map((platform) => {
+        const spec = optionSpecs[platform];
+        if (!spec) return null;
+        return (
+          <PlatformOptionsPanel
+            key={platform}
+            platform={platform}
+            spec={spec}
+            values={platformOptions[platform] ?? {}}
+            hasVideo={hasVideo}
+            onChange={(next) =>
+              setPlatformOptions((current) => ({ ...current, [platform]: next }))
+            }
+          />
+        );
+      })}
+
       {selectedTikTok.length > 0 ? (
         <TikTokOptionsPanel
           accounts={selectedTikTok.map((a) => ({ id: a.id, name: a.name }))}
@@ -760,6 +939,14 @@ export function Composer({
           className="rounded-md bg-neutral-50 px-4 py-2 text-sm font-semibold text-neutral-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? "Working…" : mode === "now" ? "Publish now" : "Schedule"}
+        </button>
+        <button
+          type="button"
+          onClick={saveDraft}
+          disabled={savingDraft || submitting}
+          className="rounded-lg border border-neutral-800 px-4 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50 disabled:opacity-50"
+        >
+          {savingDraft ? "Saving…" : "Save draft"}
         </button>
         {selected.length === 0 ? (
           <span className="text-xs text-neutral-500">Choose at least one account.</span>

@@ -19,6 +19,7 @@ import type {
   TargetFailureCode,
   TargetOutcome,
 } from "./types";
+import { validateOptionsFor } from "./specs";
 import { validateContent } from "./validate";
 
 // Publishes one post to every target it names and records what happened.
@@ -118,13 +119,11 @@ export async function publishPost(
     // Per-platform options (TikTok's privacy level and toggles) are checked
     // the same way content is: createPost refused them already, this is the
     // publish-time echo for rows that reached the queue another way.
-    if (adapter.validateOptions) {
-      issues.push(
-        ...adapter.validateOptions(override?.options, null, {
-          hasVideo: post.media.some((m) => m.type === "video"),
-        }),
-      );
-    }
+    issues.push(
+      ...validateOptionsFor(adapter, override?.options, null, {
+        hasVideo: post.media.some((m) => m.type === "video"),
+      }),
+    );
     if (issues.length > 0) {
       return failed(connection.id, platform, name, "invalid_content", issues.join(" "));
     }

@@ -2,6 +2,7 @@ import { requireEnv } from "@/lib/env";
 
 import { PlatformApiError, PlatformAuthError } from "./errors";
 import { pollDelays, pollTotalMs } from "./polling";
+import { optionValue } from "./publish-options";
 import type {
   ConnectedAccount,
   ConnectionTokens,
@@ -431,7 +432,7 @@ export const instagram: PlatformAdapter = {
     },
   },
 
-  async publish({ caption, media, tokens, platformAccountId }) {
+  async publish({ caption, media, tokens, platformAccountId, options }) {
     if (media.length === 0) {
       throw new PlatformApiError(
         "instagram",
@@ -448,7 +449,17 @@ export const instagram: PlatformAdapter = {
         platformAccountId,
         token,
         item.type === "video"
-          ? { media_type: "REELS", video_url: item.url, caption }
+          ? {
+              media_type: "REELS",
+              video_url: item.url,
+              caption,
+              // Only meaningful on a single reel. Instagram's default is to
+              // show it in the grid too, so the flag is sent only to turn
+              // that off.
+              ...(optionValue("instagram", options, "share_to_feed") === false
+                ? { share_to_feed: "false" }
+                : {}),
+            }
           : { image_url: item.url, caption },
         item.type === "video",
       );

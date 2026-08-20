@@ -25,3 +25,25 @@ export async function cancelPostAction(formData: FormData): Promise<void> {
 
   revalidatePath("/dashboard/posts");
 }
+
+// Deleting a draft is a real delete, not a status change: a draft has no
+// history worth keeping and nothing downstream refers to it. Scoped to
+// `status = "draft"` for the same reason cancel is scoped to `scheduled` — a
+// row that became a real post between the page render and the click must not
+// be deleted by a button that said "draft".
+export async function deleteDraftAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const postId = String(formData.get("post_id") ?? "");
+  if (!postId) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("scheduled_posts")
+    .delete()
+    .eq("id", postId)
+    .eq("user_id", user.id)
+    .eq("status", "draft");
+  if (error) throw error;
+
+  revalidatePath("/dashboard/drafts");
+}

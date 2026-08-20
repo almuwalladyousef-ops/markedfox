@@ -11,7 +11,7 @@ import type { Platform } from "@/lib/platforms/types";
 import { containsExternalLink } from "./links";
 import { publishPost } from "./publish-post";
 import type { CreatePostRequest } from "./request";
-import { listContentSpecs } from "./specs";
+import { listContentSpecs, validateOptionsFor } from "./specs";
 import { createPublishStore, POST_COLUMNS, toPostRow } from "./store";
 import type { PostRow, TargetOutcome } from "./types";
 import { validateContent, type ContentIssue, type PlatformContentSpec } from "./validate";
@@ -54,6 +54,7 @@ export type CreatePostResult =
   | { kind: "invalid_content"; issues: ContentIssue[] }
   | { kind: "plan_denied"; problems: PlanProblem[] }
   | { kind: "scheduled"; post: PostRow }
+  | { kind: "draft"; postId: string; scheduledFor: string | null }
   | { kind: "published"; post: PostRow; status: "published" | "partial" | "failed"; results: TargetOutcome[] };
 
 // Caps that depend on when the post goes out. Everything else is structural.
@@ -82,6 +83,18 @@ export async function createPost(
     .maybeSingle();
   if (wsError) throw wsError;
   if (!workspace) return { kind: "workspace_not_found" };
+
+  // 1b. A draft skips everything below.
+  //
+  // Not laziness — a deliberate difference in kind. Targets, plan gates and
+  // content rules all answer "may this be published", and a draft is by
+  // definition the state before that question is asked. Refusing to save one
+  // because the caption is still too long for X, or because an account was
+  // disconnected this morning, is how people lose work they were in the middle
+  // of. Everything here is re-checked when it is actually published.
+  if (request.draft) {
+    return saveDraft(supabase, userId, request);
+  }
 
   // 2. targets
   const { data: rows, error: connError } = await supabase
@@ -158,9 +171,12 @@ export async function createPost(
       media: request.media,
     });
     const adapter = getPlatform(platform);
-    const options = adapter.validateOptions
-      ? adapter.validateOptions(request.platformOverrides[platform]?.options, null, { hasVideo })
-      : [];
+    const options = validateOptionsFor(
+      adapter,
+      request.platformOverrides[platform]?.options,
+      null,
+      { hasVideo },
+    );
     return [
       ...content,
       ...options.map((message) => ({ platform, code: "invalid_options" as const, message })),
@@ -200,5 +216,65 @@ export async function createPost(
     post: { ...post, status },
     status,
     results: report.targets,
+  };
+}
+
+/**
+ * Insert or update a draft row.
+ *
+ * A draft never enters the queue: it is born `draft`, the scheduler's due query
+ * filters on `scheduled`, and nothing else looks at it until somebody reopens
+ * it in the composer.
+ */
+async function saveDraft(
+  supabase: SupabaseClient,
+  userId: string,
+  request: CreatePostRequest,
+): Promise<CreatePostResult> {
+  const row = {
+    user_id: userId,
+    workspace_id: request.workspaceId,
+    caption: request.caption,
+    media: request.media,
+    platform_overrides: request.platformOverrides,
+    target_connection_ids: request.targetConnectionIds,
+    status: "draft" as const,
+    scheduled_for: request.scheduledFor?.toISOString() ?? null,
+  };
+
+  if (request.draftId) {
+    // Scoped to this user and to rows that are still drafts: reopening a draft
+    // that was published in another tab must not quietly rewrite the post.
+    const { data, error } = await supabase
+      .from("scheduled_posts")
+      .update(row)
+      .eq("id", request.draftId)
+      .eq("user_id", userId)
+      .eq("status", "draft")
+      .select("id, status, scheduled_for")
+      .maybeSingle();
+    if (error) throw error;
+    if (data) {
+      return {
+        kind: "draft",
+        postId: String(data.id),
+        scheduledFor: (data.scheduled_for as string | null) ?? null,
+      };
+    }
+    // Fall through to an insert: the row is gone or no longer a draft, and
+    // losing what the user just typed would be the worse answer.
+  }
+
+  const { data, error } = await supabase
+    .from("scheduled_posts")
+    .insert(row)
+    .select("id, status, scheduled_for")
+    .single();
+  if (error) throw error;
+
+  return {
+    kind: "draft",
+    postId: String(data.id),
+    scheduledFor: (data.scheduled_for as string | null) ?? null,
   };
 }

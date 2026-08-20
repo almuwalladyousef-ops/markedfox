@@ -1,0 +1,381 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo } from "react";
+
+import { Pill } from "@/components/ui";
+import {
+
+  parseView,
+  rangeFor,
+  rangeLabel,
+  sameDay,
+  shift,
+  toDateParam,
+  fromDateParam,
+  type CalendarView,
+} from "@/lib/publish/calendar";
+
+// The schedule, laid out.
+//
+// A client component because the calendar is entirely about the viewer's own
+// clock: which day is today, where the "now" line falls, what "this week"
+// means. Rendering that on the server would put the box's timezone on the
+// screen instead of the user's, which for a scheduling tool is not a detail.
+//
+// The posts come from the server as plain rows with ISO timestamps; every date
+// decision happens here.
+
+export type CalendarPost = {
+  id: string;
+  caption: string;
+  status: string;
+  scheduledFor: string;
+  thumbnail: string | null;
+  platforms: string[];
+  accounts: string[];
+};
+
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const STATUS_TONE: Record<string, "ok" | "warn" | "danger" | "neutral" | "info"> = {
+  scheduled: "info",
+  publishing: "warn",
+  published: "ok",
+  partial: "warn",
+  failed: "danger",
+  canceled: "neutral",
+  draft: "neutral",
+};
+
+export function CalendarGrid({
+  posts,
+  today,
+}: {
+  posts: CalendarPost[];
+  /** The server's idea of now, only as a fallback anchor. */
+  today: string;
+}) {
+  const router = useRouter();
+  const params = useSearchParams();
+
+  const view = parseView(params.get("view") ?? undefined);
+  const now = new Date();
+  const anchor = fromDateParam(params.get("date") ?? undefined, new Date(today));
+  const { days } = useMemo(() => rangeFor(view, anchor), [view, anchor]);
+
+  const byDay = useMemo(() => {
+    const map = new Map<string, CalendarPost[]>();
+    for (const post of posts) {
+      const key = toDateParam(new Date(post.scheduledFor));
+      const bucket = map.get(key);
+      if (bucket) bucket.push(post);
+      else map.set(key, [post]);
+    }
+    for (const bucket of map.values()) {
+      bucket.sort(
+        (a, b) =>
+          new Date(a.scheduledFor).getTime() - new Date(b.scheduledFor).getTime(),
+      );
+    }
+    return map;
+  }, [posts]);
+
+  const go = (next: Partial<{ view: CalendarView; date: Date }>) => {
+    const search = new URLSearchParams(params.toString());
+    if (next.view) search.set("view", next.view);
+    if (next.date) search.set("date", toDateParam(next.date));
+    router.push(`/dashboard/calendar?${search.toString()}`);
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-lg font-semibold">{rangeLabel(view, anchor)}</h2>
+
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Previous"
+            onClick={() => go({ date: shift(view, anchor, -1) })}
+            className="rounded-lg border border-neutral-800 px-2.5 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={() => go({ date: now })}
+            className="rounded-lg border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600"
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            aria-label="Next"
+            onClick={() => go({ date: shift(view, anchor, 1) })}
+            className="rounded-lg border border-neutral-800 px-2.5 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600"
+          >
+            ›
+          </button>
+        </div>
+
+        <div className="ml-auto flex gap-1 rounded-lg bg-neutral-900/60 p-1">
+          {(["month", "week", "day"] as CalendarView[]).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => go({ view: item })}
+              className={`rounded-md px-3 py-1 text-sm capitalize transition ${
+                view === item
+                  ? "bg-neutral-800 font-medium text-neutral-50"
+                  : "text-neutral-400 hover:text-neutral-200"
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {view === "month" ? (
+        <MonthGrid days={days} anchor={anchor} byDay={byDay} now={now} />
+      ) : (
+        <TimeGrid days={days} byDay={byDay} now={now} />
+      )}
+    </div>
+  );
+}
+
+function MonthGrid({
+  days,
+  anchor,
+  byDay,
+  now,
+}: {
+  days: Date[];
+  anchor: Date;
+  byDay: Map<string, CalendarPost[]>;
+  now: Date;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-neutral-800">
+      <div className="grid grid-cols-7 border-b border-neutral-800 bg-neutral-950">
+        {DAY_NAMES.map((name) => (
+          <div
+            key={name}
+            className="px-2 py-1.5 text-center text-[10px] font-semibold tracking-widest text-neutral-500 uppercase"
+          >
+            {name}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7">
+        {days.map((day) => {
+          const posts = byDay.get(toDateParam(day)) ?? [];
+          const outside = day.getMonth() !== anchor.getMonth();
+          const isToday = sameDay(day, now);
+          return (
+            <div
+              key={day.toISOString()}
+              className={`min-h-24 border-r border-b border-neutral-900 p-1.5 last:border-r-0 ${
+                outside ? "bg-neutral-950/50" : ""
+              }`}
+            >
+              <p
+                className={`text-xs ${
+                  isToday
+                    ? "font-semibold text-red-400"
+                    : outside
+                      ? "text-neutral-700"
+                      : "text-neutral-500"
+                }`}
+              >
+                {day.getDate()}
+              </p>
+              <ul className="mt-1 flex flex-col gap-1">
+                {posts.slice(0, 3).map((post) => (
+                  <li key={post.id}>
+                    <PostChip post={post} compact />
+                  </li>
+                ))}
+                {posts.length > 3 ? (
+                  <li className="text-[10px] text-neutral-500">
+                    +{posts.length - 3} more
+                  </li>
+                ) : null}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TimeGrid({
+  days,
+  byDay,
+  now,
+}: {
+  days: Date[];
+  byDay: Map<string, CalendarPost[]>;
+  now: Date;
+}) {
+  // Start the scroll at 7am rather than midnight: nobody schedules at 3am, and
+  // opening on eight empty rows reads as an empty calendar.
+  const firstHour = 6;
+  const visibleHours = HOURS.slice(firstHour);
+  const nowOffset =
+    (now.getHours() - firstHour) * 3 + (now.getMinutes() / 60) * 3;
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-neutral-800">
+      <div className="min-w-[44rem]">
+        <div
+          className="grid border-b border-neutral-800 bg-neutral-950"
+          style={{ gridTemplateColumns: `4rem repeat(${days.length}, 1fr)` }}
+        >
+          <div />
+          {days.map((day) => {
+            const isToday = sameDay(day, now);
+            return (
+              <div key={day.toISOString()} className="px-2 py-2 text-center">
+                <p className="text-[10px] tracking-widest text-neutral-500 uppercase">
+                  {DAY_NAMES[day.getDay()]}
+                </p>
+                <p
+                  className={`text-sm ${isToday ? "font-semibold text-red-400" : "text-neutral-300"}`}
+                >
+                  {day.getDate()}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="relative max-h-[32rem] overflow-y-auto">
+          {days.some((day) => sameDay(day, now)) ? (
+            <div
+              className="pointer-events-none absolute right-0 left-16 z-10 border-t border-red-500/70"
+              style={{ top: `${nowOffset}rem` }}
+            >
+              <span className="absolute -top-2 -left-14 text-[10px] text-red-400">
+                {now.toLocaleTimeString(undefined, {
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+          ) : null}
+
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: `4rem repeat(${days.length}, 1fr)` }}
+          >
+            <div>
+              {visibleHours.map((hour) => (
+                <div
+                  key={hour}
+                  className="h-12 border-b border-neutral-900 pr-2 text-right text-[10px] text-neutral-600"
+                >
+                  {hour === 0
+                    ? "12 AM"
+                    : hour < 12
+                      ? `${hour} AM`
+                      : hour === 12
+                        ? "12 PM"
+                        : `${hour - 12} PM`}
+                </div>
+              ))}
+            </div>
+
+            {days.map((day) => {
+              const posts = byDay.get(toDateParam(day)) ?? [];
+              return (
+                <div
+                  key={day.toISOString()}
+                  className="relative border-l border-neutral-900"
+                >
+                  {visibleHours.map((hour) => (
+                    <div key={hour} className="h-12 border-b border-neutral-900" />
+                  ))}
+                  {posts.map((post) => {
+                    const at = new Date(post.scheduledFor);
+                    const top =
+                      (at.getHours() - firstHour) * 3 + (at.getMinutes() / 60) * 3;
+                    if (top < 0) return null;
+                    return (
+                      <div
+                        key={post.id}
+                        className="absolute right-1 left-1"
+                        style={{ top: `${top}rem` }}
+                      >
+                        <PostChip post={post} />
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PostChip({
+  post,
+  compact,
+}: {
+  post: CalendarPost;
+  compact?: boolean;
+}) {
+  const at = new Date(post.scheduledFor);
+  const time = at.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return (
+    <Link
+      href={
+        post.status === "draft"
+          ? `/dashboard/compose?draft=${post.id}`
+          : "/dashboard/posts"
+      }
+      title={`${time} · ${post.accounts.join(", ")}\n${post.caption}`}
+      className="block overflow-hidden rounded-md border border-neutral-700 bg-neutral-900/90 transition hover:border-neutral-500"
+    >
+      <div className="flex items-start gap-1.5 p-1">
+        {post.thumbnail && !compact ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={post.thumbnail}
+            alt=""
+            className="h-8 w-6 shrink-0 rounded object-cover"
+          />
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1 text-[10px] text-neutral-400">
+            <span>{time}</span>
+            <span className="truncate uppercase">
+              {post.platforms.slice(0, 3).join(" ")}
+            </span>
+          </p>
+          <p className="truncate text-[11px] text-neutral-200">
+            {post.caption || "No caption"}
+          </p>
+        </div>
+      </div>
+      {post.status !== "scheduled" ? (
+        <p className="px-1 pb-1">
+          <Pill tone={STATUS_TONE[post.status] ?? "neutral"}>{post.status}</Pill>
+        </p>
+      ) : null}
+    </Link>
+  );
+}
+

@@ -1,5 +1,14 @@
+import {
+  PUBLISH_OPTIONS,
+  validatePublishOptions,
+  type PlatformOptionSpec,
+} from "@/lib/platforms/publish-options";
 import { listRegisteredPlatforms } from "@/lib/platforms/registry";
-import type { Platform, PlatformAdapter } from "@/lib/platforms/types";
+import type {
+  Platform,
+  PlatformAdapter,
+  PlatformPublishOptions,
+} from "@/lib/platforms/types";
 
 import type { PlatformContentSpec } from "./validate";
 
@@ -27,4 +36,38 @@ export function listContentSpecs(): ContentSpecs {
     out[adapter.id] = toContentSpec(adapter);
   }
   return out;
+}
+
+/** The option declarations for the platforms that have any, for the composer. */
+export type OptionSpecs = Partial<Record<Platform, PlatformOptionSpec>>;
+
+export function listOptionSpecs(): OptionSpecs {
+  const out: OptionSpecs = {};
+  for (const adapter of listRegisteredPlatforms()) {
+    const spec = PUBLISH_OPTIONS[adapter.id];
+    if (spec) out[adapter.id] = spec;
+  }
+  return out;
+}
+
+/**
+ * Every reason these options are unusable: the declarative checks from
+ * publish-options.ts plus whatever the adapter itself insists on.
+ *
+ * One function because there are two callers — createPost and publishPost —
+ * and a rule enforced in one but not the other is a rule that holds until the
+ * scheduler runs.
+ */
+export function validateOptionsFor(
+  adapter: PlatformAdapter,
+  options: PlatformPublishOptions | undefined,
+  context: Record<string, unknown> | null,
+  input: { hasVideo?: boolean },
+): string[] {
+  return [
+    ...validatePublishOptions(adapter.id, options),
+    ...(adapter.validateOptions
+      ? adapter.validateOptions(options, context, input)
+      : []),
+  ];
 }
