@@ -8,6 +8,7 @@ import {
   CardTitle,
   MetricPills,
   Notice,
+  Page,
   Pill,
   formatCount,
 } from "@/components/ui";
@@ -115,11 +116,20 @@ export default async function ResearchVideoPage({
         : "No transcript pulled yet.";
 
   return (
-    <>
+    <Page width="max-w-[1160px]">
+      <Link
+        href="/dashboard/research"
+        className="text-[12.5px] font-medium text-faint transition hover:text-ink"
+      >
+        ← Videos
+      </Link>
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-xl leading-snug font-semibold">{video.title}</h1>
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+          <h1 className="font-display text-[22px]/[29px] font-bold tracking-[-0.02em]">
+            {video.title}
+          </h1>
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted">
             <span>
               {source?.handle ? `@${source.handle}` : (source?.title ?? "Unknown channel")}
             </span>
@@ -148,7 +158,7 @@ export default async function ResearchVideoPage({
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
+      <div className="grid items-start gap-4 wide:grid-cols-[320px_1fr]">
         <div className="flex flex-col gap-4">
           <Card className="overflow-hidden p-0">
             <div className="relative aspect-[9/16] w-full bg-chip">
@@ -183,7 +193,7 @@ export default async function ResearchVideoPage({
                   source?.platform === "instagram" ? "likes" : "views"
                 }
               />
-              <p className="text-xs text-ok">
+              <p className="font-display text-[13px] font-bold text-ok">
                 {describeScore(score, source?.baseline_sample ?? 0)}
               </p>
               {video.baseline_views !== null ? (
@@ -220,7 +230,7 @@ export default async function ResearchVideoPage({
               <input type="hidden" name="video_id" value={id} />
               <button
                 type="submit"
-                className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink transition hover:border-line-strong"
+                className="w-full rounded-[10px] border border-line-strong bg-panel px-3 py-2 text-[13px] text-ink transition hover:border-accent hover:text-accent"
               >
                 Fetch transcript
                 <span className="ml-2 text-xs text-faint">Free</span>
@@ -229,11 +239,11 @@ export default async function ResearchVideoPage({
           ) : null}
         </div>
 
-        <div className="flex min-w-0 flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-3.5">
           {breakdown?.summary ? (
             <Card>
               <CardTitle>Summary</CardTitle>
-              <p className="mt-2 text-sm leading-relaxed text-ink">
+              <p className="mt-2 text-[13px]/[20px] text-muted">
                 {breakdown.summary}
               </p>
             </Card>
@@ -293,7 +303,7 @@ export default async function ResearchVideoPage({
           ) : null}
         </div>
       </div>
-    </>
+    </Page>
   );
 }
 

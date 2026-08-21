@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 
 import { notFound } from "next/navigation";
 
-import { PageHeader } from "@/components/ui";
+import {
+  Page,
+  PageHeader,
+} from "@/components/ui";
 import { LocalTime } from "@/components/local-time";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
@@ -48,7 +51,7 @@ export default async function ResearchToolsPage() {
   );
 
   return (
-    <>
+    <Page width="max-w-[900px]">
       <PageHeader
         title="Tools"
         subtitle="Hooks, transcripts, and a channel audit — without walking the whole engine first."
@@ -114,6 +117,6 @@ export default async function ResearchToolsPage() {
           </ul>
         </section>
       ) : null}
-    </>
+    </Page>
   );
 }

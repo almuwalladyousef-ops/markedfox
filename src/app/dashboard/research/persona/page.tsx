@@ -52,6 +52,12 @@ export default async function PersonaPage() {
         subtitle={`Who ${active.name} makes videos for, and how it sounds. Written once, used by every generation afterwards.`}
       />
       <PersonaForm persona={persona} />
+
+      <p className="text-[11.5px]/[17px] text-faint">
+        Generation without a persona produces competent copy for nobody in
+        particular. Four sentences, written once, appended to every prompt
+        afterwards — the cheapest quality lever in the whole pillar.
+      </p>
     </Page>
   );
 }

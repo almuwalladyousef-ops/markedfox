@@ -106,16 +106,19 @@ export default async function ChannelsPage() {
     <Page width="max-w-[1020px]">
       <PageHeader
         title="Channels"
-        subtitle="Pick which channels to include in your videos feed."
+        subtitle="Pick which channels to include in your videos feed. Every other research page reads from what is chosen here."
         actions={
-          <Pill tone={cap !== null && sources.length >= cap ? "warn" : "neutral"}>
+          <Pill
+            tone={cap !== null && sources.length >= cap ? "warn" : "neutral"}
+            className="text-xs"
+          >
             {sources.length}
             {cap === null ? "" : ` / ${cap}`} tracked
           </Pill>
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
+      <div className="grid items-start gap-4 wide:grid-cols-[1fr_300px]">
         <ChannelPicker
           platforms={platforms}
           defaultPlatform={defaultPlatform}
@@ -123,8 +126,8 @@ export default async function ChannelsPage() {
           aiConfigured={Boolean(configuredModel())}
         />
 
-        <Card className="h-fit p-4 lg:sticky lg:top-6">
-          <CardTitle hint={`Refreshes every ${snapshot.limits.researchRefreshHours}h`}>
+        <Card className="h-fit p-4 wide:sticky wide:top-6">
+          <CardTitle hint={`refreshes every ${snapshot.limits.researchRefreshHours}h`}>
             Your watchlist
           </CardTitle>
 
@@ -146,28 +149,28 @@ export default async function ChannelsPage() {
                         src={source.thumbnail_url}
                         alt=""
                         loading="lazy"
-                        className="h-8 w-8 rounded-full object-cover"
+                        className="h-[30px] w-[30px] rounded-full object-cover"
                       />
                     ) : (
-                      <span className="block h-8 w-8 rounded-full bg-chip" />
+                      <span className="block h-[30px] w-[30px] rounded-full bg-chip" />
                     )}
-                    <span className="absolute -right-0.5 -bottom-0.5 rounded bg-panel px-1 text-[8px] font-bold text-muted uppercase">
+                    <span className="absolute -right-0.5 -bottom-0.5 rounded border border-line bg-panel px-1 text-[7px] font-extrabold text-muted uppercase">
                       {source.platform.slice(0, 2)}
                     </span>
                   </span>
 
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm">
+                    <span className="block truncate text-[12.5px] font-semibold text-ink">
                       {source.handle ? `@${source.handle}` : source.title}
                     </span>
-                    <span className="block text-xs text-faint">
+                    <span className="block text-[10.5px] text-faint">
                       {formatCount(source.follower_count)} followers
                       {source.baseline_views !== null
                         ? ` · typical ${formatCount(source.baseline_views)}`
                         : " · no baseline yet"}
                     </span>
                     {source.last_error ? (
-                      <span className="mt-0.5 block text-xs text-danger">
+                      <span className="mt-0.5 block text-[10.5px] text-danger">
                         {source.last_error}
                       </span>
                     ) : null}
@@ -178,7 +181,7 @@ export default async function ChannelsPage() {
                     <button
                       type="submit"
                       title="Sync now"
-                      className="rounded px-1.5 py-1 text-xs text-faint transition hover:bg-chip hover:text-ink"
+                      className="rounded px-1.5 py-1 text-xs text-faint transition hover:text-ink"
                     >
                       ⟳
                     </button>
@@ -188,7 +191,7 @@ export default async function ChannelsPage() {
                     <button
                       type="submit"
                       aria-label={`Stop watching ${source.title}`}
-                      className="rounded px-1.5 py-1 text-xs text-faint transition hover:bg-chip hover:text-danger"
+                      className="rounded px-1.5 py-1 text-xs text-faint transition hover:text-danger"
                     >
                       ×
                     </button>
@@ -206,7 +209,13 @@ export default async function ChannelsPage() {
           what &ldquo;normal&rdquo; looks like for it. Until then its videos show
           a view count and no multiple, rather than a confident wrong number.
         </EmptyState>
-      ) : null}
+      ) : (
+        <p className="text-[11.5px]/[17px] text-faint">
+          Each channel needs a handful of recent videos before
+          &ldquo;normal&rdquo; means anything — until then its videos show a
+          view count and no multiple.
+        </p>
+      )}
     </Page>
   );
 }

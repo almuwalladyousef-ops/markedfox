@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Page } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -55,17 +56,21 @@ export default async function ProjectPage({
   }
 
   return (
-    <>
+    <Page width="max-w-[720px]">
       <header>
         <Link
           href="/dashboard/research/projects"
-          className="text-sm text-faint hover:text-ink"
+          className="text-[12.5px] font-medium text-faint transition hover:text-ink"
         >
           ← Projects
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold">{project.name}</h1>
+        <h1 className="font-display mt-2 text-[26px]/[32px] font-bold tracking-[-0.02em]">
+          {project.name}
+        </h1>
         {project.description ? (
-          <p className="mt-1 text-sm text-muted">{project.description}</p>
+          <p className="mt-1.5 text-[13.5px]/[20px] text-muted">
+            {project.description}
+          </p>
         ) : null}
       </header>
 
@@ -155,6 +160,6 @@ export default async function ProjectPage({
           })}
         </div>
       )}
-    </>
+    </Page>
   );
 }

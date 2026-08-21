@@ -114,11 +114,16 @@ export default async function RulesPage() {
             <li key={rule.id}>
               <Card className="p-4">
                 <div className="flex flex-wrap items-center gap-3">
-                  <Pill tone={rule.active ? "ok" : "neutral"}>
+                  <Pill
+                    tone={rule.active ? "ok" : "neutral"}
+                    className="text-[9.5px] font-bold tracking-[0.04em]"
+                  >
                     {rule.active ? "ACTIVE" : "PAUSED"}
                   </Pill>
-                  <p className="text-sm font-medium">{rule.name}</p>
-                  <p className="text-xs text-faint">
+                  <p className="text-[13.5px] font-semibold text-ink">
+                    {rule.name}
+                  </p>
+                  <p className="text-xs text-muted">
                     {rule.source_id
                       ? (byId.get(rule.source_id) ?? "a deleted channel")
                       : "All channels"}{" "}
@@ -131,20 +136,20 @@ export default async function RulesPage() {
                     <input type="hidden" name="id" value={rule.id} />
                     <button
                       type="submit"
-                      className="text-xs text-faint transition hover:text-danger"
+                      className="text-[11.5px] text-faint transition hover:text-danger"
                     >
                       Delete
                     </button>
                   </form>
                 </div>
-                <p className="mt-1 text-xs text-faint">
+                <p className="mt-1 text-[11.5px] text-faint">
                   {rule.last_run_at
                     ? <>Last ran <LocalTime value={rule.last_run_at} /></>
                     : "Has not run yet"}
                 </p>
 
                 <details className="mt-3">
-                  <summary className="cursor-pointer text-xs text-faint">
+                  <summary className="cursor-pointer text-xs font-semibold text-accent">
                     Edit
                   </summary>
                   <div className="mt-3">
@@ -156,6 +161,13 @@ export default async function RulesPage() {
           ))}
         </ul>
       )}
+
+      <p className="text-[11.5px]/[17px] text-faint">
+        A rule is a standing instruction to spend credits, so the daily limit is
+        the column that matters — a rule with no ceiling could empty a
+        month&rsquo;s allowance into one afternoon on a channel that suddenly
+        posted forty times.
+      </p>
     </Page>
   );
 }

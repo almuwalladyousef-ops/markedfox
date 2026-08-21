@@ -3,7 +3,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { Pill } from "@/components/ui";
+import {
+  Page,
+  Pill,
+} from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -48,7 +51,7 @@ export default async function ScriptDraftPage({
   );
 
   return (
-    <>
+    <Page width="max-w-[780px]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <Link
@@ -89,6 +92,6 @@ export default async function ScriptDraftPage({
           favorite: hook.favorite,
         }))}
       />
-    </>
+    </Page>
   );
 }

@@ -2,7 +2,15 @@
 
 import { useActionState, useState } from "react";
 
-import { Button, Notice, Pill, formatCount, inputClass } from "@/components/ui";
+import {
+  Button,
+  Notice,
+  Pill,
+  formatCount,
+  inputClass,
+  segmentedItem,
+  segmentedTrack,
+} from "@/components/ui";
 import { SIZE_TIERS, type ChannelCandidate } from "@/lib/research/discover";
 import {
   addChannelsAction,
@@ -86,17 +94,14 @@ export function ChannelPicker({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-1 rounded-lg bg-chip p-1">
+      <div className={`${segmentedTrack} w-fit`}>
         {TABS.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => setTab(item.id)}
-            className={`rounded-md px-3 py-1.5 text-sm transition ${
-              tab === item.id
-                ? "bg-chip font-medium text-ink"
-                : "text-muted hover:text-ink"
-            }`}
+            aria-pressed={tab === item.id}
+            className={segmentedItem(tab === item.id)}
           >
             {item.label}
           </button>
@@ -105,7 +110,7 @@ export function ChannelPicker({
 
       <form
         action={action}
-        className="rounded-xl border border-line bg-panel p-3"
+        className="rounded-[14px] border border-line bg-panel p-3.5"
       >
         <input type="hidden" name="platform" value={platform} />
         <input type="hidden" name="mode" value={tab === "suggest" ? "suggest" : "describe"} />
@@ -142,7 +147,7 @@ export function ChannelPicker({
             onChange={(event) =>
               setPlatform(event.target.value as ResearchPlatform)
             }
-            className="rounded-lg border border-line bg-chip px-2 py-1.5 text-xs outline-none focus:border-line-strong"
+            className="rounded-[10px] border border-line bg-chip px-2.5 py-2 text-xs text-ink outline-none focus:border-accent"
           >
             {/* Selectable even when this deployment cannot read it yet: the
                 note under the box says what is missing, which is more use than
@@ -159,7 +164,7 @@ export function ChannelPicker({
             <button
               type="button"
               onClick={() => setSizeOpen((v) => !v)}
-              className="rounded-lg border border-line bg-chip px-2 py-1.5 text-xs text-ink"
+              className="rounded-[10px] border border-line bg-chip px-2.5 py-2 text-xs text-ink"
             >
               {sizes.length === 0
                 ? "Account size"
@@ -167,7 +172,7 @@ export function ChannelPicker({
               ▾
             </button>
             {sizeOpen ? (
-              <div className="absolute z-20 mt-1 w-64 rounded-lg border border-line bg-panel p-1 shadow-2xl">
+              <div className="absolute z-20 mt-1 w-64 rounded-xl border border-line bg-panel p-1 shadow-panel">
                 {SIZE_TIERS.map((tier) => (
                   <label
                     key={tier.id}
@@ -183,7 +188,7 @@ export function ChannelPicker({
                             : current.filter((id) => id !== tier.id),
                         )
                       }
-                      className="accent-neutral-200"
+                      className="accent-accent"
                     />
                     <span className="font-medium text-ink">
                       {tier.label}
@@ -246,7 +251,7 @@ export function ChannelPicker({
           and it is free to repeat one. */}
       {state.groups?.map((group, index) => (
         <section key={`${index}-${group.group}`}>
-          <p className="text-[10px] font-semibold tracking-widest text-faint uppercase">
+          <p className="text-[9.5px] font-bold tracking-[0.12em] text-faint uppercase">
             {group.group}
           </p>
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -266,25 +271,25 @@ export function ChannelPicker({
                         return next;
                       })
                     }
-                    className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition disabled:opacity-50 ${
+                    className={`flex w-full items-center gap-3 rounded-[10px] border px-3 py-2.5 text-left transition disabled:opacity-50 ${
                       chosen
-                        ? "border-line-strong bg-chip"
+                        ? "border-accent bg-accent-soft"
                         : "border-line hover:border-line-strong"
                     }`}
                   >
                     <Avatar url={channel.thumbnailUrl} platform={channel.platform} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">
+                      <span className="block truncate text-[13px] font-semibold text-ink">
                         {channel.handle ? `@${channel.handle}` : channel.title}
                       </span>
-                      <span className="block text-xs text-faint">
+                      <span className="block text-[11px] text-faint">
                         {formatCount(channel.followerCount)} followers
                       </span>
                     </span>
                     {channel.watching ? (
                       <Pill tone="ok">Watching</Pill>
                     ) : chosen ? (
-                      <span className="text-sm text-ink">✓</span>
+                      <span className="text-sm text-accent">✓</span>
                     ) : null}
                   </button>
                 </li>
@@ -297,7 +302,7 @@ export function ChannelPicker({
       {pickedList.length > 0 ? (
         <form
           action={runAdd}
-          className="sticky bottom-4 flex items-center gap-3 rounded-xl border border-line-strong bg-chip p-3 shadow-2xl"
+          className="sticky bottom-4 flex items-center gap-3 rounded-xl border border-line bg-panel p-3 shadow-panel"
         >
           {/* JSON rather than a delimited string: "Alex Hormozi | Acquisition"
               is a perfectly ordinary channel name, and a pipe-joined value
@@ -369,7 +374,7 @@ function Avatar({
       ) : (
         <span className="block h-9 w-9 rounded-full bg-chip" />
       )}
-      <span className="absolute -right-0.5 -bottom-0.5 rounded bg-panel px-1 text-[8px] font-bold text-muted uppercase">
+      <span className="absolute -right-0.5 -bottom-0.5 rounded border border-line bg-panel px-1 text-[7px] font-extrabold text-muted uppercase">
         {platform.slice(0, 2)}
       </span>
     </span>

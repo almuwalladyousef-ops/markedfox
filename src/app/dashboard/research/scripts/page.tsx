@@ -81,22 +81,25 @@ export default async function ScriptsPage() {
             <li key={draft.id}>
               <Link
                 href={`/dashboard/research/scripts/${draft.id}`}
-                className="flex items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3 transition hover:border-line-strong"
+                className="flex items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3 transition hover:border-accent"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">
+                  <span className="block truncate text-[13.5px] font-semibold text-ink">
                     {draft.title}
                   </span>
-                  <span className="block truncate text-xs text-faint">
+                  <span className="block truncate text-[11.5px] text-faint">
                     {draft.chosen_hook
                       ? `“${draft.chosen_hook}”`
                       : (draft.topic ?? "No topic yet")}
                   </span>
                 </span>
-                <Pill tone={draft.script ? "ok" : "neutral"}>
+                <Pill
+                  tone={draft.script ? "ok" : "neutral"}
+                  className="text-[10.5px] font-bold"
+                >
                   {draft.script ? "Written" : STAGE_LABELS[draft.stage]}
                 </Pill>
-                <span className="shrink-0 text-xs text-faint">
+                <span className="shrink-0 text-[11px] text-faint">
                   <LocalTime value={draft.updated_at} mode="date" />
                 </span>
               </Link>
@@ -104,6 +107,11 @@ export default async function ScriptsPage() {
           ))}
         </ul>
       )}
+
+      <p className="text-[11.5px]/[17px] text-faint">
+        Or press <em>Create script</em> on any analysed video — the breakdown
+        comes with it, so the script is built from a shape that already worked.
+      </p>
     </Page>
   );
 }
