@@ -89,12 +89,20 @@ export async function GET(
   } catch (error) {
     if (error instanceof MissingEnvError) {
       // Adapter exists, credentials do not — the owner has not created this
-      // platform's developer app yet. The dashboard already hides the toggle
-      // for this case; this covers a hand-typed URL.
-      return NextResponse.json(
-        { error: `${platform} is not configured yet` },
-        { status: 503 },
+      // platform's developer app yet.
+      //
+      // The dashboard's toggle for this case explains itself before sending
+      // anybody here, but the toggle is a real control now and the composer
+      // links straight to this route, so a person CAN arrive. Sending them
+      // back to the dashboard with the reason in the URL is the difference
+      // between a dead end and an answer — a raw 503 JSON body is neither.
+      const back = new URL("/dashboard", site);
+      back.searchParams.set("connect_error", "not_configured");
+      back.searchParams.set(
+        "connect_detail",
+        `${platform} needs its developer app and keys added to this deployment before anybody can connect it. Nothing is wrong with your account.`,
       );
+      return NextResponse.redirect(back);
     }
     throw error;
   }

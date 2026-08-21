@@ -134,7 +134,8 @@ export interface Generation {
 }
 
 /** Which model this deployment will use, or null when no key is configured.
- *  Exported so the UI can show "Coming soon" instead of a button that fails. */
+ *  Exported so the UI can say what is missing instead of offering a button
+ *  that fails silently. */
 export function configuredModel(
   env: Record<string, string | undefined> = process.env,
 ): { provider: "gemini" | "groq"; model: string } | null {

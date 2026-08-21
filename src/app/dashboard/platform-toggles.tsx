@@ -12,8 +12,11 @@ export type PlatformRow = {
   label: string;
   /** Accounts already connected in this workspace. */
   connected: ConnectedAccountRow[];
-  /** Adapter exists — false means genuinely not built yet. */
-  buildable: boolean;
+  /** An adapter exists AND its credentials are on this deployment, so
+   *  pressing Connect can actually reach the platform. */
+  configured: boolean;
+  /** What is missing when it is not, in the owner's terms. */
+  configReason?: string;
   /** Included in the plan. False renders the upgrade badge. */
   included: boolean;
   /** Why the plan excludes it, for the upgrade prompt. */
@@ -23,9 +26,18 @@ export type PlatformRow = {
   capReason?: string;
 };
 
-// Platforms are toggles, never "Locked" labels. A plan that excludes one still
-// shows it, wearing a 💎, and toggling opens an upgrade prompt — the point is
-// that the user sees what upgrading buys rather than a dead row.
+// Every platform is a toggle. Not one of them is ever a label.
+//
+// There are three reasons a toggle cannot connect today — the plan excludes it,
+// the workspace is at its account cap, or this deployment has no credentials
+// for it yet — and all three render as the same switch. Pressing it says which
+// one and what to do about it.
+//
+// The rule is worth stating plainly because the tempting alternative keeps
+// coming back: a greyed-out row reading "Coming soon" tells the user nothing
+// they can act on, hides half of what the product does from somebody deciding
+// whether to pay for it, and quietly becomes a lie the day the credentials
+// land.
 export function PlatformToggles({ rows }: { rows: PlatformRow[] }) {
   const [upsell, setUpsell] = useState<PlatformRow | null>(null);
 
@@ -34,7 +46,7 @@ export function PlatformToggles({ rows }: { rows: PlatformRow[] }) {
       <ul className="mt-4 flex flex-col gap-1 text-sm">
         {rows.map((row) => {
           const on = row.connected.length > 0;
-          const blocked = !row.included || row.atAccountCap;
+          const blocked = !row.included || row.atAccountCap || !row.configured;
 
           return (
             <li
@@ -49,6 +61,13 @@ export function PlatformToggles({ rows }: { rows: PlatformRow[] }) {
                     className="rounded-full border border-amber-800/60 bg-amber-950/40 px-1.5 py-0.5 text-[10px] font-medium text-amber-300"
                   >
                     💎 Upgrade
+                  </span>
+                ) : !row.configured ? (
+                  <span
+                    title={row.configReason}
+                    className="rounded-full border border-sky-800/60 bg-sky-950/40 px-1.5 py-0.5 text-[10px] font-medium text-sky-300"
+                  >
+                    Setup needed
                   </span>
                 ) : null}
                 {row.connected.length > 0 ? (
@@ -68,21 +87,13 @@ export function PlatformToggles({ rows }: { rows: PlatformRow[] }) {
                 ) : null}
               </span>
 
-              {row.included && !row.buildable ? (
-                <span className="shrink-0 text-xs text-neutral-600">
-                  Coming soon
-                </span>
-              ) : (
-                <Toggle
-                  on={on}
-                  blocked={blocked}
-                  onBlockedClick={() => setUpsell(row)}
-                  href={
-                    blocked ? undefined : `/api/connect/${row.id}/start`
-                  }
-                  label={`${on ? "Connect another" : "Connect"} ${row.label}`}
-                />
-              )}
+              <Toggle
+                on={on}
+                blocked={blocked}
+                onBlockedClick={() => setUpsell(row)}
+                href={blocked ? undefined : `/api/connect/${row.id}/start`}
+                label={`${on ? "Connect another" : "Connect"} ${row.label}`}
+              />
             </li>
           );
         })}
@@ -200,11 +211,27 @@ function UpgradeDialog({
         onClick={(event) => event.stopPropagation()}
       >
         <h3 className="text-lg font-semibold">
-          {row.included ? "You are out of slots" : `${row.label} is on paid plans`}
+          {!row.included
+            ? `${row.label} is on paid plans`
+            : !row.configured
+              ? `${row.label} is not switched on yet`
+              : "You are out of slots"}
         </h3>
         <p className="mt-2 text-sm text-neutral-400">
-          {row.included ? row.capReason : row.reason}
+          {!row.included
+            ? row.reason
+            : !row.configured
+              ? row.configReason
+              : row.capReason}
         </p>
+
+        {row.included && !row.configured ? (
+          <p className="mt-3 rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-xs text-neutral-400">
+            Nothing is wrong with your account — this one needs a developer app
+            and its keys added to the deployment before anybody can connect it.
+            Everything else on the list works today.
+          </p>
+        ) : null}
 
         {row.id === "x" ? (
           <p className="mt-3 rounded-md border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-xs text-neutral-400">
@@ -214,18 +241,23 @@ function UpgradeDialog({
         ) : null}
 
         <div className="mt-5 flex gap-2">
-          <a
-            href="/pricing"
-            className="rounded-md bg-neutral-50 px-3 py-2 text-sm font-semibold text-neutral-950 transition hover:bg-white"
-          >
-            See plans
-          </a>
+          {/* An unconfigured platform is not something a plan fixes, so it
+              does not get a "See plans" button pointing at a purchase that
+              would change nothing. */}
+          {row.included && !row.configured ? null : (
+            <a
+              href="/pricing"
+              className="rounded-md bg-neutral-50 px-3 py-2 text-sm font-semibold text-neutral-950 transition hover:bg-white"
+            >
+              See plans
+            </a>
+          )}
           <button
             type="button"
             onClick={onClose}
             className="rounded-md border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600"
           >
-            Not now
+            {row.included && !row.configured ? "Close" : "Not now"}
           </button>
         </div>
       </div>

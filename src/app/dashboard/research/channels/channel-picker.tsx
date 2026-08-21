@@ -144,10 +144,13 @@ export function ChannelPicker({
             }
             className="rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-xs outline-none focus:border-neutral-600"
           >
+            {/* Selectable even when this deployment cannot read it yet: the
+                note under the box says what is missing, which is more use than
+                an option the user cannot click and cannot ask about. */}
             {platforms.map((item) => (
-              <option key={item.id} value={item.id} disabled={!item.available}>
+              <option key={item.id} value={item.id}>
                 {item.label}
-                {item.available ? "" : " — not configured"}
+                {item.available ? "" : " — needs setup"}
               </option>
             ))}
           </select>

@@ -83,7 +83,7 @@ export default async function ChannelsPage() {
       label: provider.label,
       available: configured && (!needsConnection || connected.has(provider.platform)),
       note: !configured
-        ? `${provider.label} research is not configured on this deployment yet.`
+        ? `${provider.label} research needs ${provider.requiredEnv.join(" and ")} added to this deployment. Nothing is wrong with your account.`
         : needsConnection && !connected.has(provider.platform)
           ? `Connect a ${provider.label} account in this workspace first — research reads through it.`
           : NOTES[provider.platform],

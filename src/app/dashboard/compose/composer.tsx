@@ -746,29 +746,23 @@ export function Composer({
           <div className="mt-4 border-t border-neutral-900 pt-3">
             <p className="text-xs text-neutral-500">Not connected here yet</p>
             <ul className="mt-2 flex flex-wrap gap-2">
+              {/* Shown, never hidden, and never a dead label: a person deciding
+                  whether this tool does what they need should see the whole
+                  list, and every entry goes somewhere that explains itself —
+                  including the ones this deployment has no keys for yet. */}
               {connectable.map((item) => (
                 <li key={item.platform}>
-                  {/* Shown, never hidden: a person deciding whether this tool
-                      does what they need should see the whole list, and the
-                      ones they have not set up should be one click rather than
-                      a discovery problem. */}
-                  {item.reason ? (
-                    <span
-                      title={item.reason}
-                      className="inline-flex cursor-default items-center gap-1.5 rounded-lg border border-neutral-800 px-3 py-1.5 text-sm text-neutral-600"
-                    >
-                      {item.label}
-                      <span className="text-xs">soon</span>
-                    </span>
-                  ) : (
-                    <a
-                      href={`/api/connect/${item.platform}/start`}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-neutral-700 px-3 py-1.5 text-sm text-neutral-400 transition hover:border-neutral-500 hover:text-neutral-200"
-                    >
-                      <span className="text-neutral-500">+</span>
-                      {item.label}
-                    </a>
-                  )}
+                  <a
+                    href={`/api/connect/${item.platform}/start`}
+                    title={item.reason}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-neutral-700 px-3 py-1.5 text-sm text-neutral-400 transition hover:border-neutral-500 hover:text-neutral-200"
+                  >
+                    <span className="text-neutral-500">+</span>
+                    {item.label}
+                    {item.reason ? (
+                      <span className="text-[10px] text-sky-300">setup</span>
+                    ) : null}
+                  </a>
                 </li>
               ))}
             </ul>

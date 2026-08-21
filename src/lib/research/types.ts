@@ -75,7 +75,8 @@ export interface ResearchProvider {
   readonly label: string;
   readonly capabilities: ResearchCapabilities;
   /** Env this provider needs to work at all. Empty means it works through a
-   *  connection instead. The UI shows "Coming soon" when any is missing. */
+   *  connection instead. Where one is missing the UI still offers the
+   *  platform — it says what is missing instead of hiding it. */
   readonly requiredEnv: readonly string[];
 
   /** Turn what the user typed (a handle, a URL, an id) into a real channel.

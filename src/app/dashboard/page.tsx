@@ -8,7 +8,7 @@ import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { PLATFORM_LABELS as LABELS } from "@/lib/platforms/labels";
 import { listRegisteredPlatforms } from "@/lib/platforms/registry";
-import { PLATFORMS } from "@/lib/platforms/types";
+import { PLATFORMS, type Platform } from "@/lib/platforms/types";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
@@ -31,6 +31,8 @@ const CONNECT_ERRORS: Record<string, string> = {
   missing_code: "The platform sent us back without an authorization code. Try again.",
   exchange_failed: "We could not finish connecting that account.",
   unknown_platform: "That platform is not one we support.",
+  not_configured:
+    "That platform is not switched on for this deployment yet.",
 };
 
 // Everything here reads through the user's own client, so RLS is what returns
@@ -115,15 +117,17 @@ export default async function DashboardPage({
   // clutter, and somebody who said "hide this" meant it.
   const showOnboarding = !onboarding?.dismissed && next !== null;
 
-  // "Buildable" to the toggle means clicking Connect can actually work: the
-  // adapter exists AND the owner has put its credentials in the environment.
-  // Registered-but-unconfigured (a developer app not created yet) renders as
-  // "Coming soon" — same as no adapter at all, from the user's chair.
-  const buildable = new Set(
-    listRegisteredPlatforms()
-      .filter((a) => a.requiredEnv.every((name) => Boolean(process.env[name])))
-      .map((a) => a.id),
-  );
+  // Whether pressing Connect can actually reach the platform: the adapter
+  // exists AND its credentials are on this deployment. Where they are not, the
+  // toggle still renders — it just says so when pressed. What is missing is
+  // named, because "not configured" is a sentence the owner can act on and
+  // "coming soon" is not.
+  const missingEnv = new Map<Platform, string[]>();
+  for (const adapter of listRegisteredPlatforms()) {
+    const missing = adapter.requiredEnv.filter((name) => !process.env[name]);
+    if (missing.length > 0) missingEnv.set(adapter.id, missing);
+  }
+  const registered = new Set(listRegisteredPlatforms().map((a) => a.id));
   const accountCap = canUserDo(snapshot, {
     type: "connect_platform",
     platform: "instagram",
@@ -148,7 +152,14 @@ export default async function DashboardPage({
           id: c.id,
           name: c.platform_account_name ?? c.platform_account_id,
         })),
-      buildable: buildable.has(platform),
+      configured: registered.has(platform) && !missingEnv.has(platform),
+      configReason: !registered.has(platform)
+        ? `${LABELS[platform]} does not have an adapter yet, so there is nothing to connect to.`
+        : missingEnv.has(platform)
+          ? `${LABELS[platform]} needs its developer app created and ${missingEnv
+              .get(platform)!
+              .join(" and ")} added to this deployment.`
+          : undefined,
       included,
       reason: included ? undefined : decision.allowed ? undefined : decision.reason,
       atAccountCap: included && atAccountCap,
