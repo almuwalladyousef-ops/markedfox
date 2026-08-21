@@ -998,6 +998,65 @@ schedule; filing early is the only lever we control.
   and alerts that reach a phone, cost tracking for X and AI. None can take
   the box down.
 
+- **2026-08-20 → 08-21 — the three pillars get their surfaces.** See
+  `sessions/2026-08-20-studio-surfaces.md` and
+  `handoff/2026-08-21-markedfox-handoff.md`.
+
+  The owner supplied 68 screenshots of Crosspost, ManyChat and Sandcastles
+  plus a demo transcript, and asked for each section to have its reference
+  product's features. All three engines already worked and were proven on
+  live data; what did not exist was the surface a person works in.
+
+  *A shared shell.* There was no `dashboard/layout.tsx` — every page drew its
+  own header and back-link, and the styling had drifted into two dialects
+  with the on/off toggle written from scratch three times. One sidebar
+  (Publish / Automate / Research / Create / Setup), one vocabulary in
+  `src/components/ui.tsx`.
+
+  *Research.* Feed with every filter in the URL and applied by Postgres;
+  Channels page with four discovery modes; five-tab analysis with keyboard
+  actions; idea inbox with arrow-key triage; hook vault; five-stage script
+  pipeline; auto-analyze rules; persona. The breakdown gained the half it was
+  missing — the IDEA (topic, seed, angle, the belief it overturns), separate
+  from the execution, because copying someone's structure while keeping their
+  idea is plagiarism and the reverse is a different video.
+
+  *Automations.* The builder is a sentence with a live phone preview of what
+  actually arrives. Eight templates. LIVE/STOPPED list with Runs / Sends /
+  Clicks / CTR / Emails. New engine behaviour: follow-ups that skip anyone who
+  already clicked, and email capture.
+
+  *Publisher.* Per-platform settings declared as data in
+  `lib/platforms/publish-options.ts` and applied by the adapters (YouTube
+  visibility/title/description/tags/#shorts/COPPA, X and Threads reply
+  control, Instagram share-to-feed); drafts; month/week/day calendar;
+  per-platform preview. Plus first-run onboarding.
+
+  *Two adversarial reviews found 24 real bugs; all fixed.* The four that
+  mattered: channel discovery could burn 8,000 of the 10,000 daily YouTube
+  quota units in one click, and the hallucination filter it paid for checked
+  nothing because `search.list` returns a nearest match for any string;
+  research credits were check-then-act; publishing a reopened draft left the
+  draft behind so it could post twice; selecting several files posted the same
+  one N times.
+
+  *Two rules now pinned by tests.* Nothing is ever a "Locked" or "Coming soon"
+  label — plan-locked, cap-blocked and unconfigured all render as live
+  controls that explain themselves. And anything metered reserves before it
+  spends and releases on failure, so "no credit was used" is always true.
+
+  **Deployed and live: `05e40a1`.** Four migrations applied. 530 tests;
+  production smokes studio 41/41, dm 26/26, research 30/30, burst 22/22,
+  billing 16/16, rls all-pass. **Not verified: nobody has signed in and
+  clicked through the new pages.**
+
+  **Owner-blocked, in the order that unblocks the most:** an AI key
+  (`GEMINI_API_KEY` or `GROQ_API_KEY`) turns the largest thing built this
+  session from a browser into a tool; `YOUTUBE_API_KEY` for research;
+  X/TikTok/YouTube/Snapchat OAuth credentials; Stripe's real keys; the Meta
+  webhook configuration that still gates App Review and the launch; and the
+  role account's 2FA.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
