@@ -16,11 +16,14 @@ export function WorkspaceSwitcher({
   activeId,
   canCreate,
   createBlockedReason,
+  remaining,
 }: {
   workspaces: Workspace[];
   activeId: string;
   canCreate: boolean;
   createBlockedReason?: string;
+  /** Workspaces left on the plan; null on an unlimited plan. */
+  remaining?: number | null;
 }) {
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -32,21 +35,21 @@ export function WorkspaceSwitcher({
   const active = workspaces.find((w) => w.id === activeId) ?? workspaces[0];
 
   return (
-    <div className="relative">
+    <div className="relative px-0.5">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-md border border-neutral-800 px-3 py-1.5 text-sm text-neutral-200 transition hover:border-neutral-600"
+        className="flex w-full items-center justify-between gap-2 rounded-[10px] border border-line bg-chip px-3 py-2 text-[12.5px] font-medium text-ink transition hover:border-line-strong"
       >
-        <span className="max-w-[12rem] truncate">{active?.name}</span>
-        <span className="text-xs text-neutral-500">
-          {workspaces.length > 1 ? `${workspaces.length} workspaces` : ""}
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-accent" />
+          <span className="truncate">{active?.name}</span>
         </span>
-        <span className="text-neutral-500">▾</span>
+        <span className="text-[10px] text-faint">▾</span>
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-40 mt-2 w-72 rounded-lg border border-neutral-800 bg-neutral-950 p-2 shadow-2xl">
+        <div className="absolute right-0.5 left-0.5 z-40 mt-1.5 rounded-xl border border-line bg-panel p-1.5 shadow-panel">
           <ul className="flex flex-col">
             {workspaces.map((workspace) => (
               <li key={workspace.id}>
@@ -58,35 +61,35 @@ export function WorkspaceSwitcher({
                   />
                   <button
                     type="submit"
-                    className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition hover:bg-neutral-900 ${
-                      workspace.id === activeId
-                        ? "text-neutral-50"
-                        : "text-neutral-400"
+                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-[13px] transition hover:bg-chip ${
+                      workspace.id === activeId ? "text-ink" : "text-muted"
                     }`}
                   >
                     <span className="truncate">{workspace.name}</span>
-                    {workspace.id === activeId ? <span>✓</span> : null}
+                    {workspace.id === activeId ? (
+                      <span className="text-accent">✓</span>
+                    ) : null}
                   </button>
                 </form>
               </li>
             ))}
           </ul>
 
-          <div className="mt-2 border-t border-neutral-900 pt-2">
+          <div className="mt-1 border-t border-line pt-1">
             {creating ? (
-              <form action={formAction} className="flex flex-col gap-2 px-1">
+              <form action={formAction} className="flex flex-col gap-2 p-1">
                 <input
                   name="name"
                   placeholder="Workspace name"
                   autoFocus
                   required
                   maxLength={60}
-                  className="rounded-md border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-sm outline-none focus:border-neutral-500"
+                  className="rounded-lg border border-line bg-chip px-2 py-1.5 text-[13px] text-ink outline-none focus:border-accent"
                 />
                 {state.message ? (
                   <p
                     aria-live="polite"
-                    className={`text-xs ${state.success ? "text-emerald-400" : "text-red-400"}`}
+                    className={`text-[11.5px] ${state.success ? "text-ok" : "text-danger"}`}
                   >
                     {state.message}
                   </p>
@@ -95,14 +98,14 @@ export function WorkspaceSwitcher({
                   <button
                     type="submit"
                     disabled={pending}
-                    className="rounded-md bg-neutral-50 px-2 py-1 text-xs font-semibold text-neutral-950 disabled:opacity-60"
+                    className="rounded-lg bg-accent px-2.5 py-1 text-[11.5px] font-semibold text-accent-ink disabled:opacity-45"
                   >
                     {pending ? "Creating…" : "Create"}
                   </button>
                   <button
                     type="button"
                     onClick={() => setCreating(false)}
-                    className="rounded-md border border-neutral-800 px-2 py-1 text-xs text-neutral-400"
+                    className="rounded-lg border border-line px-2.5 py-1 text-[11.5px] text-muted"
                   >
                     Cancel
                   </button>
@@ -113,16 +116,18 @@ export function WorkspaceSwitcher({
                 type="button"
                 onClick={() => setCreating(true)}
                 title={canCreate ? undefined : createBlockedReason}
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-300 transition hover:bg-neutral-900"
+                className="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-muted transition hover:bg-chip"
               >
                 <span>+ New workspace</span>
                 {/* Shown even when the plan is out — clicking explains why,
                     which is more use than a hidden or greyed-out row. */}
-                {!canCreate ? (
-                  <span className="ml-auto rounded-full border border-amber-800/60 bg-amber-950/40 px-1.5 py-0.5 text-[10px] text-amber-300">
-                    💎
-                  </span>
-                ) : null}
+                <span className="rounded-full bg-accent-soft px-[7px] py-px text-[10px] font-semibold text-accent">
+                  {canCreate
+                    ? remaining === null || remaining === undefined
+                      ? "unlimited"
+                      : `${remaining} left`
+                    : "💎"}
+                </span>
               </button>
             )}
           </div>

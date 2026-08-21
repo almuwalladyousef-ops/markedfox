@@ -1,1 +1,103 @@
 @import "tailwindcss";
+
+/* The token layer. Every colour in the app resolves through one of these
+   variables, so a theme is a different set of values rather than a different
+   set of class names. Light is the default; dark is opt-in through
+   `data-theme="dark"` on <html>. */
+
+:root {
+  --bg: #f6f6f7;
+  --panel: #ffffff;
+  --chip: #f1f1f3;
+  --border: #e5e5e8;
+  --border2: #d5d5da;
+  --text: #18181b;
+  --muted: #54545c;
+  --faint: #8b8b93;
+  --accent: #ea580c;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(234, 88, 12, 0.11);
+  --ok: #16a34a;
+  --ok-soft: rgba(22, 163, 74, 0.11);
+  --warn: #d97706;
+  --warn-soft: rgba(217, 119, 6, 0.13);
+  --danger: #dc2626;
+  --danger-soft: rgba(220, 38, 38, 0.09);
+  --sky: #0284c7;
+  --sky-soft: rgba(2, 132, 199, 0.11);
+  --shadow: 0 16px 40px rgba(24, 24, 27, 0.1);
+}
+
+[data-theme="dark"] {
+  --bg: #09090b;
+  --panel: #101012;
+  --chip: #1a1a1e;
+  --border: #232327;
+  --border2: #323238;
+  --text: #fafafa;
+  --muted: #9d9da6;
+  --faint: #6b6b74;
+  --accent: #f97316;
+  --accent-ink: #101012;
+  --accent-soft: rgba(249, 115, 22, 0.14);
+  --ok: #22c55e;
+  --ok-soft: rgba(34, 197, 94, 0.13);
+  --warn: #f59e0b;
+  --warn-soft: rgba(245, 158, 11, 0.13);
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.12);
+  --sky: #38bdf8;
+  --sky-soft: rgba(56, 189, 248, 0.13);
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* `@theme inline` is what turns the variables above into Tailwind utilities:
+   bg-panel, border-line, text-muted, bg-accent-soft and so on. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-chip: var(--chip);
+  --color-line: var(--border);
+  --color-line-strong: var(--border2);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-sky: var(--sky);
+  --color-sky-soft: var(--sky-soft);
+
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --shadow-panel: var(--shadow);
+
+  /* Two layout breakpoints of our own: `shell` is where the sidebar becomes
+     the bottom tab bar, `wide` is where the two-column research and builder
+     layouts stack. */
+  --breakpoint-shell: 880px;
+  --breakpoint-wide: 1020px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The native date picker paints itself from the document's colour scheme, so
+   without this it stays white inside the dark theme. */
+input[type="datetime-local"],
+input[type="date"],
+input[type="time"] {
+  color-scheme: light dark;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}

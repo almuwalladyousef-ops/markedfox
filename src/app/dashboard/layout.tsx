@@ -1,14 +1,19 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 
+import { FoxMark } from "@/components/ui";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { signOut } from "@/lib/auth/actions";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { countInboxIdeas } from "@/lib/research/studio-store";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeTheme, THEME_COOKIE } from "@/lib/theme";
 import { getActiveWorkspace, listWorkspaces } from "@/lib/workspaces/store";
 
+import { MobileTabs } from "./mobile-tabs";
 import { SidebarNav, type NavSection } from "./sidebar-nav";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
@@ -27,9 +32,10 @@ export default async function DashboardLayout({
   children: ReactNode;
 }) {
   const user = await requireUser();
-  const [workspaces, active] = await Promise.all([
+  const [workspaces, active, cookieStore] = await Promise.all([
     listWorkspaces(),
     getActiveWorkspace(),
+    cookies(),
   ]);
 
   // No workspace is a real state (the signup trigger failed, or the account was
@@ -106,37 +112,53 @@ export default async function DashboardLayout({
   ];
 
   const workspaceDecision = canUserDo(snapshot, { type: "create_workspace" });
+  const workspacesLeft =
+    snapshot.limits.maxWorkspaces === null
+      ? null
+      : Math.max(
+          0,
+          snapshot.limits.maxWorkspaces - snapshot.usage.workspaceCount,
+        );
+  const theme = normalizeTheme(cookieStore.get(THEME_COOKIE)?.value);
 
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col gap-6 overflow-y-auto border-r border-neutral-900 px-3 py-5 lg:flex">
-        <div className="px-1">
-          <Link href="/dashboard" className="text-sm font-semibold tracking-tight">
+      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col gap-4 border-r border-line bg-panel px-3 py-[18px] shell:flex">
+        <Link href="/dashboard" className="flex items-center gap-[9px] px-2">
+          <FoxMark className="h-7" />
+          <span className="font-display text-base font-bold tracking-[-0.02em] text-ink">
             MarkedFox
-          </Link>
-          <div className="mt-3">
-            <WorkspaceSwitcher
-              workspaces={workspaces}
-              activeId={active.id}
-              canCreate={workspaceDecision.allowed}
-              createBlockedReason={
-                workspaceDecision.allowed ? undefined : workspaceDecision.reason
-              }
-            />
-          </div>
-        </div>
+          </span>
+        </Link>
+
+        <WorkspaceSwitcher
+          workspaces={workspaces}
+          activeId={active.id}
+          canCreate={workspaceDecision.allowed}
+          createBlockedReason={
+            workspaceDecision.allowed ? undefined : workspaceDecision.reason
+          }
+          remaining={workspacesLeft}
+        />
 
         <SidebarNav sections={sections} />
 
-        <div className="mt-auto flex flex-col gap-1 px-1 pt-4 text-xs text-neutral-500">
-          <p className="truncate" title={user.email ?? undefined}>
-            {user.email}
-          </p>
-          <p className="capitalize">{snapshot.planId} plan</p>
+        <div className="flex flex-col gap-1.5 border-t border-line px-1.5 pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-[11.5px] text-muted" title={user.email ?? undefined}>
+                {user.email}
+              </p>
+              <p className="mt-0.5 text-[11px] text-faint capitalize">
+                {snapshot.planId} plan
+              </p>
+            </div>
+            <ThemeToggle initial={theme} />
+          </div>
           <form action={signOut}>
             <button
               type="submit"
-              className="mt-1 text-left text-neutral-500 transition hover:text-neutral-300"
+              className="text-left text-[11.5px] text-faint transition hover:text-ink"
             >
               Sign out
             </button>
@@ -144,44 +166,38 @@ export default async function DashboardLayout({
         </div>
       </aside>
 
-      {/* Below `lg` the sidebar is a scrolling strip above the content rather
-          than a drawer: a drawer needs state, and every item here fits. */}
+      {/* Below 880px the sidebar is replaced by a fixed bottom tab bar; this
+          strip keeps the brand and the workspace switcher reachable, since
+          neither belongs in a five-item tab bar. */}
       <div className="min-w-0 flex-1">
-        <div className="border-b border-neutral-900 px-4 py-3 lg:hidden">
-          <div className="flex items-center justify-between gap-3">
-            <Link href="/dashboard" className="text-sm font-semibold">
+        <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3 shell:hidden">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <FoxMark className="h-6" />
+            <span className="font-display text-[15px] font-bold tracking-[-0.02em]">
               MarkedFox
-            </Link>
-            <WorkspaceSwitcher
-              workspaces={workspaces}
-              activeId={active.id}
-              canCreate={workspaceDecision.allowed}
-              createBlockedReason={
-                workspaceDecision.allowed ? undefined : workspaceDecision.reason
-              }
-            />
-          </div>
-          <div className="mt-3 -mx-1 overflow-x-auto">
-            <ul className="flex w-max gap-1 px-1">
-              {sections
-                .flatMap((section) => section.items)
-                .map((item) => (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className="block rounded-lg border border-neutral-800 px-3 py-1.5 text-xs whitespace-nowrap text-neutral-300"
-                    >
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
-            </ul>
+            </span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <div className="w-40">
+              <WorkspaceSwitcher
+                workspaces={workspaces}
+                activeId={active.id}
+                canCreate={workspaceDecision.allowed}
+                createBlockedReason={
+                  workspaceDecision.allowed ? undefined : workspaceDecision.reason
+                }
+                remaining={workspacesLeft}
+              />
+            </div>
+            <ThemeToggle initial={theme} />
           </div>
         </div>
 
-        <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 lg:px-8">
+        <main className="mx-auto flex w-full flex-col gap-4 px-4 pt-6 pb-[110px] shell:px-9 shell:pt-8 shell:pb-14">
           {children}
         </main>
+
+        <MobileTabs />
       </div>
     </div>
   );

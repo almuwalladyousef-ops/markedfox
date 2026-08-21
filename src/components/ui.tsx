@@ -10,9 +10,29 @@ import type { ComponentProps, ReactNode } from "react";
 // These are plain functions over Tailwind strings rather than a component
 // library. Nothing here manages state, and every one of them accepts a
 // className so a caller can still do something local without forking.
+//
+// Every colour goes through the token utilities defined in globals.css
+// (`bg-panel`, `border-line`, `text-muted`, …) so both themes come out of one
+// set of class names.
 
-function cx(...parts: Array<string | false | null | undefined>): string {
+export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
+}
+
+// ── brand ──────────────────────────────────────────────────────────────────
+
+/** The fox mark. Sized by height; the file is tightly cropped so there is no
+ *  wrapper to fight with. */
+export function FoxMark({
+  className = "h-7",
+  alt = "",
+}: {
+  className?: string;
+  alt?: string;
+}) {
+  // eslint-disable-next-line @next/next/no-img-element -- a static, already
+  // optimised PNG; next/image would add a loader for no gain.
+  return <img src="/logo.png" alt={alt} className={cx("w-auto", className)} />;
 }
 
 // ── surfaces ───────────────────────────────────────────────────────────────
@@ -26,8 +46,8 @@ export function Card({
     <section
       {...rest}
       className={cx(
-        "rounded-xl border border-neutral-800 bg-neutral-950/60",
-        className ?? "p-5",
+        "rounded-[14px] border border-line bg-panel",
+        className ?? "p-[18px]",
       )}
     >
       {children}
@@ -46,11 +66,54 @@ export function CardTitle({
 }) {
   return (
     <div className="flex items-start justify-between gap-4">
-      <div>
-        <h2 className="text-sm font-semibold text-neutral-100">{children}</h2>
-        {hint ? <p className="mt-1 text-xs text-neutral-500">{hint}</p> : null}
-      </div>
+      <h2 className="text-sm font-semibold text-ink">
+        {children}
+        {hint ? (
+          <span className="font-normal text-faint"> · {hint}</span>
+        ) : null}
+      </h2>
       {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
+
+/** The uppercase label above a section of a card. */
+export function Eyebrow({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <p
+      className={cx(
+        "text-[13px] font-semibold tracking-[0.04em] text-muted uppercase",
+        className,
+      )}
+    >
+      {children}
+    </p>
+  );
+}
+
+/**
+ * The per-page column. The shell owns padding and the mobile tab-bar gutter;
+ * each page owns how wide its content wants to be, because a settings form and
+ * a month calendar do not read well at the same measure.
+ */
+export function Page({
+  width = "max-w-[980px]",
+  className,
+  children,
+}: {
+  width?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cx("mx-auto flex w-full flex-col gap-3.5", width, className)}>
+      {children}
     </div>
   );
 }
@@ -67,13 +130,19 @@ export function PageHeader({
   return (
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="font-display text-[26px]/[32px] font-bold tracking-[-0.02em] text-ink">
+          {title}
+        </h1>
         {subtitle ? (
-          <p className="mt-1 max-w-2xl text-sm text-neutral-400">{subtitle}</p>
+          <p className="mt-1.5 max-w-2xl text-[13.5px]/[20px] text-muted">
+            {subtitle}
+          </p>
         ) : null}
       </div>
       {actions ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {actions}
+        </div>
       ) : null}
     </header>
   );
@@ -82,20 +151,20 @@ export function PageHeader({
 // ── buttons ────────────────────────────────────────────────────────────────
 
 const BUTTON_BASE =
-  "inline-flex items-center justify-center gap-1.5 rounded-lg text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center gap-1.5 transition disabled:cursor-not-allowed disabled:opacity-45";
 
 const BUTTON_TONE = {
-  primary: "bg-white text-black hover:bg-neutral-200",
+  primary: "bg-accent text-accent-ink font-semibold hover:brightness-[1.08]",
   secondary:
-    "border border-neutral-800 text-neutral-300 hover:border-neutral-600 hover:text-neutral-50",
-  ghost: "text-neutral-400 hover:bg-neutral-900 hover:text-neutral-100",
+    "border border-line-strong bg-panel text-ink hover:border-accent hover:text-accent",
+  ghost: "text-muted hover:bg-chip hover:text-ink",
   danger:
-    "border border-red-900/70 text-red-300 hover:border-red-700 hover:bg-red-950/40",
+    "border border-danger text-danger hover:bg-danger hover:text-white",
 } as const;
 
 const BUTTON_SIZE = {
-  sm: "px-2.5 py-1.5 text-xs",
-  md: "px-4 py-2",
+  sm: "rounded-lg px-[13px] py-2 text-[12.5px] font-medium",
+  md: "rounded-[10px] px-5 py-[11px] text-sm font-medium",
 } as const;
 
 export type ButtonTone = keyof typeof BUTTON_TONE;
@@ -132,10 +201,48 @@ export function ButtonLink({
   return <Link {...rest} className={buttonClass(tone, size, className)} />;
 }
 
+/** A link or button that reads as text rather than as a control: the "Delete",
+ *  "Hide this", "+ Add a follow-up" affordances. */
+export const textButtonClass =
+  "text-xs font-medium text-accent transition hover:brightness-[1.08] disabled:opacity-45";
+
+export const quietButtonClass =
+  "text-[11.5px] text-faint transition hover:text-ink disabled:opacity-45";
+
+export const destructiveButtonClass =
+  "text-[11.5px] text-faint transition hover:text-danger disabled:opacity-45";
+
+// ── segmented control ──────────────────────────────────────────────────────
+
+/** Track + item classes rather than a component, because the same control is
+ *  built from links on the calendar and from buttons in the composer. */
+export const segmentedTrack =
+  "inline-flex items-center gap-0.5 rounded-[10px] border border-line bg-chip p-[3px]";
+
+export function segmentedItem(selected: boolean, className?: string): string {
+  return cx(
+    "rounded-lg px-3.5 py-[7px] text-[12.5px] font-semibold transition",
+    selected ? "bg-panel text-ink" : "text-faint hover:text-ink",
+    className,
+  );
+}
+
+/** The pill row used for filters: Posts' status tabs, the research feed's
+ *  minimum-multiple, Compose's account chips. */
+export function chipToggle(selected: boolean, className?: string): string {
+  return cx(
+    "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-[7px] text-[12.5px] font-semibold transition",
+    selected
+      ? "border-accent bg-accent-soft text-accent"
+      : "border-line text-muted hover:border-line-strong hover:text-ink",
+    className,
+  );
+}
+
 // ── inputs ─────────────────────────────────────────────────────────────────
 
 export const inputClass =
-  "w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 outline-none transition placeholder:text-neutral-600 focus:border-neutral-600";
+  "w-full rounded-[10px] border border-line bg-chip px-3 py-[9px] text-[13.5px] text-ink outline-none transition placeholder:text-faint focus:border-accent";
 
 export function Field({
   label,
@@ -148,9 +255,11 @@ export function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-neutral-400">{label}</span>
+      <span className="text-xs font-semibold text-muted">{label}</span>
       <div className="mt-1.5">{children}</div>
-      {hint ? <p className="mt-1 text-xs text-neutral-600">{hint}</p> : null}
+      {hint ? (
+        <p className="mt-1 text-[11.5px]/[17px] text-faint">{hint}</p>
+      ) : null}
     </label>
   );
 }
@@ -158,15 +267,23 @@ export function Field({
 // ── status and tone ────────────────────────────────────────────────────────
 
 const PILL_TONE = {
-  neutral: "border-neutral-700 bg-neutral-900 text-neutral-400",
-  ok: "border-emerald-700/70 bg-emerald-950/40 text-emerald-300",
-  warn: "border-amber-800/70 bg-amber-950/30 text-amber-300",
-  danger: "border-red-800/70 bg-red-950/40 text-red-300",
-  info: "border-sky-800/70 bg-sky-950/40 text-sky-300",
-  accent: "border-fuchsia-800/70 bg-fuchsia-950/30 text-fuchsia-300",
+  neutral: "bg-chip text-muted",
+  ok: "bg-ok-soft text-ok",
+  warn: "bg-warn-soft text-warn",
+  danger: "bg-danger-soft text-danger",
+  info: "bg-sky-soft text-sky",
+  accent: "bg-accent-soft text-accent",
 } as const;
 
 export type PillTone = keyof typeof PILL_TONE;
+
+export function pillClass(tone: PillTone = "neutral", className?: string) {
+  return cx(
+    "inline-flex items-center gap-1 rounded-full px-2 py-[3px] text-[11px] font-semibold whitespace-nowrap",
+    PILL_TONE[tone],
+    className,
+  );
+}
 
 export function Pill({
   tone = "neutral",
@@ -180,38 +297,40 @@ export function Pill({
   title?: string;
 }) {
   return (
-    <span
-      title={title}
-      className={cx(
-        "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap",
-        PILL_TONE[tone],
-        className,
-      )}
-    >
+    <span title={title} className={pillClass(tone, className)}>
       {children}
     </span>
   );
 }
 
+const NOTICE_TONE: Record<PillTone, string> = {
+  neutral: "border-line bg-panel text-muted",
+  ok: "border-ok bg-ok-soft text-ok",
+  warn: "border-warn bg-warn-soft text-warn",
+  danger: "border-danger bg-danger-soft text-danger",
+  info: "border-sky bg-sky-soft text-sky",
+  accent: "border-accent bg-accent-soft text-accent",
+};
+
 export function Notice({
   tone = "neutral",
   children,
+  className,
 }: {
   tone?: PillTone;
   children: ReactNode;
+  className?: string;
 }) {
-  const map: Record<PillTone, string> = {
-    neutral: "border-neutral-800 bg-neutral-900/60 text-neutral-300",
-    ok: "border-emerald-900 bg-emerald-950/50 text-emerald-300",
-    warn: "border-amber-900/60 bg-amber-950/30 text-amber-200",
-    danger: "border-red-900 bg-red-950/50 text-red-300",
-    info: "border-sky-900 bg-sky-950/40 text-sky-200",
-    accent: "border-fuchsia-900/60 bg-fuchsia-950/30 text-fuchsia-200",
-  };
   return (
-    <p className={cx("rounded-lg border px-3 py-2 text-sm", map[tone])}>
+    <div
+      className={cx(
+        "rounded-xl border px-3.5 py-2.5 text-[12.5px]/[18px]",
+        NOTICE_TONE[tone],
+        className,
+      )}
+    >
       {children}
-    </p>
+    </div>
   );
 }
 
@@ -225,10 +344,11 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-neutral-800 px-6 py-10 text-center">
-      <p className="text-sm font-medium text-neutral-300">{title}</p>
+    <div className="rounded-[14px] border border-dashed border-line-strong px-6 py-10 text-center">
+      <FoxMark className="mx-auto mb-3 h-6 opacity-70" />
+      <p className="text-[13.5px] font-semibold text-ink">{title}</p>
       {children ? (
-        <p className="mx-auto mt-1.5 max-w-md text-sm text-neutral-500">
+        <p className="mx-auto mt-1.5 max-w-md text-[12.5px]/[18px] text-muted">
           {children}
         </p>
       ) : null}
@@ -263,11 +383,14 @@ export function Stat({
   note?: string;
 }) {
   return (
-    <div>
-      <dt className="text-xs text-neutral-500" title={note}>
+    <div className="rounded-[10px] bg-chip px-3 py-2.5">
+      <dt className="text-[11px] text-faint" title={note}>
         {label}
       </dt>
-      <dd className="mt-0.5 text-lg font-semibold text-neutral-100">{value}</dd>
+      <dd className="font-display mt-0.5 text-[17px] font-semibold text-ink">
+        {value}
+      </dd>
+      {note ? <p className="mt-0.5 text-[10px] text-faint">{note}</p> : null}
     </div>
   );
 }
@@ -292,19 +415,24 @@ export function MetricPills({
   return (
     <div className="flex flex-wrap items-center gap-1">
       {score ? (
-        <Pill tone="ok" title="Multiple of this channel's own median">
-          ↗ {score}
+        <Pill
+          tone="ok"
+          className="text-[10px] font-bold"
+          title="Multiple of this channel's own median"
+        >
+          {score}
         </Pill>
       ) : null}
-      <Pill tone="info" title={viewsLabel}>
+      <Pill tone="neutral" className="text-[10px]" title={viewsLabel}>
         ◎ {formatCount(views)}
       </Pill>
       {engagement !== null ? (
         <Pill
-          tone="warn"
+          tone="neutral"
+          className="text-[10px]"
           title="Likes plus comments, over views"
         >
-          ✦ {Math.round(engagement * 100)}%
+          {Math.round(engagement * 100)}% eng
         </Pill>
       ) : null}
     </div>
@@ -314,9 +442,20 @@ export function MetricPills({
 // ── keyboard affordances ───────────────────────────────────────────────────
 
 /** A key cap, e.g. the "S" beside "Shortlist". */
-export function Kbd({ children }: { children: ReactNode }) {
+export function Kbd({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <kbd className="rounded border border-neutral-700 bg-neutral-900 px-1.5 py-0.5 font-sans text-[10px] text-neutral-400">
+    <kbd
+      className={cx(
+        "rounded border border-b-2 border-line-strong bg-chip px-1 py-px font-sans text-[10px] text-faint",
+        className,
+      )}
+    >
       {children}
     </kbd>
   );
@@ -341,12 +480,12 @@ export function UpgradeCard({
   cta?: string;
 }) {
   return (
-    <div className="rounded-xl border border-amber-900/50 bg-amber-950/20 p-6">
-      <p className="text-sm font-medium text-amber-200">💎 {title}</p>
-      <div className="mt-2 text-sm leading-relaxed text-neutral-300">
-        {children}
-      </div>
-      {reason ? <p className="mt-3 text-xs text-neutral-500">{reason}</p> : null}
+    <div className="rounded-[14px] border border-warn bg-warn-soft p-6">
+      <p className="text-sm font-semibold text-warn">💎 {title}</p>
+      <div className="mt-2 text-[13.5px]/[20px] text-ink">{children}</div>
+      {reason ? (
+        <p className="mt-3 text-[11.5px] text-muted">{reason}</p>
+      ) : null}
       <ButtonLink href="/pricing" tone="primary" className="mt-5">
         {cta}
       </ButtonLink>

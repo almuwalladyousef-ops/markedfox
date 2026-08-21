@@ -38,13 +38,13 @@ export function SidebarNav({ sections }: { sections: NavSection[] }) {
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   return (
-    <nav className="flex flex-col gap-5">
+    <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-0.5">
       {sections.map((section) => (
         <div key={section.title}>
-          <p className="px-3 text-[10px] font-semibold tracking-widest text-neutral-600 uppercase">
+          <p className="px-2.5 text-[9.5px] font-bold tracking-[0.12em] text-faint uppercase">
             {section.title}
           </p>
-          <ul className="mt-1.5 flex flex-col gap-0.5">
+          <ul className="mt-[5px] flex flex-col gap-px">
             {section.items.map((item) => {
               const active = item.href === activeHref;
               return (
@@ -52,22 +52,25 @@ export function SidebarNav({ sections }: { sections: NavSection[] }) {
                   <Link
                     href={item.href}
                     aria-current={active ? "page" : undefined}
-                    className={`flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm transition ${
+                    className={`flex items-center gap-[9px] rounded-lg px-2.5 py-1.5 text-[13px] transition ${
                       active
-                        ? "bg-neutral-900 font-medium text-neutral-50"
-                        : "text-neutral-400 hover:bg-neutral-900/60 hover:text-neutral-200"
+                        ? "bg-accent-soft font-semibold text-accent"
+                        : "font-medium text-muted hover:text-ink"
                     }`}
                   >
-                    <span aria-hidden className="w-4 text-center text-neutral-500">
+                    <span
+                      aria-hidden
+                      className="w-[15px] shrink-0 text-center text-xs text-faint"
+                    >
                       {item.icon}
                     </span>
-                    <span className="truncate">{item.label}</span>
+                    <span className="flex-1 truncate">{item.label}</span>
                     {item.locked ? (
-                      <span className="ml-auto text-[10px]" title="Not on your plan">
+                      <span className="text-[10px]" title="Not on your plan">
                         💎
                       </span>
                     ) : item.badge ? (
-                      <span className="ml-auto rounded-full bg-neutral-800 px-1.5 py-0.5 text-[10px] font-medium text-neutral-300">
+                      <span className="rounded-full bg-chip px-[7px] py-px text-[10px] font-semibold text-muted">
                         {item.badge > 99 ? "99+" : item.badge}
                       </span>
                     ) : null}
