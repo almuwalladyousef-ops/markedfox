@@ -7,10 +7,15 @@ import { getFreshConnectionTokens, listConnections } from "@/lib/connections/sto
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { createClient } from "@/lib/supabase/server";
-import { recordUsage } from "@/lib/usage/record";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
 import { parseBreakdown, type Breakdown } from "./breakdown";
+import {
+  annotateResearchCredit,
+  releaseResearchCredit,
+  reserveResearchCredit,
+  type CreditReservation,
+} from "./credits";
 import {
   buildAuditPrompt,
   buildBreakdownPrompt,
@@ -59,6 +64,46 @@ import {
 // anything the plan meters.
 
 export type ResearchFormState = { message?: string; ok?: boolean };
+
+/**
+ * Take a credit before calling a model, atomically.
+ *
+ * Reserving rather than checking-then-recording is what makes the monthly cap
+ * exact: two tabs used to read the same snapshot, both pass, and both spend.
+ * The reservation IS the usage row, and it is released when the model does not
+ * answer — which is what keeps every "no credit was used" message here true.
+ */
+async function reserveCredit(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  workspaceId: string,
+  kind: string,
+  refId: string | null,
+): Promise<
+  { ok: true; reservation: CreditReservation } | { ok: false; reason: string }
+> {
+  const snapshot = await getEntitlementSnapshot(supabase, userId, workspaceId);
+  const allowed = canUserDo(snapshot, {
+    type: "spend_research_credits",
+    credits: 1,
+  });
+  if (!allowed.allowed) return { ok: false, reason: allowed.reason };
+
+  const reservation = await reserveResearchCredit(supabase, {
+    userId,
+    workspaceId,
+    monthlyLimit: snapshot.limits.researchCreditsPerMonth,
+    refId,
+    metadata: { feature: "research", kind },
+  });
+  if (!reservation) {
+    return {
+      ok: false,
+      reason: `Research credits are capped at ${snapshot.limits.researchCreditsPerMonth} a month on the ${snapshot.planId} plan.`,
+    };
+  }
+  return { ok: true, reservation };
+}
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
@@ -234,14 +279,16 @@ export async function generateScriptAction(
 
   const supabase = await createClient();
 
-  // One generation = one credit, checked BEFORE the model runs so a refusal
-  // costs nothing upstream.
-  const snapshot = await getEntitlementSnapshot(supabase, user.id, active.id);
-  const decision = canUserDo(snapshot, {
-    type: "spend_research_credits",
-    credits: 1,
-  });
-  if (!decision.allowed) return { message: decision.reason };
+  // One generation = one credit, reserved BEFORE the model runs so two tabs
+  // cannot both spend the last one, and released if it never answers.
+  const held = await reserveCredit(
+    supabase,
+    user.id,
+    active.id,
+    "generate",
+    UUID.test(videoId) ? videoId : null,
+  );
+  if (!held.ok) return { message: held.reason };
 
   let sourceForPrompt = null as null | {
     title: string;
@@ -294,16 +341,15 @@ export async function generateScriptAction(
       fromBreakdown: usedBreakdown,
     });
 
-    // Recorded AFTER the call, because the credit is only spent if the model
-    // actually answered. A failed call must not bill the user.
-    await recordUsage(supabase, {
-      userId: user.id,
-      workspaceId: active.id,
-      kind: "ai_call",
-      amount: 1,
-      metadata: { feature: "research", kind, model: result.model },
+    await annotateResearchCredit(supabase, user.id, held.reservation, {
+      feature: "research",
+      kind,
+      model: result.model,
     });
   } catch (error) {
+    // The model did not answer, so the credit goes back — which is what makes
+    // the "no credit was used" messages below true.
+    await releaseResearchCredit(supabase, user.id, held.reservation);
     if (error instanceof GenerationError) {
       if (error.code === "not_configured") {
         return {
@@ -342,15 +388,18 @@ export async function breakdownVideoAction(
   if (!UUID.test(videoId)) return { message: "Unknown video." };
 
   const supabase = await createClient();
-  const snapshot = await getEntitlementSnapshot(supabase, user.id, active.id);
-  const decision = canUserDo(snapshot, {
-    type: "spend_research_credits",
-    credits: 1,
-  });
-  if (!decision.allowed) return { message: decision.reason };
-
   const video = await getVideo(supabase, videoId);
   if (!video) return { message: "Unknown video." };
+
+  const held = await reserveCredit(
+    supabase,
+    user.id,
+    active.id,
+    "breakdown",
+    videoId,
+  );
+  if (!held.ok) return { message: held.reason };
+
   const source = await getSource(supabase, video.source_id);
   const transcript = await getTranscript(supabase, videoId);
 
@@ -369,8 +418,9 @@ export async function breakdownVideoAction(
     const result = await generateFromPrompt(prompt);
     const breakdown = parseBreakdown(result.output);
     if (!breakdown) {
-      // The model answered but not usably. No credit is recorded — the user
-      // got nothing, so they are charged nothing.
+      // The model answered but not usably. The credit goes back — the user got
+      // nothing, so they are charged nothing.
+      await releaseResearchCredit(supabase, user.id, held.reservation);
       return {
         message:
           "The model's answer could not be read as a breakdown. Try again — no credit was used.",
@@ -396,15 +446,13 @@ export async function breakdownVideoAction(
       summary: breakdown.summary ?? breakdown.takeaway ?? null,
     });
 
-    await recordUsage(supabase, {
-      userId: user.id,
-      workspaceId: active.id,
-      kind: "ai_call",
-      amount: 1,
-      refId: videoId,
-      metadata: { feature: "research", kind: "breakdown", model: result.model },
+    await annotateResearchCredit(supabase, user.id, held.reservation, {
+      feature: "research",
+      kind: "breakdown",
+      model: result.model,
     });
   } catch (error) {
+    await releaseResearchCredit(supabase, user.id, held.reservation);
     if (error instanceof GenerationError) {
       return error.code === "not_configured"
         ? {
@@ -438,16 +486,20 @@ export async function generateHooksAction(
   if (!topic) return { message: "Enter a topic." };
 
   const supabase = await createClient();
-  const snapshot = await getEntitlementSnapshot(supabase, user.id, active.id);
-  const decision = canUserDo(snapshot, {
-    type: "spend_research_credits",
-    credits: 1,
-  });
-  if (!decision.allowed) return { message: decision.reason };
 
   // Optionally anchored to a video's breakdown, which is what makes these
   // hooks patterned rather than generic.
   const videoId = String(formData.get("video_id") ?? "");
+
+  const held = await reserveCredit(
+    supabase,
+    user.id,
+    active.id,
+    "hooks",
+    UUID.test(videoId) ? videoId : null,
+  );
+  if (!held.ok) return { message: held.reason };
+
   let breakdown: Breakdown | null = null;
   if (UUID.test(videoId)) {
     const row = await getBreakdown(supabase, videoId);
@@ -468,14 +520,13 @@ export async function generateHooksAction(
       model: result.model,
       creditsSpent: 1,
     });
-    await recordUsage(supabase, {
-      userId: user.id,
-      workspaceId: active.id,
-      kind: "ai_call",
-      amount: 1,
-      metadata: { feature: "research", kind: "hooks", model: result.model },
+    await annotateResearchCredit(supabase, user.id, held.reservation, {
+      feature: "research",
+      kind: "hooks",
+      model: result.model,
     });
   } catch (error) {
+    await releaseResearchCredit(supabase, user.id, held.reservation);
     if (error instanceof GenerationError) {
       return error.code === "not_configured"
         ? { message: "AI is not configured on this deployment yet — no credit was used." }
@@ -569,13 +620,6 @@ export async function auditChannelAction(
   if (!UUID.test(sourceId)) return { message: "Pick a channel." };
 
   const supabase = await createClient();
-  const snapshot = await getEntitlementSnapshot(supabase, user.id, active.id);
-  const decision = canUserDo(snapshot, {
-    type: "spend_research_credits",
-    credits: 1,
-  });
-  if (!decision.allowed) return { message: decision.reason };
-
   const source = await getSource(supabase, sourceId);
   if (!source) return { message: "Unknown channel." };
 
@@ -590,6 +634,18 @@ export async function auditChannelAction(
   const scored = videos
     .filter((v) => v.outlier_score !== null)
     .sort((a, b) => Number(b.outlier_score) - Number(a.outlier_score));
+
+  // Reserved here rather than at the top: a channel without enough history to
+  // audit is refused above, and refusing it after taking a credit would be a
+  // charge for an answer nobody got.
+  const held = await reserveCredit(
+    supabase,
+    user.id,
+    active.id,
+    "audit",
+    sourceId,
+  );
+  if (!held.ok) return { message: held.reason };
 
   try {
     const result = await generateFromPrompt(
@@ -619,15 +675,13 @@ export async function auditChannelAction(
       model: result.model,
       creditsSpent: 1,
     });
-    await recordUsage(supabase, {
-      userId: user.id,
-      workspaceId: active.id,
-      kind: "ai_call",
-      amount: 1,
-      refId: sourceId,
-      metadata: { feature: "research", kind: "audit", model: result.model },
+    await annotateResearchCredit(supabase, user.id, held.reservation, {
+      feature: "research",
+      kind: "audit",
+      model: result.model,
     });
   } catch (error) {
+    await releaseResearchCredit(supabase, user.id, held.reservation);
     if (error instanceof GenerationError) {
       return error.code === "not_configured"
         ? { message: "AI is not configured on this deployment yet — no credit was used." }

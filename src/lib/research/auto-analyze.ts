@@ -3,9 +3,15 @@ import "server-only";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { recordUsage } from "@/lib/usage/record";
+
+
 
 import { parseBreakdown } from "./breakdown";
+import {
+  annotateResearchCredit,
+  releaseResearchCredit,
+  reserveResearchCredit,
+} from "./credits";
 import { buildBreakdownPrompt } from "./breakdown-prompt";
 import { GenerationError, generateFromPrompt } from "./generate";
 import {
@@ -100,10 +106,16 @@ async function runRule(
 
   // Service role: RLS is not filtering, so the workspace comes off the rule row
   // itself and every write carries the rule's own owner.
+  // Thresholds are only applied when the rule actually sets one. A `>= 0`
+  // filter is not a no-op in SQL: it rejects NULLs, and engagement_rate is
+  // NULL for every video whose view count did not come back — so a rule
+  // configured to accept everything would silently skip them.
+  const minViews = Number(rule.min_views);
+  const minEngagement = Number(rule.min_engagement_rate);
   const feed = await listFeed(service, rule.workspace_id, {
     minScore: Number(rule.min_outlier_score),
-    minViews: Number(rule.min_views),
-    minEngagement: Number(rule.min_engagement_rate),
+    ...(minViews > 0 ? { minViews } : {}),
+    ...(minEngagement > 0 ? { minEngagement } : {}),
     sourceIds: rule.source_id ? [rule.source_id] : undefined,
     limit: 40,
   });
@@ -132,10 +144,31 @@ async function runRule(
       break;
     }
 
-    // The daily ceiling, counted from what this rule's workspace has actually
-    // spent today rather than from a counter that could drift.
-    const spentToday = await countAnalysesToday(service, rule.workspace_id, now);
+    // The daily ceiling, counted from what THIS RULE has spent today. Counting
+    // the workspace's whole AI usage would mean a morning spent writing
+    // scripts by hand silently switched every rule off, and would make the
+    // page's "these rules can spend N a day" wrong by the number of rules.
+    const spentToday = await countRuleAnalysesToday(service, rule.id, now);
     if (spentToday >= rule.daily_limit) {
+      skipped += 1;
+      break;
+    }
+
+    // Reserved atomically against the rule's OWNER, not the rule — credits are
+    // pooled per user, so a sweep firing while that user is generating a script
+    // in the browser must not let both through the same last credit.
+    const reservation = await reserveResearchCredit(service, {
+      userId: rule.user_id,
+      workspaceId: rule.workspace_id,
+      monthlyLimit: snapshot.limits.researchCreditsPerMonth,
+      refId: video.id,
+      metadata: {
+        feature: "research",
+        kind: "breakdown",
+        automation: rule.id,
+      },
+    });
+    if (!reservation) {
       skipped += 1;
       break;
     }
@@ -165,6 +198,7 @@ async function runRule(
       if (!breakdown) {
         // An unreadable answer costs the user nothing, exactly as when they
         // press the button themselves.
+        await releaseResearchCredit(service, rule.user_id, reservation);
         failed += 1;
         continue;
       }
@@ -186,22 +220,18 @@ async function runRule(
         origin: "automation",
       });
 
-      await recordUsage(service, {
-        userId: rule.user_id,
-        workspaceId: rule.workspace_id,
-        kind: "ai_call",
-        amount: 1,
-        refId: video.id,
-        metadata: {
-          feature: "research",
-          kind: "breakdown",
-          model: result.model,
-          automation: rule.id,
-        },
+      await annotateResearchCredit(service, rule.user_id, reservation, {
+        feature: "research",
+        kind: "breakdown",
+        model: result.model,
+        // Kept, because countRuleAnalysesToday reads it to enforce the
+        // per-rule daily ceiling.
+        automation: rule.id,
       });
 
       analyzed += 1;
     } catch (error) {
+      await releaseResearchCredit(service, rule.user_id, reservation);
       failed += 1;
       // A provider that is down or unconfigured is not worth retrying against
       // the rest of the batch — it will fail identically for each.
@@ -212,12 +242,18 @@ async function runRule(
   return { analyzed, skipped, failed };
 }
 
-/** Analyses this workspace has run today, automated or not. Counting both is
- *  deliberate: the ceiling is about the credit bill, and a credit spent by hand
- *  costs the same as one spent by a rule. */
-async function countAnalysesToday(
+/**
+ * Analyses THIS RULE has run today.
+ *
+ * Every automated breakdown writes a usage row tagged with the rule that
+ * ordered it, so the ceiling is counted from the ledger rather than from a
+ * counter that could drift. The monthly credit cap in canUserDo is what stops
+ * several rules adding up to more than the plan allows; this is the per-rule
+ * promise the form makes.
+ */
+async function countRuleAnalysesToday(
   service: ReturnType<typeof createServiceRoleClient>,
-  workspaceId: string,
+  ruleId: string,
   now: Date,
 ): Promise<number> {
   const start = new Date(now);
@@ -226,8 +262,8 @@ async function countAnalysesToday(
   const { count, error } = await service
     .from("usage")
     .select("id", { count: "exact", head: true })
-    .eq("workspace_id", workspaceId)
     .eq("kind", "ai_call")
+    .eq("metadata->>automation", ruleId)
     .gte("occurred_at", start.toISOString());
   if (error) throw error;
   return count ?? 0;

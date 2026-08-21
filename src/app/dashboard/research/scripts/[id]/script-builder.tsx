@@ -63,7 +63,21 @@ export function ScriptBuilder({
   aiEnabled: boolean;
   creditsLeft: number;
 }) {
+  // Which stage is on screen follows the SAVED stage, with a local override
+  // for the "Jump to" chips.
+  //
+  // This has to track the prop rather than initialise from it: saving a stage
+  // revalidates the server component, which re-renders this one IN PLACE — the
+  // instance survives, so a useState initialiser never runs again and "Save &
+  // continue" would leave the user on the card they just finished, wondering
+  // what the button did. Comparing against the previous prop is React's own
+  // idiom for state derived from props.
   const [stage, setStage] = useState<ScriptStage>(draft.stage);
+  const [seenStage, setSeenStage] = useState<ScriptStage>(draft.stage);
+  if (draft.stage !== seenStage) {
+    setSeenStage(draft.stage);
+    setStage(draft.stage);
+  }
 
   return (
     <div className="flex flex-col gap-4">

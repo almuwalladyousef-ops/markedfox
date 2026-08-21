@@ -20,6 +20,7 @@ import {
   saveFilterAction,
 } from "@/lib/research/studio-actions";
 import { listSavedFilters } from "@/lib/research/studio-store";
+import { savedFilterParams } from "@/lib/research/studio-types";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
@@ -147,10 +148,7 @@ export default async function ResearchPage({
                 </p>
                 <ul className="mt-2 flex flex-col gap-1">
                   {savedFilters.map((filter) => {
-                    const params = new URLSearchParams();
-                    for (const [key, value] of Object.entries(filter.filters)) {
-                      params.append(key, String(value));
-                    }
+                    const params = savedFilterParams(filter.filters);
                     return (
                       <li
                         key={filter.id}
@@ -234,6 +232,7 @@ export default async function ResearchPage({
                     key={video.id}
                     video={video}
                     analyzed={analysed.has(video.id)}
+                    query={currentQuery.toString()}
                   />
                 ))}
               </div>

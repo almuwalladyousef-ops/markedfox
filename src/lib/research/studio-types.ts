@@ -77,7 +77,24 @@ export interface AutomationRow {
 export interface SavedFilterRow {
   id: string;
   name: string;
-  filters: Record<string, string>;
+  /** key → every value for that key, because the feed's channel and status
+   *  controls are multi-value. Older rows stored a bare string; readers use
+   *  savedFilterParams, which accepts both. */
+  filters: Record<string, string | string[]>;
+}
+
+/** A saved filter back as a query string. Tolerant of the single-value shape
+ *  rows written before multi-select was stored properly. */
+export function savedFilterParams(
+  filters: Record<string, string | string[]>,
+): URLSearchParams {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    for (const item of Array.isArray(value) ? value : [value]) {
+      if (typeof item === "string" && item) params.append(key, item);
+    }
+  }
+  return params;
 }
 
 // ── persona ────────────────────────────────────────────────────────────────
@@ -108,6 +125,10 @@ export const STAGE_LABELS: Record<ScriptStage, string> = {
   style: "Style",
   script: "Script",
 };
+
+/** How many hooks one script draft may accumulate. A ceiling because the
+ *  column is jsonb, and a list nobody can read is not a longer list. */
+export const MAX_HOOK_OPTIONS = 24;
 
 export interface HookOption {
   text: string;

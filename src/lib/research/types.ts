@@ -78,8 +78,29 @@ export interface ResearchProvider {
    *  connection instead. The UI shows "Coming soon" when any is missing. */
   readonly requiredEnv: readonly string[];
 
-  /** Turn what the user typed (a handle, a URL, an id) into a real channel. */
+  /** Turn what the user typed (a handle, a URL, an id) into a real channel.
+   *  May fall back to a fuzzy search, which is right for something a person
+   *  typed and wrong for anything else — see resolveExact. */
   resolveSource(input: string, ctx: ProviderContext): Promise<SourceIdentity>;
+
+  /**
+   * Exact-match lookup: this handle, or nothing.
+   *
+   * The difference from resolveSource matters more than it looks. A fuzzy
+   * search returns a nearest match for essentially any string, so using it to
+   * check whether a model-suggested handle exists does not check anything —
+   * every invented name "resolves", to an unrelated real channel. It is also
+   * 100x the quota on YouTube. Discovery uses this; a person typing into a
+   * search box gets resolveSource.
+   *
+   * Returns null when there is no such channel. Optional: a provider without
+   * one falls back to resolveSource, which for Instagram, X and TikTok is
+   * already exact.
+   */
+  resolveExact?(
+    handle: string,
+    ctx: ProviderContext,
+  ): Promise<SourceIdentity | null>;
 
   /** Only called when capabilities.searchChannels is true. */
   searchChannels?(

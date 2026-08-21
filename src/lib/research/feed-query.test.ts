@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { FEED_DEFAULTS, parseFeedQuery } from "./feed-query";
+import { savedFilterParams } from "./studio-types";
 
 describe("parseFeedQuery", () => {
   it("returns no constraints for an empty query", () => {
@@ -46,5 +47,37 @@ describe("parseFeedQuery", () => {
   it("keeps several channels", () => {
     const { filters } = parseFeedQuery({ source: ["a", "b"] });
     expect(filters.sourceIds).toEqual(["a", "b"]);
+  });
+});
+
+describe("savedFilterParams", () => {
+  it("keeps every channel a saved filter had", () => {
+    // The bug this pins: a filter saved with six channels reloaded with one.
+    const params = savedFilterParams({ source: ["a", "b", "c"], sort: "views" });
+    expect(params.getAll("source")).toEqual(["a", "b", "c"]);
+    expect(params.get("sort")).toBe("views");
+  });
+
+  it("reads a row written before multi-values were stored", () => {
+    expect(savedFilterParams({ q: "hooks" }).get("q")).toBe("hooks");
+  });
+
+  it("round-trips through the parser without changing meaning", () => {
+    const saved = { source: ["a", "b"], status: ["analyzed", "unanalyzed"] };
+    const parsed = parseFeedQuery(
+      Object.fromEntries(
+        [...savedFilterParams(saved).keys()].map((key) => [
+          key,
+          savedFilterParams(saved).getAll(key),
+        ]),
+      ),
+    );
+    expect(parsed.filters.sourceIds).toEqual(["a", "b"]);
+    // Both boxes ticked is the same set as neither, so no status filter.
+    expect(parsed.filters.analyzed).toBeUndefined();
+  });
+
+  it("drops empty values rather than emitting blank params", () => {
+    expect([...savedFilterParams({ q: [""], sort: "" }).keys()]).toEqual([]);
   });
 });

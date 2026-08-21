@@ -16,6 +16,7 @@ import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { fetchTranscriptAction } from "@/lib/research/actions";
 import { exportAnalysis } from "@/lib/research/export";
+import { parseFeedQuery, type FeedQuery } from "@/lib/research/feed-query";
 import { configuredModel } from "@/lib/research/generate";
 import { describeScore } from "@/lib/research/outlier";
 import { getResearchProvider } from "@/lib/research/providers";
@@ -31,7 +32,7 @@ import {
 } from "@/lib/research/store";
 import {
   getIdeaForVideo,
-  listHookTemplates,
+  hasHookForVideo,
 } from "@/lib/research/studio-store";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
@@ -47,10 +48,16 @@ export const metadata: Metadata = { title: "Video · MarkedFox" };
 
 export default async function ResearchVideoPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<FeedQuery>;
 }) {
   const { id } = await params;
+  // Carried from the feed card's link. Prev/next has to walk the list the user
+  // was looking at — arriving from a keyword-filtered, recency-sorted feed and
+  // landing on an unrelated video is worse than having no arrows.
+  const query = await searchParams;
   const user = await requireUser();
   const active = await getActiveWorkspace();
   if (!active) notFound();
@@ -68,7 +75,7 @@ export default async function ResearchVideoPage({
     breakdownRow,
     projects,
     idea,
-    hooks,
+    hookSaved,
     neighbors,
   ] = await Promise.all([
     getSource(supabase, video.source_id),
@@ -78,8 +85,8 @@ export default async function ResearchVideoPage({
     getBreakdown(supabase, id),
     listProjects(supabase, active.id),
     getIdeaForVideo(supabase, active.id, id),
-    listHookTemplates(supabase, active.id, { limit: 200 }),
-    neighborVideos(supabase, active.id, id),
+    hasHookForVideo(supabase, active.id, id),
+    neighborVideos(supabase, active.id, id, parseFeedQuery(query).filters),
   ]);
 
   const allowed = canUserDo(snapshot, { type: "use_research" });
@@ -88,9 +95,11 @@ export default async function ResearchVideoPage({
   const breakdown = breakdownRow ? toBreakdown(breakdownRow) : null;
   const provider = source ? getResearchProvider(source.platform) : null;
   const transcriptsPossible = Boolean(provider?.capabilities.transcripts);
-  const creditsLeft =
+  const creditsLeft = Math.max(
+    0,
     snapshot.limits.researchCreditsPerMonth -
-    snapshot.usage.researchCreditsThisMonth;
+      snapshot.usage.researchCreditsThisMonth,
+  );
   const forThisVideo = scripts.filter((s) => s.video_id === id);
   const score =
     video.outlier_score === null ? null : Number(video.outlier_score);
@@ -127,11 +136,14 @@ export default async function ResearchVideoPage({
         {/* Paging through analyses is how a feed actually gets worked: open the
             best one, read it, press next. */}
         <div className="flex shrink-0 items-center gap-1.5">
-          <span className="mr-1 text-xs text-neutral-600">
-            {neighbors.index} of {neighbors.total}
-          </span>
-          <NeighborLink href={neighbors.previous} label="←" />
-          <NeighborLink href={neighbors.next} label="→" />
+          {neighbors.total > 0 ? (
+            <span className="mr-1 text-xs text-neutral-600">
+              {neighbors.index} of {neighbors.total}
+              {neighbors.truncated ? "+" : ""}
+            </span>
+          ) : null}
+          <NeighborLink href={neighbors.previous} label="←" query={query} />
+          <NeighborLink href={neighbors.next} label="→" query={query} />
         </div>
       </div>
 
@@ -187,7 +199,7 @@ export default async function ResearchVideoPage({
             breakdown={breakdown}
             transcript={transcriptText}
             projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-            hookSaved={hooks.some((hook) => hook.video_id === id)}
+            hookSaved={hookSaved}
             shortlisted={idea?.status === "shortlisted"}
             exportText={exportAnalysis({
               title: video.title,
@@ -287,9 +299,11 @@ export default async function ResearchVideoPage({
 function NeighborLink({
   href,
   label,
+  query,
 }: {
   href: string | null;
   label: string;
+  query: FeedQuery;
 }) {
   const className =
     "rounded-lg border border-neutral-800 px-2.5 py-1.5 text-sm transition";
@@ -300,9 +314,19 @@ function NeighborLink({
       </span>
     );
   }
+  // The filters travel with the arrow, so the next video's arrows walk the
+  // same list.
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined) continue;
+    for (const item of Array.isArray(value) ? value : [value]) {
+      search.append(key, item);
+    }
+  }
+  const suffix = search.toString();
   return (
     <Link
-      href={`/dashboard/research/${href}`}
+      href={`/dashboard/research/${href}${suffix ? `?${suffix}` : ""}`}
       className={`${className} text-neutral-300 hover:border-neutral-600 hover:text-neutral-50`}
     >
       {label}

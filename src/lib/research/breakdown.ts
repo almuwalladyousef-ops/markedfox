@@ -204,6 +204,7 @@ export function parseBreakdown(raw: string): Breakdown | null {
   // An object with nothing usable in it is a failure, not an empty breakdown —
   // showing empty fields would look like the video had no structure.
   const hasContent =
+    breakdown.summary ||
     breakdown.hook ||
     breakdown.curiosityLoop ||
     breakdown.structure.length > 0 ||

@@ -253,7 +253,11 @@ export function IdeaTriage({
             </p>
           </Card>
 
-          <NoteCard ideaId={selected.id} note={selected.note} />
+          {/* Keyed by the idea: the save confirmation lives in this
+              component's own state, and without a key it would still read
+              "Saved." after arrowing to the next idea, about a note that one
+              does not have. */}
+          <NoteCard key={selected.id} ideaId={selected.id} note={selected.note} />
         </div>
       ) : null}
     </div>

@@ -1,4 +1,4 @@
-import type { SourceIdentity } from "./types";
+import { RESEARCH_PLATFORMS, type ResearchPlatform, type SourceIdentity } from "./types";
 
 // Turning "who should I study?" into real channels.
 //
@@ -6,8 +6,13 @@ import type { SourceIdentity } from "./types";
 // channels in a niche will invent some of them. Confidently. So nothing a model
 // says is ever shown to the user directly — it proposes NAMES, each name is
 // looked up against the platform's own API, and only the ones that resolve to a
-// real channel with a real follower count are offered. A hallucinated handle
-// simply fails to resolve and disappears.
+// real channel with a real follower count are offered.
+//
+// The lookup has to be an EXACT one (provider.resolveExact). A fuzzy search
+// returns a nearest match for essentially any string, so checking an invented
+// handle against one does not check anything — it launders the hallucination
+// into a real, unrelated channel and puts it on the user's watchlist looking
+// verified.
 
 /** A channel offered to the user, plus where the suggestion came from. */
 export interface ChannelCandidate extends SourceIdentity {
@@ -139,4 +144,44 @@ export function parsePastedChannels(raw: string): string[] {
     if (out.length >= 50) break;
   }
   return out;
+}
+
+export type PickedChannel = {
+  platform: ResearchPlatform;
+  externalId: string;
+  handle: string | null;
+  title: string;
+  thumbnailUrl: string | null;
+  followerCount: number | null;
+};
+
+/** One ticked candidate, as JSON from the picker. Anything malformed is
+ *  dropped rather than half-read. */
+export function parsePickedChannel(raw: string): PickedChannel | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const o = parsed as Record<string, unknown>;
+
+  const platform = String(o.platform ?? "");
+  if (!(RESEARCH_PLATFORMS as readonly string[]).includes(platform)) return null;
+  const externalId = typeof o.externalId === "string" ? o.externalId.trim() : "";
+  if (!externalId) return null;
+
+  const followers = Number(o.followerCount);
+  return {
+    platform: platform as ResearchPlatform,
+    externalId: externalId.slice(0, 200),
+    handle: typeof o.handle === "string" && o.handle ? o.handle.slice(0, 120) : null,
+    title: typeof o.title === "string" ? o.title.slice(0, 200) : externalId,
+    thumbnailUrl:
+      typeof o.thumbnailUrl === "string" && /^https?:\/\//i.test(o.thumbnailUrl)
+        ? o.thumbnailUrl.slice(0, 2048)
+        : null,
+    followerCount: Number.isFinite(followers) && followers >= 0 ? followers : null,
+  };
 }

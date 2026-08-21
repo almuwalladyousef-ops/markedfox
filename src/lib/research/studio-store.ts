@@ -137,16 +137,25 @@ export async function upsertIdea(
     if (error) throw error;
     return existing.id;
   }
+
+  // Upsert rather than insert: the read above is not a lock, so a user
+  // pressing Shortlist while an auto-analyze rule is breaking the same video
+  // down would otherwise hit the unique key and fail. Deliberately does NOT
+  // touch `status` — resurrecting something the user discarded is exactly what
+  // that column exists to prevent.
   const { data, error } = await supabase
     .from("research_ideas")
-    .insert({
-      user_id: input.userId,
-      workspace_id: input.workspaceId,
-      video_id: input.videoId,
-      title: input.title,
-      summary: input.summary,
-      origin: input.origin ?? "manual",
-    })
+    .upsert(
+      {
+        user_id: input.userId,
+        workspace_id: input.workspaceId,
+        video_id: input.videoId,
+        title: input.title,
+        summary: input.summary,
+        origin: input.origin ?? "manual",
+      },
+      { onConflict: "workspace_id,video_id" },
+    )
     .select("id")
     .single();
   if (error) throw error;
@@ -248,6 +257,23 @@ export async function saveHookTemplate(
     source_views: input.sourceViews,
   });
   if (error) throw error;
+}
+
+/** Whether this video's hook is already in the vault. A head-count, because
+ *  the alternative was loading 200 rows to compute a boolean — and getting it
+ *  wrong for anyone whose vault had grown past 200. */
+export async function hasHookForVideo(
+  supabase: SupabaseClient,
+  workspaceId: string,
+  videoId: string,
+): Promise<boolean> {
+  const { count, error } = await supabase
+    .from("research_hook_templates")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId)
+    .eq("video_id", videoId);
+  if (error) throw error;
+  return (count ?? 0) > 0;
 }
 
 export async function toggleHookFavorite(
@@ -394,7 +420,7 @@ export async function saveFilter(
     userId: string;
     workspaceId: string;
     name: string;
-    filters: Record<string, string>;
+    filters: Record<string, string[]>;
   },
 ): Promise<void> {
   const { error } = await supabase.from("research_saved_filters").insert({

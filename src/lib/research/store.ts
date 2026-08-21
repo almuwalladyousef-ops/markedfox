@@ -181,14 +181,19 @@ const FEED_ORDER: Record<FeedSort, { column: string; ascending: boolean }> = {
 };
 
 /**
- * The outlier feed. Every filter here is applied by Postgres rather than in the
- * page, because the point of a filter is to not load the rows you are throwing
- * away — a workspace tracking 150 channels has tens of thousands of videos.
+ * The outlier feed. Every filter is applied by Postgres, because the point of a
+ * filter is to not load the rows you are throwing away — a workspace tracking
+ * 150 channels has tens of thousands of videos.
  *
- * `analyzed` is the exception: it needs the set of videos that have a breakdown,
- * which lives in another table with no foreign key the PostgREST filter syntax
- * can reach across cheaply. It is applied after the fetch, and the caller is
- * told so by this comment rather than by a surprise.
+ * That includes `analyzed`, which is why it takes an extra query: the set of
+ * broken-down videos lives in another table, and filtering it in the page
+ * would mean fetching the top N and then removing some — so "unanalyzed only"
+ * would return nothing at all once a user had analysed their top N, while
+ * thousands of unanalysed videos sat below the cut. It would degrade silently
+ * as the product got used, which is the worst shape a bug can have.
+ *
+ * The id list is bounded by credits: every breakdown costs one, so a
+ * workspace's set is hundreds, not millions.
  */
 export async function listFeed(
   supabase: SupabaseClient,
@@ -203,6 +208,9 @@ export async function listFeed(
     )
     .eq("workspace_id", workspaceId)
     .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
+    // A tiebreaker, so a block of videos on the same score keeps the same order
+    // between requests. Without it prev/next can loop or skip.
+    .order("id", { ascending: true })
     .limit(filters.limit ?? 60);
 
   if (filters.minScore !== undefined) {
@@ -238,6 +246,20 @@ export async function listFeed(
     );
     query = query.gte("published_at", since.toISOString());
   }
+  // Fetched before the page query so the constraint lands in SQL, ahead of the
+  // limit rather than behind it.
+  if (filters.analyzed !== undefined) {
+    const ids = await workspaceBreakdownVideoIds(supabase, workspaceId);
+    if (filters.analyzed) {
+      // Nothing analysed yet means nothing can match; asking Postgres for
+      // `id in ()` is a syntax error, so answer it here.
+      if (ids.length === 0) return [];
+      query = query.in("id", ids);
+    } else if (ids.length > 0) {
+      query = query.not("id", "in", `(${ids.join(",")})`);
+    }
+  }
+
   if (filters.keywords) {
     // Escape the PostgREST `or` list separators before interpolating a user
     // string into it, or a comma in someone's search turns into a second filter.
@@ -250,19 +272,26 @@ export async function listFeed(
   const { data, error } = await query;
   if (error) throw error;
 
-  const rows = (data ?? []).map((row) => {
+  return (data ?? []).map((row) => {
     const { research_sources: source, ...video } = row as unknown as VideoRow & {
       research_sources: FeedVideo["source"];
     };
     return { ...video, source };
   });
+}
 
-  if (filters.analyzed === undefined) return rows;
-  const withBreakdown = await breakdownVideoIds(
-    supabase,
-    rows.map((r) => r.id),
-  );
-  return rows.filter((r) => withBreakdown.has(r.id) === filters.analyzed);
+/** Every video in this workspace that has a breakdown. Bounded by credits
+ *  spent, so this is hundreds of ids rather than an unbounded scan. */
+async function workspaceBreakdownVideoIds(
+  supabase: SupabaseClient,
+  workspaceId: string,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("research_breakdowns")
+    .select("video_id")
+    .eq("workspace_id", workspaceId);
+  if (error) throw error;
+  return ((data ?? []) as { video_id: string }[]).map((row) => row.video_id);
 }
 
 export async function getVideo(
@@ -858,36 +887,53 @@ export async function countSources(
   return count ?? 0;
 }
 
+/** How far prev/next will walk. A ceiling because the whole ordered list is
+ *  fetched to find one position, and nobody pages through more than this by
+ *  hand. */
+export const NEIGHBOR_WINDOW = 500;
+
 /**
- * The videos either side of this one in the feed's default order.
+ * The videos either side of this one, in the order the user is looking at.
  *
  * Paging through analyses is how somebody actually works a feed — open the best
- * one, read it, press next. Computed by fetching the ordered id list rather than
- * by two window queries: the list is at most a few hundred ids and one round
- * trip beats being clever.
+ * one, read it, press next — so this has to walk the SAME list, filters and
+ * sort included. Arriving from a keyword-filtered, recency-sorted feed and
+ * landing on an unrelated video is worse than having no arrows at all.
+ *
+ * Computed by fetching the ordered id list rather than by two window queries:
+ * it is at most NEIGHBOR_WINDOW ids and one round trip beats being clever.
  */
 export async function neighborVideos(
   supabase: SupabaseClient,
   workspaceId: string,
   videoId: string,
-): Promise<{ previous: string | null; next: string | null; index: number; total: number }> {
-  const { data, error } = await supabase
-    .from("research_videos")
-    .select("id")
-    .eq("workspace_id", workspaceId)
-    .order("outlier_score", { ascending: false, nullsFirst: false })
-    .limit(500);
-  if (error) throw error;
-
-  const ids = (data as { id: string }[] | null)?.map((row) => row.id) ?? [];
+  filters: FeedFilters = {},
+): Promise<{
+  previous: string | null;
+  next: string | null;
+  index: number;
+  total: number;
+  /** True when the list was cut off, so the count can say "of 500+". */
+  truncated: boolean;
+}> {
+  const rows = await listFeed(supabase, workspaceId, {
+    ...filters,
+    limit: NEIGHBOR_WINDOW,
+  });
+  const ids = rows.map((row) => row.id);
   const index = ids.indexOf(videoId);
+  const truncated = ids.length === NEIGHBOR_WINDOW;
+
   if (index === -1) {
-    return { previous: null, next: null, index: 0, total: ids.length };
+    // Reached from somewhere other than this filtered feed — a link, the idea
+    // inbox, a bookmark. No arrows rather than wrong ones.
+    return { previous: null, next: null, index: 0, total: 0, truncated };
   }
   return {
     previous: index > 0 ? ids[index - 1] : null,
     next: index < ids.length - 1 ? ids[index + 1] : null,
     index: index + 1,
     total: ids.length,
+    truncated,
   };
 }

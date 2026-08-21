@@ -28,10 +28,15 @@ const PLATFORM_MARK: Record<string, string> = {
 export function VideoCard({
   video,
   analyzed,
+  query,
 }: {
   video: FeedVideo;
   analyzed: boolean;
+  /** The feed's current query string, carried into the detail page so its
+   *  prev/next arrows walk the list the user was actually looking at. */
+  query?: string;
 }) {
+  const href = `/dashboard/research/${video.id}${query ? `?${query}` : ""}`;
   const score = video.outlier_score === null ? null : Number(video.outlier_score);
   const tier = scoreTier(score, video.source.baseline_sample);
   // Instagram's business discovery hides view counts, so likes carry the
@@ -81,7 +86,7 @@ export function VideoCard({
             through a feed. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-2 gap-1.5 bg-gradient-to-t from-black/90 to-transparent p-2 opacity-0 transition group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
           <Link
-            href={`/dashboard/research/${video.id}`}
+            href={href}
             className="flex-1 rounded-md bg-white px-2 py-1.5 text-center text-xs font-medium text-black"
           >
             {analyzed ? "Open analysis" : "Analyze video"}
@@ -100,7 +105,7 @@ export function VideoCard({
 
       <div className="flex flex-1 flex-col gap-1.5 p-3">
         <Link
-          href={`/dashboard/research/${video.id}`}
+          href={href}
           className="line-clamp-2 text-sm leading-snug font-medium hover:underline"
         >
           {video.title}

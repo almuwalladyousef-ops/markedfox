@@ -239,8 +239,10 @@ export function ChannelPicker({
         <Notice tone={state.ok ? "ok" : "warn"}>{state.message}</Notice>
       ) : null}
 
-      {state.groups?.map((group) => (
-        <section key={group.group}>
+      {/* Keyed by position, not by the heading: the headings are model-written
+          and it is free to repeat one. */}
+      {state.groups?.map((group, index) => (
+        <section key={`${index}-${group.group}`}>
           <p className="text-[10px] font-semibold tracking-widest text-neutral-500 uppercase">
             {group.group}
           </p>
@@ -294,19 +296,23 @@ export function ChannelPicker({
           action={runAdd}
           className="sticky bottom-4 flex items-center gap-3 rounded-xl border border-neutral-700 bg-neutral-900 p-3 shadow-2xl"
         >
-          <input type="hidden" name="platform" value={platform} />
+          {/* JSON rather than a delimited string: "Alex Hormozi | Acquisition"
+              is a perfectly ordinary channel name, and a pipe-joined value
+              would shred it into a wrong title, a garbage thumbnail URL and a
+              lost follower count. */}
           {pickedList.map((channel) => (
             <input
               key={key(channel)}
               type="hidden"
               name="channel"
-              value={[
-                channel.externalId,
-                channel.handle ?? "",
-                channel.title,
-                channel.thumbnailUrl ?? "",
-                channel.followerCount ?? "",
-              ].join("|")}
+              value={JSON.stringify({
+                platform: channel.platform,
+                externalId: channel.externalId,
+                handle: channel.handle,
+                title: channel.title,
+                thumbnailUrl: channel.thumbnailUrl,
+                followerCount: channel.followerCount,
+              })}
             />
           ))}
           <p className="text-sm">

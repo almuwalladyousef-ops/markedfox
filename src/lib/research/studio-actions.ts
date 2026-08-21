@@ -7,19 +7,26 @@ import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { createClient } from "@/lib/supabase/server";
-import { recordUsage } from "@/lib/usage/record";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
 import { getFreshConnectionTokens, listConnections } from "@/lib/connections/store";
 
 import { buildHookPrompt, renderBreakdownForPrompt } from "./breakdown-prompt";
 import {
+  annotateResearchCredit,
+  releaseResearchCredit,
+  reserveResearchCredit,
+  type CreditReservation,
+} from "./credits";
+import {
   buildChannelSuggestionPrompt,
   matchesSizeTiers,
   parseChannelSuggestions,
   parsePastedChannels,
+  parsePickedChannel,
   SIZE_TIERS,
   type ChannelCandidate,
+  type PickedChannel,
   type SizeTierId,
 } from "./discover";
 import { getResearchProvider } from "./providers";
@@ -59,6 +66,7 @@ import {
   updateScriptDraft,
   upsertAutomation,
   upsertIdea,
+  MAX_HOOK_OPTIONS,
   type HookOption,
   type IdeaStatus,
   type ScriptStage,
@@ -267,13 +275,17 @@ export async function saveFilterAction(formData: FormData): Promise<void> {
   const name = text(formData, "name", 60);
   if (!name) return;
 
-  // Everything except the name is the filter. Storing the query string whole
-  // means a new filter control needs no migration — the saved row is a
-  // bookmark, not a schema.
-  const filters: Record<string, string> = {};
+  // Everything except the name is the filter. Stored as key → list of values,
+  // because the controls that matter most are multi-value: the channel picker
+  // emits one `source` per channel and Status emits one per box. Collapsing
+  // those to a single value meant a filter saved with six channels reloaded
+  // with one, and a filter saved with both status boxes ticked reloaded as
+  // analyzed-only — silently the wrong filter.
+  const filters: Record<string, string[]> = {};
   for (const [key, value] of formData.entries()) {
     if (key === "name" || typeof value !== "string" || !value) continue;
-    filters[key] = value.slice(0, 200);
+    const bucket = filters[key] ?? (filters[key] = []);
+    if (bucket.length < 60) bucket.push(value.slice(0, 200));
   }
 
   await saveFilter(ctx.supabase, {
@@ -418,35 +430,49 @@ export async function goToStageAction(formData: FormData): Promise<void> {
 
 // ── generation inside the pipeline ─────────────────────────────────────────
 
-async function spendCredit(
+/**
+ * Take a credit before calling a model, atomically.
+ *
+ * Reserving rather than checking-then-recording is what makes the cap exact:
+ * two tabs, or one impatient double-click, used to read the same snapshot,
+ * both pass, and both spend. The reservation IS the usage row, so it is
+ * counted from the instant it exists — and released if the model never
+ * answers, which is what keeps "no credit was used" true.
+ */
+async function reserveCredit(
   ctx: NonNullable<Awaited<ReturnType<typeof context>>>,
   kind: string,
-  refId: string,
-  model: string | null,
-): Promise<void> {
-  await recordUsage(ctx.supabase, {
-    userId: ctx.user.id,
-    workspaceId: ctx.active.id,
-    kind: "ai_call",
-    amount: 1,
-    refId,
-    metadata: { feature: "research", kind, model },
-  });
-}
-
-async function guardCredits(
-  ctx: NonNullable<Awaited<ReturnType<typeof context>>>,
-): Promise<string | null> {
+  refId: string | null,
+): Promise<
+  { ok: true; reservation: CreditReservation } | { ok: false; reason: string }
+> {
   const snapshot = await getEntitlementSnapshot(
     ctx.supabase,
     ctx.user.id,
     ctx.active.id,
   );
-  const decision = canUserDo(snapshot, {
+  // The structural check first — is research on this plan at all — because its
+  // message says something useful that a bare "out of credits" would not.
+  const allowed = canUserDo(snapshot, {
     type: "spend_research_credits",
     credits: 1,
   });
-  return decision.allowed ? null : decision.reason;
+  if (!allowed.allowed) return { ok: false, reason: allowed.reason };
+
+  const reservation = await reserveResearchCredit(ctx.supabase, {
+    userId: ctx.user.id,
+    workspaceId: ctx.active.id,
+    monthlyLimit: snapshot.limits.researchCreditsPerMonth,
+    refId,
+    metadata: { feature: "research", kind },
+  });
+  if (!reservation) {
+    return {
+      ok: false,
+      reason: `Research credits are capped at ${snapshot.limits.researchCreditsPerMonth} a month on the ${snapshot.planId} plan.`,
+    };
+  }
+  return { ok: true, reservation };
 }
 
 /** Turn the persona into the sentence every generation prompt ends with. */
@@ -474,8 +500,8 @@ export async function generateResearchAction(
   const draft = await getScriptDraft(ctx.supabase, id);
   if (!draft?.topic) return { message: "Describe the topic first." };
 
-  const blocked = await guardCredits(ctx);
-  if (blocked) return { message: blocked };
+  const held = await reserveCredit(ctx, "script_research", id);
+  if (!held.ok) return { message: held.reason };
 
   const persona = await getPersona(ctx.supabase, ctx.active.id);
   const prompt = [
@@ -505,8 +531,13 @@ export async function generateResearchAction(
       research_notes: result.output,
       stage: "research",
     });
-    await spendCredit(ctx, "script_research", id, result.model);
+    await annotateResearchCredit(ctx.supabase, ctx.user.id, held.reservation, {
+      feature: "research",
+      kind: "script_research",
+      model: result.model,
+    });
   } catch (error) {
+    await releaseResearchCredit(ctx.supabase, ctx.user.id, held.reservation);
     return { message: generationMessage(error) };
   }
 
@@ -533,8 +564,16 @@ export async function generateDraftHooksAction(
   const draft = await getScriptDraft(ctx.supabase, id);
   if (!draft?.topic) return { message: "Describe the topic first." };
 
-  const blocked = await guardCredits(ctx);
-  if (blocked) return { message: blocked };
+  // Refused before the reservation, not after the call: generating hooks the
+  // cap would then throw away is a credit spent on nothing.
+  if ((draft.hook_options ?? []).length >= MAX_HOOK_OPTIONS) {
+    return {
+      message: `This script already has ${MAX_HOOK_OPTIONS} hooks. Pick one, or start another script — no credit was used.`,
+    };
+  }
+
+  const held = await reserveCredit(ctx, "script_hooks", id);
+  if (!held.ok) return { message: held.reason };
 
   const templateIds = formData.getAll("template_id").map(String).filter((v) => UUID.test(v));
   const templates = await getHookTemplates(ctx.supabase, templateIds);
@@ -580,8 +619,15 @@ export async function generateDraftHooksAction(
     // Line N came from formula N — the prompt asked for one per formula in
     // order — so the attribution survives without asking the model to repeat it
     // back and hoping it does.
+    // Attribution is positional — the prompt asked for one hook per formula, in
+    // order — which only holds when the counts match. A preamble line that
+    // survived the filter shifts every hook one template to the left, and a
+    // hook credited to the wrong creator is precisely what the vault exists to
+    // prevent. When the shapes disagree, the hooks are still useful; the
+    // evidence is not, so it is dropped rather than guessed at.
+    const attributable = templates.length > 0 && lines.length === templates.length;
     const options: HookOption[] = lines.map((line, index) => {
-      const template = templates[index];
+      const template = attributable ? templates[index] : undefined;
       return {
         text: line,
         sourceHandle: template?.source_handle ?? undefined,
@@ -591,11 +637,16 @@ export async function generateDraftHooksAction(
 
     const existing = draft.hook_options ?? [];
     await updateScriptDraft(ctx.supabase, id, {
-      hook_options: [...existing, ...options].slice(0, 24),
+      hook_options: [...existing, ...options].slice(0, MAX_HOOK_OPTIONS),
       stage: "hook",
     });
-    await spendCredit(ctx, "script_hooks", id, result.model);
+    await annotateResearchCredit(ctx.supabase, ctx.user.id, held.reservation, {
+      feature: "research",
+      kind: "script_hooks",
+      model: result.model,
+    });
   } catch (error) {
+    await releaseResearchCredit(ctx.supabase, ctx.user.id, held.reservation);
     return { message: generationMessage(error) };
   }
 
@@ -615,8 +666,8 @@ export async function generateDraftScriptAction(
   const draft = await getScriptDraft(ctx.supabase, id);
   if (!draft?.topic) return { message: "Describe the topic first." };
 
-  const blocked = await guardCredits(ctx);
-  if (blocked) return { message: blocked };
+  const held = await reserveCredit(ctx, "script_write", id);
+  if (!held.ok) return { message: held.reason };
 
   const persona = await getPersona(ctx.supabase, ctx.active.id);
 
@@ -654,8 +705,13 @@ export async function generateDraftScriptAction(
       script: result.output,
       stage: "script",
     });
-    await spendCredit(ctx, "script_write", id, result.model);
+    await annotateResearchCredit(ctx.supabase, ctx.user.id, held.reservation, {
+      feature: "research",
+      kind: "script_write",
+      model: result.model,
+    });
   } catch (error) {
+    await releaseResearchCredit(ctx.supabase, ctx.user.id, held.reservation);
     return { message: generationMessage(error) };
   }
 
@@ -684,10 +740,19 @@ export type DiscoverState = StudioFormState & {
  * Resolve a batch of handles against the platform, dropping the ones that do
  * not exist.
  *
+ * Uses the provider's EXACT lookup, never its fuzzy one. That is the whole
+ * mechanism: a model-suggested handle that does not exist must return nothing,
+ * and a fuzzy search would instead return a nearest match for any string —
+ * turning every hallucination into a real, unrelated channel with a real
+ * follower count, which is worse than showing the hallucination.
+ *
+ * On YouTube it is also 1 quota unit instead of 100. A twenty-handle group
+ * through search.list would be 2,000 units of a 10,000-unit daily allowance
+ * shared by every customer on the deployment.
+ *
  * Serial rather than parallel on purpose: these are third-party APIs with
- * per-app rate limits shared by every customer, and twenty simultaneous
- * lookups from one person's search box is exactly the burst the Phase 6 budget
- * work exists to prevent.
+ * per-app rate limits, and twenty simultaneous lookups from one person's
+ * search box is exactly the burst the Phase 6 budget work exists to prevent.
  */
 async function resolveMany(
   platform: ResearchPlatform,
@@ -698,14 +763,25 @@ async function resolveMany(
 ): Promise<ChannelCandidate[]> {
   const provider = getResearchProvider(platform);
   const out: ChannelCandidate[] = [];
+  const seen = new Set<string>();
+
   for (const input of inputs.slice(0, 20)) {
     try {
-      const identity = await provider.resolveSource(input, ctx);
-      out.push({
-        ...identity,
-        group,
-        watching: watching.has(`${identity.platform}:${identity.externalId}`),
-      });
+      // Providers without an exact lookup (Instagram, X, TikTok) resolve
+      // exactly anyway — business discovery and the username endpoints are
+      // both exact-match — so falling back to resolveSource is safe for them.
+      const identity = provider.resolveExact
+        ? await provider.resolveExact(input, ctx)
+        : await provider.resolveSource(input, ctx);
+      if (!identity) continue;
+
+      // A model naming the same channel twice, or two of its groups landing on
+      // one account, must not produce two identical cards.
+      const key = `${identity.platform}:${identity.externalId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      out.push({ ...identity, group, watching: watching.has(key) });
     } catch {
       // A handle that does not resolve is a handle that does not exist. Not an
       // error worth showing — it is the invented-name filter doing its job.
@@ -854,8 +930,8 @@ export async function describeChannelsAction(
     };
   }
 
-  const blocked = await guardCredits(ctx);
-  if (blocked) return { message: blocked, query: description };
+  const held = await reserveCredit(ctx, "channel_discovery", null);
+  if (!held.ok) return { message: held.reason, query: description };
 
   try {
     const { provider: providerCtx, watching } = await discoveryContext(
@@ -871,11 +947,21 @@ export async function describeChannelsAction(
       }),
     );
 
+    // The call happened and cost money, whatever shape the answer arrived in,
+    // so the reservation stands and is simply annotated. Releasing it here
+    // would make a badly-shaped answer free to retry forever.
+    await annotateResearchCredit(ctx.supabase, ctx.user.id, held.reservation, {
+      feature: "research",
+      kind: "channel_discovery",
+      model: result.model,
+    });
+
     const parsed = parseChannelSuggestions(result.output);
     if (parsed.length === 0) {
       return {
         query: mode === "suggest" ? "" : description,
-        message: "No usable suggestions came back — no credit was used.",
+        message:
+          "No usable suggestions came back. That still used a credit — the model answered, just not with anything we could look up.",
       };
     }
 
@@ -893,9 +979,6 @@ export async function describeChannelsAction(
       if (channels.length > 0) groups.push({ group: group.group, channels });
     }
 
-    // The credit is recorded only now: the user has something real on screen.
-    await spendCredit(ctx, "channel_discovery", ctx.active.id, result.model);
-
     if (groups.length === 0) {
       return {
         query: mode === "suggest" ? "" : description,
@@ -905,6 +988,7 @@ export async function describeChannelsAction(
     }
     return { ok: true, query: mode === "suggest" ? "" : description, groups };
   } catch (error) {
+    await releaseResearchCredit(ctx.supabase, ctx.user.id, held.reservation);
     if (error instanceof ResearchProviderError) return { message: error.message };
     return { message: generationMessage(error) };
   }
@@ -969,16 +1053,26 @@ export async function addChannelsAction(
   const ctx = await context();
   if (!ctx) return { message: "No workspace is selected." };
 
-  const platform = readPlatform(formData);
-  const picked = formData.getAll("channel").map(String).filter(Boolean);
+  // Each pick carries its own platform, so switching the dropdown after
+  // ticking cannot file a YouTube channel under Instagram — which upsert would
+  // happily accept, because the conflict key includes the platform.
+  const picked = formData
+    .getAll("channel")
+    .map(String)
+    .map(parsePickedChannel)
+    .filter((entry): entry is PickedChannel => entry !== null);
   if (picked.length === 0) return { message: "Tick at least one channel." };
 
   // The channels arrive fully resolved from the discovery step, so no provider
-  // call is needed here — only the connection they will later sync through.
-  const provider = getResearchProvider(platform);
-  let connectionId: string | null = null;
-  if (provider.capabilities.requiresConnection) {
-    const connections = await listConnections(ctx.supabase, ctx.active.id);
+  // call is needed here — only the connection each will later sync through.
+  const connections = await listConnections(ctx.supabase, ctx.active.id);
+  const connectionFor = new Map<ResearchPlatform, string | null>();
+  for (const platform of new Set(picked.map((entry) => entry.platform))) {
+    const provider = getResearchProvider(platform);
+    if (!provider.capabilities.requiresConnection) {
+      connectionFor.set(platform, null);
+      continue;
+    }
     const match = connections.find(
       (c) => c.platform === platform && c.status === "active",
     );
@@ -987,10 +1081,11 @@ export async function addChannelsAction(
         message: `Connect a ${provider.label} account in this workspace first — research reads through it.`,
       };
     }
-    connectionId = match.id;
+    connectionFor.set(platform, match.id);
   }
 
   let added = 0;
+  let failed = 0;
   let stoppedBy: string | null = null;
 
   for (const entry of picked) {
@@ -1005,42 +1100,57 @@ export async function addChannelsAction(
       break;
     }
 
-    // "externalId|handle|title|thumb|followers" — packed in the checkbox value
-    // so adding a batch costs no second round trip to the platform.
-    const [externalId, handle, title, thumbnail, followers] = entry.split("|");
-    if (!externalId) continue;
-
+    let row;
     try {
-      const row = await upsertSource(ctx.supabase, {
+      row = await upsertSource(ctx.supabase, {
         userId: ctx.user.id,
         workspaceId: ctx.active.id,
-        platform,
-        externalId,
-        handle: handle || null,
-        title: title || externalId,
-        thumbnailUrl: thumbnail || null,
-        followerCount: followers ? Number(followers) : null,
-        connectionId,
+        platform: entry.platform,
+        externalId: entry.externalId,
+        handle: entry.handle,
+        title: entry.title || entry.externalId,
+        thumbnailUrl: entry.thumbnailUrl,
+        followerCount: entry.followerCount,
+        connectionId: connectionFor.get(entry.platform) ?? null,
       });
+    } catch {
+      // The row itself did not land, so this one genuinely was not added.
+      // Counting it as a success is how "Added 3 channels" ends up meaning
+      // none.
+      failed += 1;
+      continue;
+    }
+
+    added += 1;
+    try {
       // Sync immediately: a channel that shows no videos after being added
       // reads as broken, whatever the tooltip says.
       await syncSource(toStoredSource(row), createSyncStore(ctx.supabase));
-      added += 1;
     } catch {
-      // One channel failing to sync must not lose the other nine. It will be
-      // picked up by the next sweep, and its row already exists.
-      added += 1;
+      // A sync failure is forgivable in a way an insert failure is not — the
+      // row exists and the next sweep will pick it up.
     }
   }
 
   revalidatePath("/dashboard/research");
   revalidatePath("/dashboard/research/channels");
 
-  if (added === 0) return { message: stoppedBy ?? "Nothing was added." };
+  if (added === 0) {
+    return {
+      message:
+        stoppedBy ??
+        (failed > 0 ? "Those channels could not be added." : "Nothing was added."),
+    };
+  }
+  const suffix = [
+    stoppedBy,
+    failed > 0 ? `${failed} could not be added.` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
   return {
     ok: true,
-    message: stoppedBy
-      ? `Added ${added}. ${stoppedBy}`
-      : `Added ${added} ${added === 1 ? "channel" : "channels"}.`,
+    message: `Added ${added} ${added === 1 ? "channel" : "channels"}.${suffix ? ` ${suffix}` : ""}`,
   };
 }
+

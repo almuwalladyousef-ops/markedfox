@@ -173,6 +173,30 @@ async function resolveSource(input: string): Promise<SourceIdentity> {
 }
 
 /**
+ * Exact-match lookup, at 1 quota unit and with no fuzzy fallback.
+ *
+ * channels.list?forHandle is exact: an invented handle returns no items, which
+ * is the answer discovery needs. Going through search.list instead would cost
+ * 100 units AND return a nearest match for any string, which is how a
+ * hallucinated handle ends up on somebody's watchlist as a real channel.
+ */
+async function resolveExact(handle: string): Promise<SourceIdentity | null> {
+  const parsed = parseChannelInput(handle);
+  const params: Record<string, string> = { part: CHANNEL_PARTS };
+  if (parsed.kind === "id") params.id = parsed.value;
+  else {
+    // forHandle wants the @, whatever the caller passed.
+    params.forHandle = parsed.value.startsWith("@")
+      ? parsed.value
+      : `@${parsed.value}`;
+  }
+
+  const data = await call<{ items?: ChannelItem[] }>("channels", params);
+  const item = data.items?.[0];
+  return item ? toIdentity(item) : null;
+}
+
+/**
  * Free-text channel search.
  *
  * search.list costs 100 quota units against a 10,000/day allowance, so this is
@@ -374,6 +398,7 @@ export const youtubeResearch: ResearchProvider = {
   },
   requiredEnv: ["YOUTUBE_API_KEY"],
   resolveSource,
+  resolveExact,
   searchChannels,
   listVideos,
   fetchTranscript,

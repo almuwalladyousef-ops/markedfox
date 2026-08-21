@@ -138,12 +138,16 @@ export function FeedFilters({
         />
       </label>
 
+      {/* The max boxes are left empty rather than pre-filled with the default
+          ceiling: a box reading 10,000,000 says videos above that are excluded,
+          and they are not — the bound is only applied when it is set below the
+          default. Empty and "any" is the truth. */}
       <Range
         label="Outlier score"
         minName="min_score"
         maxName="max_score"
         min={form.minScore}
-        max={form.maxScore}
+        max={form.maxScore === FEED_DEFAULTS.maxScore ? null : form.maxScore}
         suffix="x"
         step={0.1}
       />
@@ -152,7 +156,7 @@ export function FeedFilters({
         minName="min_views"
         maxName="max_views"
         min={form.minViews}
-        max={form.maxViews}
+        max={form.maxViews === FEED_DEFAULTS.maxViews ? null : form.maxViews}
         step={1000}
       />
       <Range
@@ -160,7 +164,11 @@ export function FeedFilters({
         minName="min_eng"
         maxName="max_eng"
         min={form.minEngagement}
-        max={form.maxEngagement}
+        max={
+          form.maxEngagement === FEED_DEFAULTS.maxEngagement
+            ? null
+            : form.maxEngagement
+        }
         suffix="%"
         step={1}
       />
@@ -270,7 +278,8 @@ function Range({
   minName: string;
   maxName: string;
   min: number;
-  max: number;
+  /** null renders an empty box reading "any" — there is no ceiling. */
+  max: number | null;
   suffix?: string;
   step: number;
 }) {
@@ -291,7 +300,8 @@ function Range({
           <input
             type="number"
             name={maxName}
-            defaultValue={max}
+            defaultValue={max ?? ""}
+            placeholder="any"
             step={step}
             min={0}
             className={inputClass}

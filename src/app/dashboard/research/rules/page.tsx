@@ -67,8 +67,9 @@ export default async function RulesPage() {
     snapshot.limits.researchCreditsPerMonth -
       snapshot.usage.researchCreditsThisMonth,
   );
-  // The number that decides whether these rules are a good idea today: the sum
-  // of every active rule's ceiling, against what is actually left.
+  // Each rule has its own daily ceiling, counted from its own usage rows, so
+  // the worst case really is the sum — which is the number worth showing
+  // against what is left this month.
   const dailyCeiling = rules
     .filter((rule) => rule.active)
     .reduce((total, rule) => total + rule.daily_limit, 0);
