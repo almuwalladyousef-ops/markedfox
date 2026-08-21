@@ -296,7 +296,15 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                   name="trigger"
                   value={value}
                   checked={trigger === value}
-                  onChange={() => setTrigger(value)}
+                  onChange={() => {
+                    setTrigger(value);
+                    // A DM rule with no keywords would answer every message
+                    // ever sent to the account, so the validator refuses it —
+                    // and the "anything at all" radio is not rendered for this
+                    // trigger. Leaving it selected produced a form whose only
+                    // error named a field that was not on screen.
+                    if (value === "dm_keyword") setKeywordMode("keywords");
+                  }}
                   className="accent-emerald-500"
                 />
                 {text}
@@ -562,6 +570,14 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
               </span>
             </span>
           </label>
+          {collectEmail && trigger === "comment" ? (
+            <p className="mt-2 rounded-lg border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
+              Instagram only lets an automation send a second message to
+              somebody who has messaged you. On a comment rule, the question
+              reaches the people who reply to your first DM and nobody else — so
+              a keyword-in-a-DM trigger collects far more addresses.
+            </p>
+          ) : null}
           {collectEmail ? (
             <input
               name="email_prompt"
@@ -583,6 +599,14 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
             the person&apos;s last message to you — a follow-up outside that
             window is skipped, not sent.
           </p>
+          {trigger === "comment" && followUps.length > 0 ? (
+            <p className="mt-2 rounded-lg border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
+              Answering a comment does not open that window, and neither does
+              tapping your link. These follow-ups reach the people who write
+              back to your first DM, and are skipped for everyone else — you
+              will see them counted as &ldquo;not sent&rdquo;.
+            </p>
+          ) : null}
           <ul className="mt-2 flex flex-col gap-3">
             {followUps.map((f, index) => (
               <li key={f.key} className="rounded-lg border border-neutral-800 p-3">

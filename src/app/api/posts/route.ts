@@ -36,7 +36,10 @@ export async function POST(request: NextRequest) {
     body = await request.json();
   } catch {
     return NextResponse.json(
-      { error: "invalid_request", issues: [{ field: "body", message: "Body must be JSON." }] },
+      {
+        error: "invalid_request",
+        issues: [{ field: "body", message: "Body must be JSON." }],
+      },
       { status: 400 },
     );
   }
@@ -54,7 +57,10 @@ export async function POST(request: NextRequest) {
 
   switch (result.kind) {
     case "workspace_not_found":
-      return NextResponse.json({ error: "workspace_not_found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "workspace_not_found" },
+        { status: 404 },
+      );
     case "bad_targets":
       return NextResponse.json(
         { error: "bad_targets", issues: result.problems },
@@ -69,6 +75,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "plan_denied", issues: result.problems },
         { status: 403 },
+      );
+    case "too_many_drafts":
+      return NextResponse.json(
+        {
+          error: "too_many_drafts",
+          message: `This workspace already has ${result.limit} drafts. Publish or delete some before saving another.`,
+        },
+        { status: 422 },
+      );
+    case "draft_gone":
+      // 409: the request was well-formed, the world moved. Deliberately not a
+      // 404 — the user's content is fine, it is the draft that is gone.
+      return NextResponse.json(
+        {
+          error: "draft_gone",
+          message:
+            "That draft was already published or deleted somewhere else. Nothing was sent twice.",
+        },
+        { status: 409 },
       );
     case "draft":
       return NextResponse.json(

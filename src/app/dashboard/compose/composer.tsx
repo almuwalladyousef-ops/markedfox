@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import {
   parseTikTokOptions,
@@ -9,8 +9,13 @@ import {
   type TikTokCreatorContext,
   type TikTokPublishOptions,
 } from "@/lib/platforms/tiktok-options";
+import { validatePublishOptions } from "@/lib/platforms/publish-options";
 import type { OptionSpecs } from "@/lib/publish/specs";
-import type { MediaRef, Platform, PlatformPublishOptions } from "@/lib/platforms/types";
+import type {
+  MediaRef,
+  Platform,
+  PlatformPublishOptions,
+} from "@/lib/platforms/types";
 import { containsExternalLink } from "@/lib/publish/links";
 import type { ContentSpecs } from "@/lib/publish/specs";
 import type { TargetOutcome } from "@/lib/publish/types";
@@ -57,7 +62,10 @@ type Props = {
     caption: string;
     media: MediaRef[];
     targetConnectionIds: string[];
-    platformOverrides: Record<string, { caption?: string; options?: PlatformPublishOptions }>;
+    platformOverrides: Record<
+      string,
+      { caption?: string; options?: PlatformPublishOptions }
+    >;
     scheduledFor: string | null;
   };
   gates: Partial<Record<string, PlatformGate>>;
@@ -89,7 +97,11 @@ type Issue = { platform: Platform | null; message: string };
 
 type Outcome =
   | { kind: "scheduled"; id: string; scheduledFor: string }
-  | { kind: "published"; status: "published" | "partial" | "failed"; results: TargetOutcome[] }
+  | {
+      kind: "published";
+      status: "published" | "partial" | "failed";
+      results: TargetOutcome[];
+    }
   | { kind: "error"; message: string; details: string[] };
 
 const VIDEO_EXTENSIONS = /\.(mp4|mov|m4v|webm|mkv|avi)(\?.*)?$/i;
@@ -132,7 +144,8 @@ export function Composer({
       for (const [platform, value] of Object.entries(
         draft?.platformOverrides ?? {},
       )) {
-        if (value.caption !== undefined) out[platform as Platform] = value.caption;
+        if (value.caption !== undefined)
+          out[platform as Platform] = value.caption;
       }
       return out;
     },
@@ -143,7 +156,9 @@ export function Composer({
     Partial<Record<Platform, PlatformPublishOptions>>
   >(() => {
     const out: Partial<Record<Platform, PlatformPublishOptions>> = {};
-    for (const [platform, value] of Object.entries(draft?.platformOverrides ?? {})) {
+    for (const [platform, value] of Object.entries(
+      draft?.platformOverrides ?? {},
+    )) {
       if (platform !== "tiktok" && value.options) {
         out[platform as Platform] = value.options;
       }
@@ -166,9 +181,19 @@ export function Composer({
   const [minSchedule, setMinSchedule] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const [nextKey, setNextKey] = useState(1);
+  // A ref, not state, because keys are allocated inside an event handler that
+  // can run several times before React re-renders. Reading a state value there
+  // gave every file in a multi-file selection the SAME key, so each upload's
+  // progress patch hit all of them and the last one to finish overwrote every
+  // row's URL — pick three images for a carousel, publish three copies of one.
+  // Media loaded from a draft uses negative keys, so 1 upwards stays clear.
+  const nextKey = useRef(1);
+  const takeKey = () => nextKey.current++;
 
-  const accountById = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+  const accountById = useMemo(
+    () => new Map(accounts.map((a) => [a.id, a])),
+    [accounts],
+  );
   const selectedPlatforms = useMemo(() => {
     const set = new Set<Platform>();
     for (const id of selected) {
@@ -181,7 +206,10 @@ export function Composer({
   // Rows still uploading have no URL yet, so they are not offered to
   // validation — an in-flight file must not read as "no media".
   const mediaRefs: MediaRef[] = useMemo(
-    () => media.filter((m) => m.url.trim()).map((m) => ({ url: m.url.trim(), type: m.type })),
+    () =>
+      media
+        .filter((m) => m.url.trim())
+        .map((m) => ({ url: m.url.trim(), type: m.type })),
     [media],
   );
   const uploading = media.some((m) => m.progress !== undefined);
@@ -192,7 +220,9 @@ export function Composer({
     () =>
       selected
         .map((id) => accountById.get(id))
-        .filter((a): a is ComposerAccount => Boolean(a && a.platform === "tiktok")),
+        .filter((a): a is ComposerAccount =>
+          Boolean(a && a.platform === "tiktok"),
+        ),
     [selected, accountById],
   );
   const hasVideo = mediaRefs.some((m) => m.type === "video");
@@ -206,7 +236,9 @@ export function Composer({
     setContexts((prev) => ({ ...prev, [account.id]: { status: "loading" } }));
     void (async () => {
       try {
-        const response = await fetch(`/api/connections/${account.id}/publish-context`);
+        const response = await fetch(
+          `/api/connections/${account.id}/publish-context`,
+        );
         const body = (await response.json().catch(() => ({}))) as {
           context?: TikTokCreatorContext | null;
           message?: string;
@@ -216,19 +248,27 @@ export function Composer({
             ...prev,
             [account.id]: {
               status: "error",
-              message: body.message ?? "Could not load this account's TikTok settings.",
+              message:
+                body.message ??
+                "Could not load this account's TikTok settings.",
             },
           }));
           return;
         }
         setContexts((prev) => ({
           ...prev,
-          [account.id]: { status: "ready", context: body.context as TikTokCreatorContext },
+          [account.id]: {
+            status: "ready",
+            context: body.context as TikTokCreatorContext,
+          },
         }));
       } catch {
         setContexts((prev) => ({
           ...prev,
-          [account.id]: { status: "error", message: "Could not reach the server." },
+          [account.id]: {
+            status: "error",
+            message: "Could not reach the server.",
+          },
         }));
       }
     })();
@@ -241,34 +281,60 @@ export function Composer({
     for (const platform of selectedPlatforms) {
       const spec = specs[platform];
       if (!spec) continue;
-      for (const issue of validateContent(spec, { caption: captionOf(platform), media: mediaRefs })) {
+      for (const issue of validateContent(spec, {
+        caption: captionOf(platform),
+        media: mediaRefs,
+      })) {
         out.push({ platform, message: issue.message });
       }
-      if (platform === "x" && !xLinksAllowed && containsExternalLink(captionOf(platform))) {
+      if (
+        platform === "x" &&
+        !xLinksAllowed &&
+        containsExternalLink(captionOf(platform))
+      ) {
         out.push({
           platform,
-          message: "Posts to X cannot contain links — X charges 13x more for them, so no plan allows it.",
+          message:
+            "Posts to X cannot contain links — X charges 13x more for them, so no plan allows it.",
         });
       }
+      // The platform's own publishing settings, checked with the same pure
+      // function the API runs. Without this the composer was more permissive
+      // than the API — a `<` in a YouTube title showed no error here and came
+      // back as a 422 after submit, which is the failure this file's own
+      // contract says must not happen.
+      for (const message of validatePublishOptions(
+        platform,
+        platformOptions[platform],
+      )) {
+        out.push({ platform, message });
+      }
+
       if (platform === "tiktok") {
         const states = selectedTikTok.map((a) => contexts[a.id]);
         if (states.some((s) => !s || s.status === "loading")) {
           out.push({ platform, message: "Loading TikTok account details…" });
         }
         for (const state of states) {
-          if (state?.status === "error") out.push({ platform, message: state.message });
+          if (state?.status === "error")
+            out.push({ platform, message: state.message });
         }
         const ready = states.filter(
-          (s): s is Extract<ContextState, { status: "ready" }> => s?.status === "ready",
+          (s): s is Extract<ContextState, { status: "ready" }> =>
+            s?.status === "ready",
         );
         // Validate against every selected creator: one set of options must
         // satisfy all of them.
         const seen = new Set<string>();
         const targets = ready.length > 0 ? ready.map((s) => s.context) : [null];
         for (const context of targets) {
-          for (const message of validateTikTokOptions(parseTikTokOptions(tiktokOptions), context, {
-            hasVideo,
-          })) {
+          for (const message of validateTikTokOptions(
+            parseTikTokOptions(tiktokOptions),
+            context,
+            {
+              hasVideo,
+            },
+          )) {
             if (seen.has(message)) continue;
             seen.add(message);
             out.push({ platform, message });
@@ -283,7 +349,10 @@ export function Composer({
           message: `You have used today's ${usage.postsPerDay} posts on the ${planId} plan. Schedule it for later, or upgrade.`,
         });
       }
-      if (selectedPlatforms.includes("x") && usage.xPostsThisMonth >= usage.xPostsPerMonth) {
+      if (
+        selectedPlatforms.includes("x") &&
+        usage.xPostsThisMonth >= usage.xPostsPerMonth
+      ) {
         out.push({
           platform: "x",
           message: `X posts are capped at ${usage.xPostsPerMonth} a month and this month's are used.`,
@@ -300,7 +369,25 @@ export function Composer({
       if (row.error) out.push({ platform: null, message: row.error });
     }
     return out;
-  }, [selectedPlatforms, specs, caption, overrides, mediaRefs, media, uploading, mode, scheduledFor, xLinksAllowed, usage, planId, selectedTikTok, contexts, tiktokOptions, hasVideo]);
+  }, [
+    selectedPlatforms,
+    specs,
+    caption,
+    overrides,
+    mediaRefs,
+    media,
+    uploading,
+    mode,
+    scheduledFor,
+    xLinksAllowed,
+    usage,
+    planId,
+    selectedTikTok,
+    contexts,
+    tiktokOptions,
+    platformOptions,
+    hasVideo,
+  ]);
 
   const canSubmit = selected.length > 0 && issues.length === 0 && !submitting;
 
@@ -308,23 +395,26 @@ export function Composer({
   const toggleAccount = (id: string) => {
     const account = accountById.get(id);
     if (account && !selected.includes(id)) ensureContext(account);
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
   };
 
   const addMedia = () => {
-    setMedia((prev) => [...prev, { key: nextKey, url: "", type: "image" }]);
-    setNextKey((k) => k + 1);
+    setMedia((prev) => [...prev, { key: takeKey(), url: "", type: "image" }]);
   };
   const updateMedia = (key: number, patch: Partial<MediaRow>) =>
-    setMedia((prev) => prev.map((m) => (m.key === key ? { ...m, ...patch } : m)));
-  const removeMedia = (key: number) => setMedia((prev) => prev.filter((m) => m.key !== key));
+    setMedia((prev) =>
+      prev.map((m) => (m.key === key ? { ...m, ...patch } : m)),
+    );
+  const removeMedia = (key: number) =>
+    setMedia((prev) => prev.filter((m) => m.key !== key));
 
   // Upload straight to R2 with a URL the server signs. The bytes never pass
   // through our box — see /api/media/upload-url. XMLHttpRequest rather than
   // fetch purely because it reports progress, which matters for a 200MB video.
   const uploadFile = (file: File) => {
-    const rowKey = nextKey;
-    setNextKey((k) => k + 1);
+    const rowKey = takeKey();
     setMedia((prev) => [
       ...prev,
       {
@@ -347,7 +437,10 @@ export function Composer({
             sizeBytes: file.size,
           }),
         });
-        const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+        const body = (await response.json().catch(() => ({}))) as Record<
+          string,
+          unknown
+        >;
         if (!response.ok) {
           updateMedia(rowKey, {
             progress: undefined,
@@ -379,7 +472,8 @@ export function Composer({
             xhr.status >= 200 && xhr.status < 300
               ? resolve()
               : reject(new Error(`Upload failed (HTTP ${xhr.status}).`));
-          xhr.onerror = () => reject(new Error("Upload failed — check your connection."));
+          xhr.onerror = () =>
+            reject(new Error("Upload failed — check your connection."));
           xhr.send(file);
         });
 
@@ -420,10 +514,15 @@ export function Composer({
     }
     if (selectedPlatforms.includes("tiktok")) {
       const options: PlatformPublishOptions = {};
-      for (const [key, value] of Object.entries(parseTikTokOptions(tiktokOptions))) {
+      for (const [key, value] of Object.entries(
+        parseTikTokOptions(tiktokOptions),
+      )) {
         if (value !== undefined) options[key] = value;
       }
-      platformOverrides.tiktok = { ...(platformOverrides.tiktok ?? {}), options };
+      platformOverrides.tiktok = {
+        ...(platformOverrides.tiktok ?? {}),
+        options,
+      };
     }
     return platformOverrides;
   };
@@ -457,12 +556,17 @@ export function Composer({
               : null,
         }),
       });
-      const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      const body = (await response.json().catch(() => ({}))) as Record<
+        string,
+        unknown
+      >;
       if (!response.ok) {
         setOutcome({
           kind: "error",
           message: "The draft was not saved.",
-          details: [String((body.message as string) ?? `HTTP ${response.status}`)],
+          details: [
+            String((body.message as string) ?? `HTTP ${response.status}`),
+          ],
         });
         return;
       }
@@ -481,7 +585,11 @@ export function Composer({
   const submit = async () => {
     if (!canSubmit) return;
     if (mode === "schedule" && new Date(scheduledFor).getTime() <= Date.now()) {
-      setOutcome({ kind: "error", message: "That time has already passed. Pick a later one.", details: [] });
+      setOutcome({
+        kind: "error",
+        message: "That time has already passed. Pick a later one.",
+        details: [],
+      });
       return;
     }
     setSubmitting(true);
@@ -498,18 +606,29 @@ export function Composer({
           targetConnectionIds: selected,
           platformOverrides,
           draftId: draft?.id,
-          scheduledFor: mode === "schedule" ? new Date(scheduledFor).toISOString() : null,
+          scheduledFor:
+            mode === "schedule" ? new Date(scheduledFor).toISOString() : null,
         }),
       });
-      const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      const body = (await response.json().catch(() => ({}))) as Record<
+        string,
+        unknown
+      >;
 
       if (response.status === 201) {
         const post = body.post as { id: string; scheduledFor: string };
-        setOutcome({ kind: "scheduled", id: post.id, scheduledFor: post.scheduledFor });
+        setOutcome({
+          kind: "scheduled",
+          id: post.id,
+          scheduledFor: post.scheduledFor,
+        });
         return;
       }
       if (response.ok) {
-        const post = body.post as { id: string; status: "published" | "partial" | "failed" };
+        const post = body.post as {
+          id: string;
+          status: "published" | "partial" | "failed";
+        };
         setOutcome({
           kind: "published",
           status: post.status,
@@ -518,18 +637,23 @@ export function Composer({
         return;
       }
       const details = Array.isArray(body.issues)
-        ? (body.issues as Record<string, unknown>[]).map((i) => String(i.message ?? i.code ?? ""))
+        ? (body.issues as Record<string, unknown>[]).map((i) =>
+            String(i.message ?? i.code ?? ""),
+          )
         : [];
       setOutcome({
         kind: "error",
         message:
-          response.status === 401
-            ? "Your session expired — sign in again."
-            : response.status === 403
-              ? "Your plan does not allow this post."
-              : response.status === 422 || response.status === 400
-                ? "The post was not accepted."
-                : `Something went wrong (HTTP ${response.status}).`,
+          response.status === 409
+            ? ((body.message as string) ??
+              "That draft is no longer a draft. Nothing was sent twice.")
+            : response.status === 401
+              ? "Your session expired — sign in again."
+              : response.status === 403
+                ? "Your plan does not allow this post."
+                : response.status === 422 || response.status === 400
+                  ? "The post was not accepted."
+                  : `Something went wrong (HTTP ${response.status}).`,
         details,
       });
     } catch (error) {
@@ -604,7 +728,9 @@ export function Composer({
                           />
                           <span>{account.name}</span>
                           {account.status !== "active" ? (
-                            <span className="text-xs text-red-400">reconnect</span>
+                            <span className="text-xs text-red-400">
+                              reconnect
+                            </span>
                           ) : null}
                         </label>
                       </li>
@@ -618,9 +744,7 @@ export function Composer({
 
         {connectable.length > 0 ? (
           <div className="mt-4 border-t border-neutral-900 pt-3">
-            <p className="text-xs text-neutral-500">
-              Not connected here yet
-            </p>
+            <p className="text-xs text-neutral-500">Not connected here yet</p>
             <ul className="mt-2 flex flex-wrap gap-2">
               {connectable.map((item) => (
                 <li key={item.platform}>
@@ -654,7 +778,10 @@ export function Composer({
 
       {/* caption */}
       <section className="rounded-lg border border-neutral-900 p-4">
-        <label htmlFor="caption" className="text-sm font-medium text-neutral-300">
+        <label
+          htmlFor="caption"
+          className="text-sm font-medium text-neutral-300"
+        >
           Caption
         </label>
         <textarea
@@ -673,15 +800,21 @@ export function Composer({
               const length = captionLength(captionFor(platform));
               const over = length > spec.rules.captionMaxChars;
               return (
-                <li key={platform} className={over ? "text-red-400" : "text-neutral-500"}>
-                  {labels[platform]} {length.toLocaleString()}/{spec.rules.captionMaxChars.toLocaleString()}
+                <li
+                  key={platform}
+                  className={over ? "text-red-400" : "text-neutral-500"}
+                >
+                  {labels[platform]} {length.toLocaleString()}/
+                  {spec.rules.captionMaxChars.toLocaleString()}
                   {overrides[platform] !== undefined ? " (custom)" : ""}
                 </li>
               );
             })}
           </ul>
         ) : (
-          <p className="mt-2 text-xs text-neutral-500">Pick at least one account above.</p>
+          <p className="mt-2 text-xs text-neutral-500">
+            Pick at least one account above.
+          </p>
         )}
 
         {/* per-platform overrides */}
@@ -703,13 +836,18 @@ export function Composer({
                     }
                     className="text-xs text-neutral-400 underline-offset-2 hover:text-neutral-200 hover:underline"
                   >
-                    {enabled ? `Use the shared caption for ${labels[platform]}` : `Customize for ${labels[platform]}`}
+                    {enabled
+                      ? `Use the shared caption for ${labels[platform]}`
+                      : `Customize for ${labels[platform]}`}
                   </button>
                   {enabled ? (
                     <textarea
                       value={overrides[platform] ?? ""}
                       onChange={(e) =>
-                        setOverrides((prev) => ({ ...prev, [platform]: e.target.value }))
+                        setOverrides((prev) => ({
+                          ...prev,
+                          [platform]: e.target.value,
+                        }))
                       }
                       rows={3}
                       aria-label={`Caption for ${labels[platform]}`}
@@ -735,7 +873,10 @@ export function Composer({
             values={platformOptions[platform] ?? {}}
             hasVideo={hasVideo}
             onChange={(next) =>
-              setPlatformOptions((current) => ({ ...current, [platform]: next }))
+              setPlatformOptions((current) => ({
+                ...current,
+                [platform]: next,
+              }))
             }
           />
         );
@@ -802,7 +943,9 @@ export function Composer({
                             {row.progress}%
                           </span>
                         ) : row.url ? (
-                          <span className="ml-2 text-xs text-emerald-400">ready</span>
+                          <span className="ml-2 text-xs text-emerald-400">
+                            ready
+                          </span>
                         ) : null}
                       </span>
                     ) : (
@@ -811,10 +954,14 @@ export function Composer({
                         value={row.url}
                         placeholder="https://…"
                         aria-label={`Media ${index + 1} URL`}
-                        onChange={(e) => updateMedia(row.key, { url: e.target.value })}
+                        onChange={(e) =>
+                          updateMedia(row.key, { url: e.target.value })
+                        }
                         onBlur={(e) =>
                           updateMedia(row.key, {
-                            type: VIDEO_EXTENSIONS.test(e.target.value) ? "video" : row.type,
+                            type: VIDEO_EXTENSIONS.test(e.target.value)
+                              ? "video"
+                              : row.type,
                           })
                         }
                         className="min-w-0 flex-1 rounded-md border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-50 outline-none focus:border-neutral-500"
@@ -825,7 +972,9 @@ export function Composer({
                       aria-label={`Media ${index + 1} type`}
                       disabled={isUpload}
                       onChange={(e) =>
-                        updateMedia(row.key, { type: e.target.value as MediaRef["type"] })
+                        updateMedia(row.key, {
+                          type: e.target.value as MediaRef["type"],
+                        })
                       }
                       className="rounded-md border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-sm text-neutral-200 disabled:opacity-50"
                     >
@@ -909,7 +1058,9 @@ export function Composer({
                 const now = new Date();
                 setMinSchedule(toLocalInputValue(now));
                 if (!scheduledFor) {
-                  setScheduledFor(toLocalInputValue(new Date(now.getTime() + 60 * 60 * 1000)));
+                  setScheduledFor(
+                    toLocalInputValue(new Date(now.getTime() + 60 * 60 * 1000)),
+                  );
                 }
               }}
               className="accent-emerald-500"
@@ -944,7 +1095,9 @@ export function Composer({
         >
           {issues.map((issue, i) => (
             <li key={i}>
-              {issue.platform ? <span className="font-medium">{labels[issue.platform]}: </span> : null}
+              {issue.platform ? (
+                <span className="font-medium">{labels[issue.platform]}: </span>
+              ) : null}
               {issue.message}
             </li>
           ))}
@@ -958,7 +1111,11 @@ export function Composer({
           disabled={!canSubmit}
           className="rounded-md bg-neutral-50 px-4 py-2 text-sm font-semibold text-neutral-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? "Working…" : mode === "now" ? "Publish now" : "Schedule"}
+          {submitting
+            ? "Working…"
+            : mode === "now"
+              ? "Publish now"
+              : "Schedule"}
         </button>
         <button
           type="button"
@@ -969,7 +1126,9 @@ export function Composer({
           {savingDraft ? "Saving…" : "Save draft"}
         </button>
         {selected.length === 0 ? (
-          <span className="text-xs text-neutral-500">Choose at least one account.</span>
+          <span className="text-xs text-neutral-500">
+            Choose at least one account.
+          </span>
         ) : null}
       </div>
 
@@ -1048,7 +1207,12 @@ function OutcomePanel({
             {": "}
             {r.outcome === "published" ? (
               r.postUrl ? (
-                <a href={r.postUrl} target="_blank" rel="noreferrer" className="underline">
+                <a
+                  href={r.postUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
                   published
                 </a>
               ) : (
@@ -1062,7 +1226,8 @@ function OutcomePanel({
               // may take a moment to show on their profile.
               <span className="text-xs opacity-80">
                 {" "}
-                — TikTok is processing it; it may take a few minutes to appear on the profile.
+                — TikTok is processing it; it may take a few minutes to appear
+                on the profile.
               </span>
             ) : null}
           </li>

@@ -9,6 +9,7 @@ import {
   UpgradeCard,
   formatCount,
 } from "@/components/ui";
+import { LocalTime } from "@/components/local-time";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -137,7 +138,7 @@ export default async function RulesPage() {
                 </div>
                 <p className="mt-1 text-xs text-neutral-600">
                   {rule.last_run_at
-                    ? `Last ran ${new Date(rule.last_run_at).toLocaleString()}`
+                    ? <>Last ran <LocalTime value={rule.last_run_at} /></>
                     : "Has not run yet"}
                 </p>
 

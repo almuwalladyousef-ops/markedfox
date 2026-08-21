@@ -53,6 +53,17 @@ describe("validatePublishOptions", () => {
     ]);
   });
 
+  it("counts description bytes, not characters", () => {
+    // 2,000 emoji is 8,000 bytes but only 4,000 UTF-16 units, so the declared
+    // maxLength lets it through — and YouTube only refuses it after the whole
+    // video has been uploaded.
+    const emoji = "🎬".repeat(2000);
+    expect(validatePublishOptions("youtube", { description: emoji })[0]).toMatch(
+      /8000 bytes/,
+    );
+    expect(validatePublishOptions("youtube", { description: "short" })).toEqual([]);
+  });
+
   it("passes a valid set", () => {
     expect(
       validatePublishOptions("youtube", {

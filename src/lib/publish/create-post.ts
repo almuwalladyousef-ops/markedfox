@@ -14,7 +14,11 @@ import type { CreatePostRequest } from "./request";
 import { listContentSpecs, validateOptionsFor } from "./specs";
 import { createPublishStore, POST_COLUMNS, toPostRow } from "./store";
 import type { PostRow, TargetOutcome } from "./types";
-import { validateContent, type ContentIssue, type PlatformContentSpec } from "./validate";
+import {
+  validateContent,
+  type ContentIssue,
+  type PlatformContentSpec,
+} from "./validate";
 
 // Everything POST /api/posts does after parsing the body, as a function that
 // returns a discriminated result — so the route is a thin HTTP mapping and a
@@ -55,10 +59,27 @@ export type CreatePostResult =
   | { kind: "plan_denied"; problems: PlanProblem[] }
   | { kind: "scheduled"; post: PostRow }
   | { kind: "draft"; postId: string; scheduledFor: string | null }
-  | { kind: "published"; post: PostRow; status: "published" | "partial" | "failed"; results: TargetOutcome[] };
+  /** The draft being published is no longer a draft — another tab got there
+   *  first, or it was deleted. Refused rather than published a second time. */
+  | { kind: "draft_gone" }
+  /** This workspace is holding as many drafts as it may. */
+  | { kind: "too_many_drafts"; limit: number }
+  | {
+      kind: "published";
+      post: PostRow;
+      status: "published" | "partial" | "failed";
+      results: TargetOutcome[];
+    };
+
+/** Drafts per workspace. Generous enough that nobody working normally meets
+ *  it, low enough that the table cannot be filled by a loop. */
+export const MAX_DRAFTS_PER_WORKSPACE = 200;
 
 // Caps that depend on when the post goes out. Everything else is structural.
-const TIME_BASED: ReadonlySet<DenialCode> = new Set(["posts_daily_cap", "x_monthly_cap"]);
+const TIME_BASED: ReadonlySet<DenialCode> = new Set([
+  "posts_daily_cap",
+  "x_monthly_cap",
+]);
 
 type TargetRow = {
   id: string;
@@ -133,7 +154,11 @@ export async function createPost(
     request.platformOverrides[platform]?.caption ?? request.caption;
 
   // 3. plan
-  const snapshot = await getEntitlementSnapshot(supabase, userId, request.workspaceId);
+  const snapshot = await getEntitlementSnapshot(
+    supabase,
+    userId,
+    request.workspaceId,
+  );
   const immediate = request.scheduledFor === null;
   const denials: PlanProblem[] = [];
   for (const platform of platforms) {
@@ -179,37 +204,73 @@ export async function createPost(
     );
     return [
       ...content,
-      ...options.map((message) => ({ platform, code: "invalid_options" as const, message })),
+      ...options.map((message) => ({
+        platform,
+        code: "invalid_options" as const,
+        message,
+      })),
     ];
   });
   if (issues.length > 0) return { kind: "invalid_content", issues };
 
   // 6. the row. Publish-now is born `publishing` (claimed by this request);
   //    a scheduled post is born `scheduled` for the timer to claim.
-  const { data: inserted, error: insertError } = await supabase
-    .from("scheduled_posts")
-    .insert({
-      user_id: userId,
-      workspace_id: request.workspaceId,
-      caption: request.caption,
-      media: request.media,
-      platform_overrides: request.platformOverrides,
-      target_connection_ids: request.targetConnectionIds,
-      status: immediate ? "publishing" : "scheduled",
-      scheduled_for: request.scheduledFor?.toISOString() ?? null,
-      attempt_count: immediate ? 1 : 0,
-    })
-    .select(POST_COLUMNS)
-    .single();
-  if (insertError) throw insertError;
-  const post = toPostRow(inserted as unknown as Record<string, unknown>);
+  //
+  //    A post that came from a draft REPLACES that draft rather than being a
+  //    second row beside it. Inserting instead would leave the draft sitting in
+  //    /dashboard/drafts looking unsent, and opening it again would publish the
+  //    same content to the same accounts a second time.
+  const fields = {
+    user_id: userId,
+    workspace_id: request.workspaceId,
+    caption: request.caption,
+    media: request.media,
+    platform_overrides: request.platformOverrides,
+    target_connection_ids: request.targetConnectionIds,
+    status: immediate ? ("publishing" as const) : ("scheduled" as const),
+    scheduled_for: request.scheduledFor?.toISOString() ?? null,
+    attempt_count: immediate ? 1 : 0,
+  };
+
+  let row: Record<string, unknown> | null = null;
+  if (request.draftId) {
+    // Scoped to rows that are STILL drafts, so two tabs racing to publish the
+    // same draft cannot both claim it — the second matches nothing.
+    const { data, error } = await supabase
+      .from("scheduled_posts")
+      .update(fields)
+      .eq("id", request.draftId)
+      .eq("user_id", userId)
+      .eq("status", "draft")
+      .select(POST_COLUMNS)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) row = data as unknown as Record<string, unknown>;
+    // Somebody else already published it, or it was deleted. Publishing a
+    // second copy is the one outcome worth refusing outright.
+    else return { kind: "draft_gone" };
+  }
+
+  if (!row) {
+    const { data, error } = await supabase
+      .from("scheduled_posts")
+      .insert(fields)
+      .select(POST_COLUMNS)
+      .single();
+    if (error) throw error;
+    row = data as unknown as Record<string, unknown>;
+  }
+  const post = toPostRow(row);
 
   if (!immediate) return { kind: "scheduled", post };
 
   // No budget store: "post now" means the user is watching, so they get the
   // platform's own answer rather than ours. That is also why `deferred` — the
   // shared-rate-limit outcome — cannot arise here, and is narrowed away.
-  const report = await publishPost({ store: createPublishStore(supabase) }, post);
+  const report = await publishPost(
+    { store: createPublishStore(supabase) },
+    post,
+  );
   const status = report.status === "deferred" ? "failed" : report.status;
   return {
     kind: "published",
@@ -231,6 +292,22 @@ async function saveDraft(
   userId: string,
   request: CreatePostRequest,
 ): Promise<CreatePostResult> {
+  // The one ceiling a draft does get. Not a plan limit — drafts cost nothing
+  // to serve and gating them would be packaging for its own sake — but the
+  // only write path in the publisher with no bound at all, and each row can
+  // carry 35 media refs.
+  if (!request.draftId) {
+    const { count, error: countError } = await supabase
+      .from("scheduled_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", request.workspaceId)
+      .eq("status", "draft");
+    if (countError) throw countError;
+    if ((count ?? 0) >= MAX_DRAFTS_PER_WORKSPACE) {
+      return { kind: "too_many_drafts", limit: MAX_DRAFTS_PER_WORKSPACE };
+    }
+  }
+
   const row = {
     user_id: userId,
     workspace_id: request.workspaceId,

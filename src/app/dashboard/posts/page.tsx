@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { LocalTime } from "@/components/local-time";
 import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { PLATFORM_LABELS } from "@/lib/platforms/labels";
@@ -138,12 +139,14 @@ export default async function PostsPage() {
         <ul className="flex flex-col gap-3">
           {posts.map((post) => {
             const rows = historyByPost.get(post.id) ?? [];
-            const when =
+            // The label and the timestamp are separate so the time can be
+            // formatted in the viewer's timezone rather than the server's.
+            const [whenLabel, whenAt] =
               post.status === "scheduled" && post.scheduled_for
-                ? `Scheduled for ${new Date(post.scheduled_for).toLocaleString()}`
+                ? (["Scheduled for", post.scheduled_for] as const)
                 : post.published_at
-                  ? `Published ${new Date(post.published_at).toLocaleString()}`
-                  : `Created ${new Date(post.created_at).toLocaleString()}`;
+                  ? (["Published", post.published_at] as const)
+                  : (["Created", post.created_at] as const);
             return (
               <li key={post.id} className="rounded-lg border border-neutral-900 p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -151,7 +154,9 @@ export default async function PostsPage() {
                     <p className="truncate text-sm text-neutral-100">
                       {post.caption.trim() || <span className="text-neutral-500">(no caption)</span>}
                     </p>
-                    <p className="mt-1 text-xs text-neutral-500">{when}</p>
+                    <p className="mt-1 text-xs text-neutral-500">
+                      {whenLabel} <LocalTime value={whenAt} />
+                    </p>
                   </div>
                   <span
                     className={`shrink-0 rounded-full border px-2 py-0.5 text-xs capitalize ${STATUS_STYLE[post.status]}`}

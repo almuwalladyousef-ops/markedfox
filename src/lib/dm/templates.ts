@@ -45,6 +45,14 @@ export const TRIGGER_LABELS: Record<RuleTemplate["trigger"], string> = {
 // will not let an automation send a link out of nowhere: the first message has
 // to earn a reply, and the link goes in the second. Every template here is
 // shaped by that, which is also why they convert.
+//
+// The other rule shaping them is the 24-hour messaging window. Meta opens it
+// when the PERSON writes to you — a private reply to their comment does not
+// open it, and neither does tapping a link. So anything after the first
+// message on a comment-triggered rule (a follow-up, an email question) only
+// reaches people who wrote back. Templates that depend on a second message are
+// therefore DM-triggered, and the ones that offer a follow-up on a comment say
+// what it actually is.
 export const RULE_TEMPLATES: RuleTemplate[] = [
   {
     id: "comment-to-link",
@@ -69,9 +77,9 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
   },
   {
     id: "comment-nudge",
-    name: "Send the link, then chase the people who ignored it",
+    name: "Send the link, then chase whoever replied but never tapped",
     description:
-      "The same link DM, plus a nudge a day later — only to people who never tapped.",
+      "The same link DM, plus a nudge a day later for people who wrote back and still did not tap. Instagram only allows that second message to somebody who has messaged you.",
     goal: "traffic",
     trigger: "comment",
     values: {
@@ -97,17 +105,24 @@ export const RULE_TEMPLATES: RuleTemplate[] = [
     id: "collect-email",
     name: "Grow your email list",
     description:
-      "Offer something in exchange for an email, and store the address on the contact.",
+      "Offer something in exchange for an email, and store the address on the contact. Triggered by a DM, because Instagram only lets an automation ask a follow-up question of somebody who messaged you first.",
     goal: "leads",
-    trigger: "comment",
+    trigger: "dm_keyword",
     needsPaidStep: true,
     values: {
       name: "Freebie for an email",
-      trigger: "comment",
+      // Deliberately a DM trigger rather than a comment one. Meta opens the
+      // 24-hour messaging window when the PERSON writes to you; a private
+      // reply to a comment does not open it. So a second message asking for an
+      // address is undeliverable on a comment rule, and this template would
+      // have looked like it worked while silently capturing nothing.
+      trigger: "dm_keyword",
       keywordMode: "keywords",
-      keywords: "guide",
+      keywords: "guide, freebie",
       dmText:
-        "Happy to send it over! What's the best email to send it to?",
+        "Happy to send it over — it's a good one 👇",
+      collectEmail: true,
+      emailPrompt: "What's the best email to send it to?",
       followUps: [],
       oncePerContact: true,
     },

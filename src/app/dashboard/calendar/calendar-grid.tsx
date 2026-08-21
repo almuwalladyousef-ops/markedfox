@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 import { Pill } from "@/components/ui";
 import {
@@ -37,7 +37,42 @@ export type CalendarPost = {
   accounts: string[];
 };
 
+/**
+ * The current minute, or null on the server.
+ *
+ * This component is server-rendered first, so reading the clock during render
+ * would format every time in the droplet's timezone and highlight the server's
+ * "today", then hydrate to something different. useSyncExternalStore is the
+ * primitive for exactly this: a server snapshot that is honestly null, a client
+ * snapshot that ticks. Until it resolves, the grid draws without a now-line or
+ * a today highlight — absent rather than wrong.
+ */
+function useClientClock(): Date | null {
+  const iso = useSyncExternalStore(
+    subscribeToMinute,
+    () => minuteKey(),
+    () => null,
+  );
+  return iso === null ? null : new Date(iso);
+}
+
+/** The current time truncated to the minute, so the snapshot is stable between
+ *  renders and the component only re-renders when the minute changes. */
+function minuteKey(): string {
+  const at = new Date();
+  at.setSeconds(0, 0);
+  return at.toISOString();
+}
+
+function subscribeToMinute(onChange: () => void): () => void {
+  const timer = setInterval(onChange, 30_000);
+  return () => clearInterval(timer);
+}
+
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
+/** One hour's height, in rem. The h-12 rows below and the absolute offsets
+ *  computed from a post's time have to agree, so the number lives here. */
+const HOUR_HEIGHT_REM = 3;
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const STATUS_TONE: Record<string, "ok" | "warn" | "danger" | "neutral" | "info"> = {
@@ -61,8 +96,9 @@ export function CalendarGrid({
   const router = useRouter();
   const params = useSearchParams();
 
+  const now = useClientClock();
+
   const view = parseView(params.get("view") ?? undefined);
-  const now = new Date();
   const anchor = fromDateParam(params.get("date") ?? undefined, new Date(today));
   const { days } = useMemo(() => rangeFor(view, anchor), [view, anchor]);
 
@@ -106,7 +142,7 @@ export function CalendarGrid({
           </button>
           <button
             type="button"
-            onClick={() => go({ date: now })}
+            onClick={() => go({ date: now ?? new Date() })}
             className="rounded-lg border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600"
           >
             Today
@@ -157,7 +193,8 @@ function MonthGrid({
   days: Date[];
   anchor: Date;
   byDay: Map<string, CalendarPost[]>;
-  now: Date;
+  /** Null until the client has mounted — see the note in CalendarGrid. */
+  now: Date | null;
 }) {
   return (
     <div className="overflow-hidden rounded-xl border border-neutral-800">
@@ -175,7 +212,7 @@ function MonthGrid({
         {days.map((day) => {
           const posts = byDay.get(toDateParam(day)) ?? [];
           const outside = day.getMonth() !== anchor.getMonth();
-          const isToday = sameDay(day, now);
+          const isToday = now !== null && sameDay(day, now);
           return (
             <div
               key={day.toISOString()}
@@ -197,7 +234,7 @@ function MonthGrid({
               <ul className="mt-1 flex flex-col gap-1">
                 {posts.slice(0, 3).map((post) => (
                   <li key={post.id}>
-                    <PostChip post={post} compact />
+                    <PostChip post={post} compact mounted={now !== null} />
                   </li>
                 ))}
                 {posts.length > 3 ? (
@@ -221,14 +258,22 @@ function TimeGrid({
 }: {
   days: Date[];
   byDay: Map<string, CalendarPost[]>;
-  now: Date;
+  now: Date | null;
 }) {
-  // Start the scroll at 7am rather than midnight: nobody schedules at 3am, and
-  // opening on eight empty rows reads as an empty calendar.
-  const firstHour = 6;
-  const visibleHours = HOURS.slice(firstHour);
+  // Every hour is drawn, because a post at 05:30 that is simply not rendered
+  // is worse than a few empty rows — the day looks empty and the user goes
+  // looking for a bug. The grid opens scrolled to the first hour that has
+  // something in it (or 6am), which gets the same benefit honestly.
+  const visibleHours = HOURS;
+  const earliest = Math.min(
+    6,
+    ...[...byDay.values()]
+      .flat()
+      .map((post) => new Date(post.scheduledFor).getHours()),
+  );
+  const scrollTo = Math.max(0, earliest) * HOUR_HEIGHT_REM;
   const nowOffset =
-    (now.getHours() - firstHour) * 3 + (now.getMinutes() / 60) * 3;
+    now === null ? null : now.getHours() * HOUR_HEIGHT_REM + (now.getMinutes() / 60) * HOUR_HEIGHT_REM;
 
   return (
     <div className="overflow-x-auto rounded-xl border border-neutral-800">
@@ -239,7 +284,7 @@ function TimeGrid({
         >
           <div />
           {days.map((day) => {
-            const isToday = sameDay(day, now);
+            const isToday = now !== null && sameDay(day, now);
             return (
               <div key={day.toISOString()} className="px-2 py-2 text-center">
                 <p className="text-[10px] tracking-widest text-neutral-500 uppercase">
@@ -255,8 +300,17 @@ function TimeGrid({
           })}
         </div>
 
-        <div className="relative max-h-[32rem] overflow-y-auto">
-          {days.some((day) => sameDay(day, now)) ? (
+        <div
+          className="relative max-h-[32rem] overflow-y-auto"
+          ref={(node) => {
+            // Only on first attach: re-scrolling on every render would fight
+            // somebody who has scrolled somewhere else.
+            if (node && node.scrollTop === 0) {
+              node.scrollTop = scrollTo * 16;
+            }
+          }}
+        >
+          {now !== null && nowOffset !== null && days.some((day) => sameDay(day, now)) ? (
             <div
               className="pointer-events-none absolute right-0 left-16 z-10 border-t border-red-500/70"
               style={{ top: `${nowOffset}rem` }}
@@ -304,15 +358,15 @@ function TimeGrid({
                   {posts.map((post) => {
                     const at = new Date(post.scheduledFor);
                     const top =
-                      (at.getHours() - firstHour) * 3 + (at.getMinutes() / 60) * 3;
-                    if (top < 0) return null;
+                      at.getHours() * HOUR_HEIGHT_REM +
+                      (at.getMinutes() / 60) * HOUR_HEIGHT_REM;
                     return (
                       <div
                         key={post.id}
                         className="absolute right-1 left-1"
                         style={{ top: `${top}rem` }}
                       >
-                        <PostChip post={post} />
+                        <PostChip post={post} mounted={now !== null} />
                       </div>
                     );
                   })}
@@ -329,15 +383,19 @@ function TimeGrid({
 function PostChip({
   post,
   compact,
+  mounted,
 }: {
   post: CalendarPost;
   compact?: boolean;
+  /** False during the server pass. A clock time formatted there would be the
+   *  droplet's timezone, and React keeps whatever the server wrote — so the
+   *  time is left out until the client has it. */
+  mounted: boolean;
 }) {
   const at = new Date(post.scheduledFor);
-  const time = at.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const time = mounted
+    ? at.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+    : "";
 
   return (
     <Link
@@ -346,7 +404,7 @@ function PostChip({
           ? `/dashboard/compose?draft=${post.id}`
           : "/dashboard/posts"
       }
-      title={`${time} · ${post.accounts.join(", ")}\n${post.caption}`}
+      title={`${time ? `${time} · ` : ""}${post.accounts.join(", ")}\n${post.caption}`}
       className="block overflow-hidden rounded-md border border-neutral-700 bg-neutral-900/90 transition hover:border-neutral-500"
     >
       <div className="flex items-start gap-1.5 p-1">
@@ -360,7 +418,7 @@ function PostChip({
         ) : null}
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1 text-[10px] text-neutral-400">
-            <span>{time}</span>
+            {time ? <span>{time}</span> : null}
             <span className="truncate uppercase">
               {post.platforms.slice(0, 3).join(" ")}
             </span>

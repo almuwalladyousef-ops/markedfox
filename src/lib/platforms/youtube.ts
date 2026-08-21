@@ -314,7 +314,18 @@ export const youtube: PlatformAdapter = {
       throw new PlatformApiError("youtube", "YouTube takes exactly one video per post");
     }
 
-    const description = sanitize(caption);
+    // The description ACTUALLY being sent, which is the user's own when they
+    // wrote one. Checking the caption instead meant a long caption aimed at
+    // another platform aborted a YouTube upload whose description was short,
+    // while a 5,000-emoji description sailed past — the composer's length check
+    // counts UTF-16 units and YouTube counts bytes, so it was only refused
+    // after the whole video file had been uploaded, which is the exact failure
+    // this guard exists to prevent.
+    const chosenDescription = optionValue("youtube", options, "description");
+    const description =
+      typeof chosenDescription === "string" && chosenDescription.trim()
+        ? sanitize(chosenDescription)
+        : sanitize(caption);
     const bytes = Buffer.byteLength(description, "utf8");
     if (bytes > 5000) {
       throw new PlatformApiError(
@@ -378,10 +389,7 @@ export const youtube: PlatformAdapter = {
       body: JSON.stringify({
         snippet: {
           title: youtubeTitle(caption, options),
-          description:
-            typeof optionValue("youtube", options, "description") === "string"
-              ? sanitize(String(optionValue("youtube", options, "description")))
-              : description,
+          description,
           ...(youtubeTags(options).length > 0 ? { tags: youtubeTags(options) } : {}),
         },
         status: {

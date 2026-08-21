@@ -36,7 +36,26 @@ export async function saveRuleAction(_previous: RuleFormState, formData: FormDat
   const supabase = await createClient();
   const ruleId = String(formData.get("rule_id") ?? "");
 
-  // The connection must be one of the user's, in this workspace, on a
+  // An EXISTING rule is validated against its own workspace, not the active
+  // one. The edit page shows that rule's accounts, so checking against the
+  // active workspace made every save fail with "choose one of this
+  // workspace's accounts" while the dropdown showed accounts that were not
+  // in it — and a save that did squeak through could leave workspace_id and
+  // connection_id pointing at different workspaces.
+  let workspaceId = active.id;
+  if (UUID.test(ruleId)) {
+    const { data: existing, error: existingError } = await supabase
+      .from("dm_rules")
+      .select("workspace_id")
+      .eq("id", ruleId)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    // RLS hides other users' rules, so nothing found means it is not theirs.
+    if (!existing) return { message: "That rule no longer exists." };
+    workspaceId = String(existing.workspace_id);
+  }
+
+  // The connection must be one of the user's, in the rule's workspace, on a
   // platform with DM automation. RLS hides other users' connections; the
   // workspace check stops a rule landing on an account from another
   // workspace of the same user.
@@ -44,7 +63,7 @@ export async function saveRuleAction(_previous: RuleFormState, formData: FormDat
     .from("connections")
     .select("id, platform, workspace_id, status")
     .eq("id", parsed.draft.connection_id)
-    .eq("workspace_id", active.id)
+    .eq("workspace_id", workspaceId)
     .maybeSingle();
   if (connectionError) throw connectionError;
   if (!connection) return { errors: { connection_id: "Choose one of this workspace's accounts." } };
@@ -65,7 +84,10 @@ export async function saveRuleAction(_previous: RuleFormState, formData: FormDat
         actions: parsed.draft.actions,
         config: parsed.draft.config,
       })
-      .eq("id", ruleId);
+      .eq("id", ruleId)
+      // Belt to RLS's brace, and it pins the rule to the workspace whose
+      // connection was just validated.
+      .eq("workspace_id", workspaceId);
     if (error) return { message: `Could not save the rule: ${error.message}` };
   } else {
     // The plan's rule cap — Free has one rule, by design (Meta rate-limits

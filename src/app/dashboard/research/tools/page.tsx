@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PageHeader } from "@/components/ui";
+import { LocalTime } from "@/components/local-time";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -103,7 +104,7 @@ export default async function ResearchToolsPage() {
                 <p className="text-xs text-neutral-500">
                   {script.kind}
                   {script.topic ? ` · ${script.topic}` : ""} ·{" "}
-                  {new Date(script.created_at).toLocaleString()}
+                  <LocalTime value={script.created_at} />
                 </p>
                 <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-neutral-200">
                   {script.output}

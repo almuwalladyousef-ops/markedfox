@@ -10,6 +10,7 @@ import {
   PageHeader,
   Pill,
 } from "@/components/ui";
+import { LocalTime } from "@/components/local-time";
 import { requireUser } from "@/lib/auth/session";
 import { deleteDraftAction } from "@/lib/publish/actions";
 import { PLATFORM_LABELS } from "@/lib/platforms/labels";
@@ -135,7 +136,7 @@ export default async function DraftsPage({
                     ) : null}
                     {draft.scheduled_for ? (
                       <Pill tone="accent">
-                        for {new Date(draft.scheduled_for).toLocaleString()}
+                        for <LocalTime value={draft.scheduled_for} />
                       </Pill>
                     ) : null}
                   </div>
@@ -157,7 +158,7 @@ export default async function DraftsPage({
                       </button>
                     </form>
                     <span className="ml-auto text-neutral-600">
-                      {new Date(draft.updated_at).toLocaleDateString()}
+                      <LocalTime value={draft.updated_at} mode="date" />
                     </span>
                   </div>
                 </Card>

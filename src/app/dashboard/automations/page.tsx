@@ -11,6 +11,7 @@ import {
   PageHeader,
   Pill,
 } from "@/components/ui";
+import { LocalTime } from "@/components/local-time";
 import { requireUser } from "@/lib/auth/session";
 import { listConnections, type ConnectionRow } from "@/lib/connections/store";
 import {
@@ -333,9 +334,12 @@ export default async function AutomationsPage({
                             {account
                               ? `${PLATFORM_LABELS[account.platform]} · ${account.platform_account_name ?? account.platform_account_id}`
                               : "account disconnected"}
-                            {rule.updated_at
-                              ? ` · edited ${new Date(rule.updated_at).toLocaleDateString()}`
-                              : ""}
+                            {rule.updated_at ? (
+                              <>
+                                {" · edited "}
+                                <LocalTime value={rule.updated_at} mode="date" />
+                              </>
+                            ) : null}
                           </p>
                         </div>
 
@@ -410,7 +414,7 @@ export default async function AutomationsPage({
                         {(s.skipped ?? 0) + (s.failed ?? 0) > 0 ? (
                           <span
                             className="ml-auto text-neutral-600"
-                            title="Outside the 24-hour window, over the plan cap, already answered, or the person had already clicked"
+                            title="Most often: the person never replied, so Instagram's 24-hour messaging window was never open. Also counts posts over the plan cap, people already answered, and follow-ups skipped because they had already clicked."
                           >
                             {(s.skipped ?? 0) + (s.failed ?? 0)} not sent
                           </span>

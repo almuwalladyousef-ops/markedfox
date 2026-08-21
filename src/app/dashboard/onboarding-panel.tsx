@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-
 import { Card, Pill } from "@/components/ui";
 import {
   dismissOnboardingAction,
@@ -29,9 +27,7 @@ export function OnboardingPanel({
   total: number;
   askQuestions: boolean;
 }) {
-  const [showQuestions, setShowQuestions] = useState(askQuestions);
-
-  if (showQuestions) {
+  if (askQuestions) {
     return (
       <Card>
         <h2 className="text-sm font-semibold">
@@ -41,11 +37,12 @@ export function OnboardingPanel({
           They only tune what gets recommended. Skip them and nothing breaks.
         </p>
 
-        <form
-          action={saveOnboardingAnswersAction}
-          onSubmit={() => setShowQuestions(false)}
-          className="mt-4 flex flex-col gap-5"
-        >
+        {/* Both buttons submit. Skipping has to WRITE the row — it is the row
+            that records the questions were asked, and a local piece of state
+            saying "hidden" is forgotten by the next revalidation, so the
+            questions came back forever and the checklist's own dismiss button
+            (on the other branch of this component) was unreachable. */}
+        <form action={saveOnboardingAnswersAction} className="mt-4 flex flex-col gap-5">
           {QUESTIONS.map((question) => (
             <fieldset key={question.key}>
               <legend className="text-sm text-neutral-300">
@@ -78,8 +75,9 @@ export function OnboardingPanel({
               Continue
             </button>
             <button
-              type="button"
-              onClick={() => setShowQuestions(false)}
+              type="submit"
+              name="skipped"
+              value="1"
               className="text-sm text-neutral-500 transition hover:text-neutral-300"
             >
               Skip

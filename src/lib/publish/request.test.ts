@@ -209,3 +209,19 @@ describe("drafts", () => {
     expect(parsed.issues.map((i) => i.field)).toContain("draftId");
   });
 });
+
+describe("publishing a draft", () => {
+  it("carries the draftId on a real publish, not only on a save", () => {
+    // This is what lets createPost REPLACE the draft rather than insert beside
+    // it. Without it the draft stayed in the list looking unsent, and opening
+    // it again posted the same content a second time.
+    const parsed = parseCreatePostRequest(
+      { ...valid(), draftId: "44444444-4444-4444-8444-444444444444" },
+      NOW,
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.draft).toBe(false);
+    expect(parsed.value.draftId).toBe("44444444-4444-4444-8444-444444444444");
+  });
+});

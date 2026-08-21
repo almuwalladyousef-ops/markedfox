@@ -228,12 +228,23 @@ export function validatePublishOptions(
     }
   }
 
-  // YouTube rejects a title containing angle brackets outright, and the upload
-  // fails after the whole file has been sent — worth catching here.
+  // Two YouTube rules that only bite after the whole video file has been
+  // uploaded, which is far too late to learn about them.
   if (platform === "youtube") {
     const title = options.title;
     if (typeof title === "string" && /[<>]/.test(title)) {
       issues.push("YouTube titles cannot contain < or >.");
+    }
+    const description = options.description;
+    if (typeof description === "string") {
+      // YouTube counts BYTES; the maxLength above counts UTF-16 units, so a
+      // description of emoji can pass that and still be four times the limit.
+      const bytes = new TextEncoder().encode(description).length;
+      if (bytes > 5000) {
+        issues.push(
+          `That description is ${bytes} bytes and YouTube allows 5,000. Emoji and accented characters count as more than one.`,
+        );
+      }
     }
   }
 

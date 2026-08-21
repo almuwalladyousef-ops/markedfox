@@ -12,6 +12,7 @@ import {
   UpgradeCard,
   inputClass,
 } from "@/components/ui";
+import { LocalTime } from "@/components/local-time";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -95,7 +96,7 @@ export default async function ScriptsPage() {
                   {draft.script ? "Written" : STAGE_LABELS[draft.stage]}
                 </Pill>
                 <span className="shrink-0 text-xs text-neutral-600">
-                  {new Date(draft.updated_at).toLocaleDateString()}
+                  <LocalTime value={draft.updated_at} mode="date" />
                 </span>
               </Link>
             </li>

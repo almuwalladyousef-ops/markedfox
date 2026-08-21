@@ -11,6 +11,7 @@ import {
   Pill,
   formatCount,
 } from "@/components/ui";
+import { LocalTime } from "@/components/local-time";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -127,7 +128,7 @@ export default async function ResearchVideoPage({
             {video.published_at ? (
               <>
                 <span className="text-neutral-700">·</span>
-                <span>{new Date(video.published_at).toLocaleDateString()}</span>
+                <span><LocalTime value={video.published_at} mode="date" /></span>
               </>
             ) : null}
           </p>
@@ -279,7 +280,7 @@ export default async function ResearchVideoPage({
                       <Pill>{script.kind}</Pill>
                       {script.topic ? script.topic : null}
                       <span className="ml-auto">
-                        {new Date(script.created_at).toLocaleDateString()}
+                        <LocalTime value={script.created_at} mode="date" />
                       </span>
                     </p>
                     <pre className="mt-2 font-sans text-sm leading-relaxed whitespace-pre-wrap text-neutral-200">
