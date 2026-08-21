@@ -8,8 +8,10 @@ import {
   CardTitle,
   EmptyState,
   Notice,
+  Page,
   PageHeader,
   Pill,
+  inputClass,
 } from "@/components/ui";
 import { LocalTime } from "@/components/local-time";
 import { requireUser } from "@/lib/auth/session";
@@ -133,7 +135,7 @@ export default async function AutomationsPage({
   );
 
   return (
-    <>
+    <Page width="max-w-[860px]">
       <PageHeader
         title="Automations"
         subtitle={
@@ -187,7 +189,7 @@ export default async function AutomationsPage({
         )
       ) : null}
 
-      <Card className="p-4">
+      <Card className="px-4 py-3.5">
         <CardTitle
           hint={
             accounts.length === 0
@@ -220,12 +222,12 @@ export default async function AutomationsPage({
             name="q"
             defaultValue={params.q ?? ""}
             placeholder="Search automations"
-            className="w-56 rounded-lg border border-line bg-chip px-3 py-1.5 text-sm outline-none focus:border-line-strong"
+            className={`${inputClass} w-[200px]`}
           />
           <select
             name="trigger"
             defaultValue={params.trigger ?? ""}
-            className="rounded-lg border border-line bg-chip px-2 py-1.5 text-sm outline-none focus:border-line-strong"
+            className="rounded-[10px] border border-line bg-panel px-2.5 py-[9px] text-[13px] text-ink outline-none focus:border-accent"
           >
             <option value="">Any trigger</option>
             <option value="comment">Comment</option>
@@ -235,7 +237,7 @@ export default async function AutomationsPage({
           <select
             name="status"
             defaultValue={params.status ?? ""}
-            className="rounded-lg border border-line bg-chip px-2 py-1.5 text-sm outline-none focus:border-line-strong"
+            className="rounded-[10px] border border-line bg-panel px-2.5 py-[9px] text-[13px] text-ink outline-none focus:border-accent"
           >
             <option value="">Any state</option>
             <option value="live">Live</option>
@@ -243,13 +245,13 @@ export default async function AutomationsPage({
           </select>
           <button
             type="submit"
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:border-line-strong"
+            className="rounded-[10px] border border-line-strong bg-panel px-3.5 py-[9px] text-[13px] text-ink transition hover:border-accent hover:text-accent"
           >
             Filter
           </button>
         </form>
 
-        <p className="text-xs text-faint">
+        <p className="text-[11.5px] text-faint">
           {snapshot.usage.dmRuleCount}
           {snapshot.limits.dmRulesMax === null
             ? ""
@@ -280,7 +282,7 @@ export default async function AutomationsPage({
         groups.map(([folder, folderRules]) => (
           <section key={folder || "__none"}>
             {folder ? (
-              <h2 className="mb-2 text-[10px] font-semibold tracking-widest text-faint uppercase">
+              <h2 className="mb-2 text-[10px] font-bold tracking-[0.12em] text-faint uppercase">
                 {folder}
               </h2>
             ) : null}
@@ -296,12 +298,15 @@ export default async function AutomationsPage({
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <Pill tone={rule.enabled ? "danger" : "neutral"}>
+                            <Pill
+                              tone={rule.enabled ? "danger" : "neutral"}
+                              className="text-[9.5px] font-bold tracking-[0.04em]"
+                            >
                               {rule.enabled ? "LIVE" : "STOPPED"}
                             </Pill>
                             <Link
                               href={`/dashboard/automations/${rule.id}`}
-                              className="font-medium text-ink hover:underline"
+                              className="text-sm font-semibold text-ink hover:underline"
                             >
                               {rule.name}
                             </Link>
@@ -310,7 +315,7 @@ export default async function AutomationsPage({
                           {/* The rule as a sentence, with the keywords as the
                               chips they are in the builder — so the list and
                               the builder describe the same thing the same way. */}
-                          <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm text-muted">
+                          <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12.5px] text-muted">
                             <span>
                               {rule.trigger_type === "comment"
                                 ? `Someone comments on ${rule.target_post_ids.length ? `${rule.target_post_ids.length} chosen post${rule.target_post_ids.length === 1 ? "" : "s"}` : "any post or reel"}`
@@ -324,13 +329,15 @@ export default async function AutomationsPage({
                                   containing
                                 </span>
                                 {rule.keywords.map((word) => (
-                                  <Pill key={word}>{word}</Pill>
+                                  <Pill key={word} className="text-[11px] text-ink">
+                                    {word}
+                                  </Pill>
                                 ))}
                               </>
                             ) : null}
                           </p>
 
-                          <p className="mt-1 text-xs text-faint">
+                          <p className="mt-1 text-[11.5px] text-faint">
                             {account
                               ? `${PLATFORM_LABELS[account.platform]} · ${account.platform_account_name ?? account.platform_account_id}`
                               : "account disconnected"}
@@ -357,19 +364,19 @@ export default async function AutomationsPage({
                                 ? `Stop ${rule.name}`
                                 : `Start ${rule.name}`
                             }
-                            className={`relative inline-flex h-5 w-10 items-center rounded-full transition ${rule.enabled ? "bg-ok" : "bg-chip"}`}
+                            className={`relative inline-flex h-[22px] w-10 items-center rounded-full transition ${rule.enabled ? "bg-ok" : "bg-line-strong"}`}
                           >
                             <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-accent transition ${rule.enabled ? "translate-x-5" : "translate-x-1"}`}
+                              className={`inline-block h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.3)] transition-transform duration-150 ${rule.enabled ? "translate-x-[21px]" : "translate-x-[3px]"}`}
                             />
                           </button>
                         </form>
                       </div>
 
-                      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                      <dl className="mt-3.5 grid grid-cols-2 gap-2 shell:grid-cols-5">
                         <Stat label="Runs" value={s.triggered ?? 0} />
                         <Stat label="Sends" value={sent} />
-                        <Stat label="Clicks" value={clicked} />
+                        <Stat label="Clicks" value={clicked} accent />
                         <Stat
                           label="CTR"
                           value={sent === 0 ? "—" : `${Math.round((clicked / sent) * 100)}%`}
@@ -383,7 +390,7 @@ export default async function AutomationsPage({
                       </dl>
 
                       {(s.triggered ?? 0) === 0 ? (
-                        <p className="mt-3 text-xs text-faint">
+                        <p className="mt-3 text-[11.5px] text-faint">
                           No data yet. Ask a friend to{" "}
                           {rule.trigger_type === "comment"
                             ? "comment"
@@ -398,7 +405,7 @@ export default async function AutomationsPage({
                       <div className="mt-3 flex items-center gap-3 text-xs">
                         <Link
                           href={`/dashboard/automations/${rule.id}`}
-                          className="text-ink underline-offset-2 hover:underline"
+                          className="font-semibold text-accent transition hover:brightness-[1.08]"
                         >
                           Edit
                         </Link>
@@ -406,14 +413,14 @@ export default async function AutomationsPage({
                           <input type="hidden" name="rule_id" value={rule.id} />
                           <button
                             type="submit"
-                            className="text-faint underline-offset-2 hover:text-danger hover:underline"
+                            className="text-faint transition hover:text-danger"
                           >
                             Delete
                           </button>
                         </form>
                         {(s.skipped ?? 0) + (s.failed ?? 0) > 0 ? (
                           <span
-                            className="ml-auto text-faint"
+                            className="ml-auto text-[11.5px] text-faint"
                             title="Most often: the person never replied, so Instagram's 24-hour messaging window was never open. Also counts posts over the plan cap, people already answered, and follow-ups skipped because they had already clicked."
                           >
                             {(s.skipped ?? 0) + (s.failed ?? 0)} not sent
@@ -428,7 +435,7 @@ export default async function AutomationsPage({
           </section>
         ))
       )}
-    </>
+    </Page>
   );
 }
 
@@ -438,24 +445,37 @@ function AccountRow({ connection }: { connection: ConnectionRow }) {
   const granted = required.every((scope) => connection.scopes.includes(scope));
   const name = connection.platform_account_name ?? connection.platform_account_id;
   return (
-    <li className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line px-3 py-2 text-sm">
-      <span>
-        <span className="font-medium">{name}</span>
-        <span className="ml-2 text-xs text-faint">
-          {PLATFORM_LABELS[connection.platform]}
+    <li className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-line px-3 py-2.5">
+      <span className="flex min-w-0 items-center gap-2.5">
+        <span
+          aria-hidden
+          className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-accent-soft text-[12px] font-semibold text-accent uppercase"
+        >
+          {name.replace(/^@/, "").charAt(0)}
         </span>
-        {connection.status !== "active" ? (
-          <span className="ml-2 text-xs text-danger">reconnect needed</span>
-        ) : null}
+        <span className="min-w-0 text-[13px] font-semibold text-ink">
+          <span className="truncate">{name}</span>
+          <span className="ml-1.5 font-normal text-faint">
+            · {PLATFORM_LABELS[connection.platform]}
+          </span>
+          {connection.status !== "active" ? (
+            <span className="ml-2 text-[11.5px] font-normal text-danger">
+              reconnect needed
+            </span>
+          ) : null}
+        </span>
       </span>
       {granted ? (
         <span className="flex items-center gap-3">
-          <span className="text-xs text-ok">Automation on</span>
+          <span className="flex items-center gap-1.5 text-[11.5px] text-ok">
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-ok" />
+            Automation on
+          </span>
           <form action={resubscribeWebhooksAction}>
             <input type="hidden" name="connection_id" value={connection.id} />
             <button
               type="submit"
-              className="text-xs text-faint underline-offset-2 hover:text-ink hover:underline"
+              className="text-[11.5px] text-faint transition hover:text-ink"
               title="Ask Instagram again to send this account's comments and messages here"
             >
               Refresh events
@@ -465,7 +485,7 @@ function AccountRow({ connection }: { connection: ConnectionRow }) {
       ) : (
         <a
           href={`/api/connect/${connection.platform}/start?features=messaging`}
-          className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:brightness-[1.08]"
+          className="rounded-lg border border-line-strong bg-panel px-3 py-1.5 text-[11.5px] font-semibold text-ink transition hover:border-accent hover:text-accent"
         >
           Turn on automation
         </a>
@@ -478,15 +498,22 @@ function Stat({
   label,
   value,
   title,
+  accent,
 }: {
   label: string;
   value: number | string;
   title?: string;
+  /** Clicks is the number the rule exists for, so it wears the accent. */
+  accent?: boolean;
 }) {
   return (
-    <div title={title}>
-      <dt className="text-xs text-faint">{label}</dt>
-      <dd className="text-lg font-semibold text-ink">{value}</dd>
+    <div title={title} className="rounded-[10px] bg-chip px-[11px] py-2">
+      <dt className="text-[10.5px] text-faint">{label}</dt>
+      <dd
+        className={`font-display text-[17px] font-semibold ${accent ? "text-accent" : "text-ink"}`}
+      >
+        {value}
+      </dd>
     </div>
   );
 }

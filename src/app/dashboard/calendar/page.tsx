@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { ButtonLink, EmptyState, Notice, PageHeader } from "@/components/ui";
+import {
+  ButtonLink,
+  EmptyState,
+  Notice,
+  Page,
+  PageHeader,
+} from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { PLATFORM_LABELS } from "@/lib/platforms/labels";
 import { createClient } from "@/lib/supabase/server";
@@ -92,7 +98,7 @@ export default async function CalendarPage() {
     });
 
   return (
-    <>
+    <Page width="max-w-[1120px]">
       <PageHeader
         title="Calendar"
         subtitle="Everything with a time on it — scheduled, published, and drafts with a date pencilled in."
@@ -121,6 +127,6 @@ export default async function CalendarPage() {
           <CalendarGrid posts={posts} today={now.toISOString()} />
         </Suspense>
       )}
-    </>
+    </Page>
   );
 }

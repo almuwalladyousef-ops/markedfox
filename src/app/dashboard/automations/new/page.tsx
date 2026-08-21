@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-
 import Link from "next/link";
+
 import { redirect } from "next/navigation";
 
-import { PageHeader } from "@/components/ui";
+import { ButtonLink, Page, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { builderAccounts } from "@/lib/dm/builder-accounts";
 import { getRuleTemplate } from "@/lib/dm/templates";
@@ -35,24 +35,27 @@ export default async function NewRulePage({
   const template = templateId ? getRuleTemplate(templateId) : null;
 
   return (
-    <>
+    <Page width="max-w-[1060px]">
+      <Link
+        href="/dashboard/automations"
+        className="text-[12.5px] font-medium text-faint transition hover:text-ink"
+      >
+        ← Automations
+      </Link>
       <PageHeader
         title="New automation"
         subtitle={
           template
             ? template.description
-            : "When something happens on your account, send a DM."
+            : "When something happens on your account, send a DM. The phone shows what the other person sees."
         }
         actions={
-          <Link
-            href="/dashboard/automations/templates"
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:border-line-strong hover:text-ink"
-          >
+          <ButtonLink href="/dashboard/automations/templates">
             Browse templates
-          </Link>
+          </ButtonLink>
         }
       />
       <RuleBuilder accounts={accounts} template={template} />
-    </>
+    </Page>
   );
 }

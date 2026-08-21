@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 
-import { Card, Pill } from "@/components/ui";
+import { Card, Pill, chipToggle } from "@/components/ui";
 import { saveRuleAction, type RuleFormState } from "@/lib/dm/actions";
 import type { BuilderAccount } from "@/lib/dm/builder-accounts";
 import type { RuleTemplate } from "@/lib/dm/templates";
@@ -55,6 +55,24 @@ const TRIGGERS: [DmTriggerType, string][] = [
   ["dm_keyword", "sends a DM"],
   ["story_reply", "replies to a story"],
 ];
+
+/** The section heading: a numeral in an accent disc beside an eyebrow. The
+ *  builder reads as a numbered sentence, so the steps are numbered. */
+function Step({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <p className="flex items-center gap-2.5">
+      <span
+        aria-hidden
+        className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-soft text-[11px] font-bold text-accent"
+      >
+        {n}
+      </span>
+      <span className="text-[13px] font-semibold tracking-[0.04em] text-muted uppercase">
+        {children}
+      </span>
+    </p>
+  );
+}
 
 export function RuleBuilder({ accounts, rule, template }: Props) {
   const [state, formAction, pending] = useActionState(saveRuleAction, INITIAL);
@@ -171,9 +189,9 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
   };
 
   const input =
-    "mt-1 w-full rounded-lg border border-line bg-chip px-3 py-2 text-sm text-ink outline-none transition placeholder:text-faint focus:border-line-strong";
-  const label = "text-sm font-medium text-ink";
-  const help = "mt-1 text-xs text-faint";
+    "mt-1.5 w-full rounded-[10px] border border-line bg-chip px-3 py-[9px] text-[13.5px] text-ink outline-none transition placeholder:text-faint focus:border-accent";
+  const label = "text-xs font-semibold text-muted";
+  const help = "mt-1.5 text-[11.5px]/[17px] text-faint";
   const err = (key: string) =>
     errors[key] ? (
       <p className="mt-1 text-xs text-danger">{errors[key]}</p>
@@ -207,8 +225,8 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
   const account = accounts.find((a) => a.id === connectionId);
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_auto]">
-      <form action={formAction} className="flex min-w-0 flex-col gap-4">
+    <div className="grid items-start gap-4 wide:grid-cols-[1fr_320px]">
+      <form action={formAction} className="flex min-w-0 flex-col gap-3.5">
         {rule ? <input type="hidden" name="rule_id" value={rule.id} /> : null}
         {template && !rule ? (
           <input type="hidden" name="template_id" value={template.id} />
@@ -230,8 +248,9 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           </p>
         ) : null}
 
-        <Card className="p-4">
-          <label htmlFor="name" className={label}>
+        <Card>
+          <Step n={1}>Name and account</Step>
+          <label htmlFor="name" className={`${label} mt-3 block`}>
             Name this rule
           </label>
           <input
@@ -286,11 +305,15 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           </div>
         </Card>
 
-        <Card className="p-4">
-          <p className={label}>When someone</p>
-          <div className="mt-2 flex flex-col gap-2 text-sm text-ink">
+        <Card>
+          <Step n={2}>When this happens</Step>
+          <p className={`${label} mt-3`}>When someone</p>
+          <div className="mt-2 flex flex-wrap gap-2">
             {TRIGGERS.map(([value, text]) => (
-              <label key={value} className="flex items-center gap-2">
+              <label
+                key={value}
+                className={`${chipToggle(trigger === value)} cursor-pointer`}
+              >
                 <input
                   type="radio"
                   name="trigger"
@@ -305,7 +328,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                     // error named a field that was not on screen.
                     if (value === "dm_keyword") setKeywordMode("keywords");
                   }}
-                  className="accent-accent"
+                  className="sr-only"
                 />
                 {text}
               </label>
@@ -315,26 +338,30 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           {trigger === "comment" ? (
             <div className="mt-4">
               <p className={label}>On which posts</p>
-              <div className="mt-2 flex flex-wrap gap-4 text-sm text-ink">
-                <label className="flex items-center gap-2">
+              <div className="mt-2 flex flex-wrap gap-2">
+                <label
+                  className={`${chipToggle(postScope === "any")} cursor-pointer`}
+                >
                   <input
                     type="radio"
                     name="post_scope"
                     value="any"
                     checked={postScope === "any"}
                     onChange={() => setPostScope("any")}
-                    className="accent-accent"
+                    className="sr-only"
                   />
                   Any post or reel
                 </label>
-                <label className="flex items-center gap-2">
+                <label
+                  className={`${chipToggle(postScope === "specific")} cursor-pointer`}
+                >
                   <input
                     type="radio"
                     name="post_scope"
                     value="specific"
                     checked={postScope === "specific"}
                     onChange={chooseSpecific}
-                    className="accent-accent"
+                    className="sr-only"
                   />
                   Specific posts
                 </label>
@@ -351,7 +378,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                   ) : posts && posts.length === 0 ? (
                     <p className={help}>No recent posts found on this account.</p>
                   ) : (
-                    <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    <ul className="grid grid-cols-2 gap-2 shell:grid-cols-4">
                       {(posts ?? []).map((post) => {
                         const on = selectedPosts.includes(post.id);
                         return (
@@ -366,7 +393,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                                 )
                               }
                               aria-pressed={on}
-                              className={`block w-full overflow-hidden rounded-md border text-left transition ${on ? "border-ok" : "border-line hover:border-line-strong"}`}
+                              className={`block w-full overflow-hidden rounded-[10px] border-2 text-left transition ${on ? "border-accent" : "border-line hover:border-line-strong"}`}
                             >
                               {post.thumbnailUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element -- Instagram CDN thumbnails
@@ -378,7 +405,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                               ) : (
                                 <span className="block aspect-square w-full bg-chip" />
                               )}
-                              <span className="block truncate px-2 py-1 text-[11px] text-muted">
+                              <span className="block truncate px-2 py-1 text-[10.5px] text-muted">
                                 {post.caption?.slice(0, 40) ||
                                   post.mediaType ||
                                   post.id}
@@ -399,30 +426,34 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
             <p className={label}>
               And what they wrote
             </p>
-            <div className="mt-2 flex flex-wrap gap-4 text-sm text-ink">
+            <div className="mt-2 flex flex-wrap gap-2">
               {trigger !== "dm_keyword" ? (
-                <label className="flex items-center gap-2">
+                <label
+                  className={`${chipToggle(keywordMode === "any")} cursor-pointer`}
+                >
                   <input
                     type="radio"
                     name="keyword_mode"
                     value="any"
                     checked={keywordMode === "any"}
                     onChange={() => setKeywordMode("any")}
-                    className="accent-accent"
+                    className="sr-only"
                   />
                   Anything at all
                 </label>
               ) : (
                 <input type="hidden" name="keyword_mode" value="keywords" />
               )}
-              <label className="flex items-center gap-2">
+              <label
+                className={`${chipToggle(keywordMode === "keywords")} cursor-pointer`}
+              >
                 <input
                   type="radio"
                   name="keyword_mode"
                   value="keywords"
                   checked={keywordMode === "keywords"}
                   onChange={() => setKeywordMode("keywords")}
-                  className="accent-accent"
+                  className="sr-only"
                 />
                 A specific word or words
               </label>
@@ -439,6 +470,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                 />
                 <p className={help}>
                   Separate keywords with commas. Matching ignores capitals.
+                  Leave empty to match any comment.
                 </p>
                 {keywordList.length > 0 ? (
                   <p className="mt-2 flex flex-wrap gap-1">
@@ -463,8 +495,9 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           </div>
         </Card>
 
-        <Card className="p-4">
-          <label htmlFor="dm_text" className={label}>
+        <Card>
+          <Step n={3}>Send this DM</Step>
+          <label htmlFor="dm_text" className={`${label} mt-3 block`}>
             They get this DM
           </label>
           <textarea
@@ -484,9 +517,9 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           {err("dm_text")}
 
           {showLink ? (
-            <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_2fr]">
+            <div className="mt-3 grid gap-2 shell:grid-cols-[1fr_2fr]">
               <div>
-                <label htmlFor="button_title" className="text-xs text-muted">
+                <label htmlFor="button_title" className={label}>
                   Button label
                 </label>
                 <input
@@ -501,7 +534,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                 {err("button_title")}
               </div>
               <div>
-                <label htmlFor="button_url" className="text-xs text-muted">
+                <label htmlFor="button_url" className={label}>
                   Link
                 </label>
                 <input
@@ -523,7 +556,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
             <button
               type="button"
               onClick={() => setShowLink(true)}
-              className="mt-3 text-xs text-ink underline-offset-2 hover:underline"
+              className="mt-3 text-xs font-semibold text-accent transition hover:brightness-[1.08]"
             >
               + Add a link
             </button>
@@ -551,8 +584,8 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           ) : null}
         </Card>
 
-        <Card className="p-4">
-          <label className="flex items-start gap-2 text-sm text-ink">
+        <Card>
+          <label className="flex items-start gap-2.5 text-[13px] text-ink">
             <input
               type="checkbox"
               name="collect_email"
@@ -589,8 +622,9 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           ) : null}
         </Card>
 
-        <Card className="p-4">
-          <p className={label}>
+        <Card>
+          <Step n={4}>Follow-ups</Step>
+          <p className={`${label} mt-3`}>
             Follow-ups{" "}
             <span className="font-normal text-faint">(optional)</span>
           </p>
@@ -609,7 +643,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           ) : null}
           <ul className="mt-2 flex flex-col gap-3">
             {followUps.map((f, index) => (
-              <li key={f.key} className="rounded-lg border border-line p-3">
+              <li key={f.key} className="rounded-[10px] bg-chip p-3">
                 <div className="flex items-center justify-between gap-2">
                   <label className="text-xs text-muted">
                     Wait{" "}
@@ -625,7 +659,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                           ),
                         )
                       }
-                      className="rounded-md border border-line bg-chip px-2 py-1 text-xs text-ink"
+                      className="rounded-lg border border-line bg-panel px-2 py-1 text-xs text-ink"
                     >
                       {DELAY_CHOICES.map((d) => (
                         <option key={d.minutes} value={d.minutes}>
@@ -710,15 +744,15 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                 ]);
                 setNextKey((k) => k + 1);
               }}
-              className="mt-2 text-xs text-ink underline-offset-2 hover:underline"
+              className="mt-2 text-xs font-semibold text-accent transition hover:brightness-[1.08]"
             >
               + Add a follow-up
             </button>
           ) : null}
         </Card>
 
-        <Card className="p-4">
-          <label className="flex items-start gap-2 text-sm text-ink">
+        <Card>
+          <label className="flex items-start gap-2.5 text-[13px] text-ink">
             <input
               type="checkbox"
               name="once_per_contact"
@@ -745,21 +779,21 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           <button
             type="submit"
             disabled={pending}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-[10px] bg-accent px-5 py-[11px] text-sm font-semibold text-accent-ink transition hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-45"
           >
             {pending ? "Saving…" : rule ? "Save changes" : "Turn it on"}
           </button>
           <Link
             href="/dashboard/automations"
-            className="text-sm text-muted hover:text-ink"
+            className="text-[13px] text-muted transition hover:text-ink"
           >
             Cancel
           </Link>
         </div>
       </form>
 
-      <div className="lg:sticky lg:top-6 lg:self-start">
-        <p className="mb-3 text-[10px] font-semibold tracking-widest text-faint uppercase">
+      <div className="wide:sticky wide:top-6 wide:self-start">
+        <p className="mb-3 text-[11px] font-semibold tracking-[0.06em] text-faint uppercase">
           Preview
         </p>
         <PhonePreview

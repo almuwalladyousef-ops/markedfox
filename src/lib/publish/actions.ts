@@ -26,6 +26,33 @@ export async function cancelPostAction(formData: FormData): Promise<void> {
   revalidatePath("/dashboard/posts");
 }
 
+// Moving a scheduled post to a different time. Scoped exactly like cancel: a
+// post the tick has already claimed matches zero rows, so a new time can never
+// be written over a post that is already going out.
+export async function reschedulePostAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const postId = String(formData.get("post_id") ?? "");
+  const scheduledFor = String(formData.get("scheduled_for") ?? "");
+  if (!postId || !scheduledFor) return;
+
+  const when = new Date(scheduledFor);
+  // A time in the past would publish on the very next tick, which is not what
+  // anybody means by "edit time" — it is what "publish now" is for.
+  if (Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("scheduled_posts")
+    .update({ scheduled_for: when.toISOString() })
+    .eq("id", postId)
+    .eq("user_id", user.id)
+    .eq("status", "scheduled");
+  if (error) throw error;
+
+  revalidatePath("/dashboard/posts");
+  revalidatePath("/dashboard/calendar");
+}
+
 // Deleting a draft is a real delete, not a status change: a draft has no
 // history worth keeping and nothing downstream refers to it. Scoped to
 // `status = "draft"` for the same reason cancel is scoped to `scheduled` — a

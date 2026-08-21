@@ -7,6 +7,7 @@ import {
   Card,
   EmptyState,
   Notice,
+  Page,
   PageHeader,
   Pill,
 } from "@/components/ui";
@@ -76,7 +77,7 @@ export default async function DraftsPage({
   );
 
   return (
-    <>
+    <Page width="max-w-[860px]">
       <PageHeader
         title="Drafts"
         subtitle="Started and not sent. Nothing here is checked until you publish it."
@@ -110,10 +111,10 @@ export default async function DraftsPage({
                       <img
                         src={draft.media[0].url}
                         alt=""
-                        className="h-16 w-12 shrink-0 rounded-md object-cover"
+                        className="h-12 w-16 shrink-0 rounded-lg object-cover"
                       />
                     ) : null}
-                    <p className="line-clamp-4 min-w-0 flex-1 text-sm leading-relaxed text-ink">
+                    <p className="line-clamp-4 min-w-0 flex-1 text-[13px]/[19.5px] text-muted">
                       {draft.caption || (
                         <span className="text-faint italic">No caption yet</span>
                       )}
@@ -125,7 +126,9 @@ export default async function DraftsPage({
                       <Pill tone="warn">No accounts chosen</Pill>
                     ) : (
                       targets.map((target, index) => (
-                        <Pill key={index}>{target.label}</Pill>
+                        <Pill key={index}>
+                          {target.label} · {target.name}
+                        </Pill>
                       ))
                     )}
                     {draft.media.length > 0 ? (
@@ -144,7 +147,7 @@ export default async function DraftsPage({
                   <div className="mt-auto flex items-center gap-3 pt-1 text-xs">
                     <Link
                       href={`/dashboard/compose?draft=${draft.id}`}
-                      className="text-ink underline-offset-2 hover:underline"
+                      className="text-xs font-semibold text-accent transition hover:brightness-[1.08]"
                     >
                       Open
                     </Link>
@@ -152,12 +155,12 @@ export default async function DraftsPage({
                       <input type="hidden" name="post_id" value={draft.id} />
                       <button
                         type="submit"
-                        className="text-faint underline-offset-2 hover:text-danger hover:underline"
+                        className="text-xs text-faint transition hover:text-danger"
                       >
                         Delete
                       </button>
                     </form>
-                    <span className="ml-auto text-faint">
+                    <span className="ml-auto text-[11px] text-faint">
                       <LocalTime value={draft.updated_at} mode="date" />
                     </span>
                   </div>
@@ -167,6 +170,11 @@ export default async function DraftsPage({
           })}
         </ul>
       )}
-    </>
+
+      <p className="text-[11.5px]/[17px] text-faint">
+        Press <em>Save draft</em> in the composer and half-written posts wait
+        here instead of being lost to a closed tab.
+      </p>
+    </Page>
   );
 }

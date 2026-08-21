@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-
 import Link from "next/link";
+
 import { notFound, redirect } from "next/navigation";
 
-import { PageHeader } from "@/components/ui";
+import { Page, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { builderAccounts } from "@/lib/dm/builder-accounts";
 import { parseRuleRow } from "@/lib/dm/rules";
@@ -34,20 +34,15 @@ export default async function EditRulePage({ params }: { params: Promise<{ id: s
   const accounts = await builderAccounts(rule.workspace_id);
 
   return (
-    <>
-      <PageHeader
-        title="Edit automation"
-        subtitle={rule.name}
-        actions={
-          <Link
-            href="/dashboard/automations"
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:border-line-strong hover:text-ink"
-          >
-            Back
-          </Link>
-        }
-      />
+    <Page width="max-w-[1060px]">
+      <Link
+        href="/dashboard/automations"
+        className="text-[12.5px] font-medium text-faint transition hover:text-ink"
+      >
+        ← Automations
+      </Link>
+      <PageHeader title="Edit automation" subtitle={rule.name} />
       <RuleBuilder accounts={accounts} rule={rule} />
-    </>
+    </Page>
   );
 }

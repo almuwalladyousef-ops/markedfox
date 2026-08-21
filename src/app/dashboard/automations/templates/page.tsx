@@ -6,6 +6,7 @@ import {
   ButtonLink,
   Card,
   Notice,
+  Page,
   PageHeader,
   Pill,
   UpgradeCard,
@@ -50,7 +51,7 @@ export default async function TemplatesPage() {
   const canCreate = canUserDo(snapshot, { type: "create_dm_rule" });
 
   return (
-    <>
+    <Page width="max-w-[980px]">
       <PageHeader
         title="Templates"
         subtitle="Start from an automation that already works, then change the words."
@@ -85,22 +86,31 @@ export default async function TemplatesPage() {
         if (templates.length === 0) return null;
         return (
           <section key={goal}>
-            <h2 className="text-[10px] font-semibold tracking-widest text-faint uppercase">
+            <h2 className="text-[10px] font-bold tracking-[0.12em] text-faint uppercase">
               {GOAL_LABELS[goal]}
             </h2>
-            <ul className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <ul className="mt-3 grid gap-3 shell:grid-cols-3">
               {templates.map((template) => (
                 <li key={template.id}>
                   <Link
                     href={`/dashboard/automations/new?template=${template.id}`}
                     className="block h-full"
                   >
-                    <Card className="flex h-full flex-col gap-2 p-4 transition hover:border-line-strong">
+                    <Card className="flex h-full flex-col gap-2 p-4 transition hover:border-accent">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium">{template.name}</p>
-                        {template.popular ? <Pill tone="warn">POPULAR</Pill> : null}
+                        <p className="text-[13.5px] font-semibold text-ink">
+                          {template.name}
+                        </p>
+                        {template.popular ? (
+                          <Pill
+                            tone="warn"
+                            className="text-[9.5px] font-bold tracking-[0.04em]"
+                          >
+                            POPULAR
+                          </Pill>
+                        ) : null}
                       </div>
-                      <p className="text-sm leading-relaxed text-muted">
+                      <p className="text-[12.5px]/[18px] text-muted">
                         {template.description}
                       </p>
                       <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-2">
@@ -119,6 +129,6 @@ export default async function TemplatesPage() {
           </section>
         );
       })}
-    </>
+    </Page>
   );
 }

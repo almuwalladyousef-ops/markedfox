@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useSyncExternalStore } from "react";
 
-import { Pill } from "@/components/ui";
+import { segmentedItem, segmentedTrack } from "@/components/ui";
 import {
 
   parseView,
@@ -70,20 +70,29 @@ function subscribeToMinute(onChange: () => void): () => void {
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
-/** One hour's height, in rem. The h-12 rows below and the absolute offsets
+/** One hour's height, in rem. The h-11 rows below and the absolute offsets
  *  computed from a post's time have to agree, so the number lives here. */
-const HOUR_HEIGHT_REM = 3;
+const HOUR_HEIGHT_REM = 2.75;
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const STATUS_TONE: Record<string, "ok" | "warn" | "danger" | "neutral" | "info"> = {
-  scheduled: "info",
-  publishing: "warn",
-  published: "ok",
-  partial: "warn",
-  failed: "danger",
-  canceled: "neutral",
-  draft: "neutral",
+/** The dot on a chip, and the legend under the grid: one colour per state, so
+ *  a month at a glance says what went out and what has not yet. */
+const STATUS_DOT: Record<string, string> = {
+  scheduled: "bg-sky",
+  publishing: "bg-warn",
+  published: "bg-ok",
+  partial: "bg-warn",
+  failed: "bg-danger",
+  canceled: "bg-faint",
+  draft: "bg-faint",
 };
+
+const LEGEND = [
+  { label: "Scheduled", dot: "bg-sky" },
+  { label: "Published", dot: "bg-ok" },
+  { label: "Partial", dot: "bg-warn" },
+  { label: "Draft with a date", dot: "bg-faint" },
+];
 
 export function CalendarGrid({
   posts,
@@ -129,21 +138,23 @@ export function CalendarGrid({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold">{rangeLabel(view, anchor)}</h2>
+        <h2 className="font-display text-[17px] font-semibold text-ink">
+          {rangeLabel(view, anchor)}
+        </h2>
 
         <div className="flex items-center gap-1">
           <button
             type="button"
             aria-label="Previous"
             onClick={() => go({ date: shift(view, anchor, -1) })}
-            className="rounded-lg border border-line px-2.5 py-1.5 text-sm text-ink transition hover:border-line-strong"
+            className={STEP_BUTTON}
           >
             ‹
           </button>
           <button
             type="button"
             onClick={() => go({ date: now ?? new Date() })}
-            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:border-line-strong"
+            className={STEP_BUTTON}
           >
             Today
           </button>
@@ -151,23 +162,20 @@ export function CalendarGrid({
             type="button"
             aria-label="Next"
             onClick={() => go({ date: shift(view, anchor, 1) })}
-            className="rounded-lg border border-line px-2.5 py-1.5 text-sm text-ink transition hover:border-line-strong"
+            className={STEP_BUTTON}
           >
             ›
           </button>
         </div>
 
-        <div className="ml-auto flex gap-1 rounded-lg bg-chip p-1">
+        <div className={`ml-auto ${segmentedTrack}`}>
           {(["month", "week", "day"] as CalendarView[]).map((item) => (
             <button
               key={item}
               type="button"
               onClick={() => go({ view: item })}
-              className={`rounded-md px-3 py-1 text-sm capitalize transition ${
-                view === item
-                  ? "bg-chip font-medium text-ink"
-                  : "text-muted hover:text-ink"
-              }`}
+              aria-pressed={view === item}
+              className={segmentedItem(view === item, "capitalize")}
             >
               {item}
             </button>
@@ -180,9 +188,21 @@ export function CalendarGrid({
       ) : (
         <TimeGrid days={days} byDay={byDay} now={now} />
       )}
+
+      <ul className="flex flex-wrap items-center gap-4 text-[11px] text-faint">
+        {LEGEND.map((item) => (
+          <li key={item.label} className="flex items-center gap-1.5">
+            <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${item.dot}`} />
+            {item.label}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
+
+const STEP_BUTTON =
+  "rounded-lg border border-line bg-panel px-2.5 py-1.5 text-[13px] text-ink transition hover:border-line-strong";
 
 function MonthGrid({
   days,
@@ -196,20 +216,30 @@ function MonthGrid({
   /** Null until the client has mounted — see the note in CalendarGrid. */
   now: Date | null;
 }) {
+  // A month that fits in five rows gets five rows: the sixth is entirely next
+  // month, and an empty grey band at the bottom reads as missing content.
+  const weeks: Date[][] = [];
+  for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
+  const shown = weeks.filter(
+    (week, index) =>
+      index < weeks.length - 1 ||
+      week.some((day) => day.getMonth() === anchor.getMonth()),
+  );
+
   return (
-    <div className="overflow-hidden rounded-xl border border-line">
-      <div className="grid grid-cols-7 border-b border-line bg-panel">
+    <div className="overflow-hidden rounded-[14px] border border-line bg-panel">
+      <div className="grid grid-cols-7 bg-chip">
         {DAY_NAMES.map((name) => (
           <div
             key={name}
-            className="px-2 py-1.5 text-center text-[10px] font-semibold tracking-widest text-faint uppercase"
+            className="px-2 py-[7px] text-center text-[9.5px] font-bold tracking-[0.1em] text-faint uppercase"
           >
             {name}
           </div>
         ))}
       </div>
       <div className="grid grid-cols-7">
-        {days.map((day) => {
+        {shown.flat().map((day) => {
           const posts = byDay.get(toDateParam(day)) ?? [];
           const outside = day.getMonth() !== anchor.getMonth();
           const isToday = now !== null && sameDay(day, now);
@@ -217,21 +247,23 @@ function MonthGrid({
             <div
               key={day.toISOString()}
               className={`min-h-24 border-r border-b border-line p-1.5 last:border-r-0 ${
-                outside ? "bg-panel" : ""
+                outside ? "bg-chip" : ""
               }`}
             >
-              <p
-                className={`text-xs ${
-                  isToday
-                    ? "font-semibold text-danger"
-                    : outside
-                      ? "text-faint"
-                      : "text-faint"
-                }`}
-              >
-                {day.getDate()}
+              <p>
+                <span
+                  className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full text-[11px] ${
+                    isToday
+                      ? "bg-accent font-bold text-accent-ink"
+                      : outside
+                        ? "text-faint"
+                        : "text-muted"
+                  }`}
+                >
+                  {day.getDate()}
+                </span>
               </p>
-              <ul className="mt-1 flex flex-col gap-1">
+              <ul className="mt-1 flex flex-col gap-[3px]">
                 {posts.slice(0, 3).map((post) => (
                   <li key={post.id}>
                     <PostChip post={post} compact mounted={now !== null} />
@@ -276,7 +308,7 @@ function TimeGrid({
     now === null ? null : now.getHours() * HOUR_HEIGHT_REM + (now.getMinutes() / 60) * HOUR_HEIGHT_REM;
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-line">
+    <div className="overflow-x-auto rounded-[14px] border border-line bg-panel">
       <div className="min-w-[44rem]">
         <div
           className="grid border-b border-line bg-panel"
@@ -287,11 +319,11 @@ function TimeGrid({
             const isToday = now !== null && sameDay(day, now);
             return (
               <div key={day.toISOString()} className="px-2 py-2 text-center">
-                <p className="text-[10px] tracking-widest text-faint uppercase">
+                <p className="text-[9.5px] font-bold tracking-[0.1em] text-faint uppercase">
                   {DAY_NAMES[day.getDay()]}
                 </p>
                 <p
-                  className={`text-sm ${isToday ? "font-semibold text-danger" : "text-ink"}`}
+                  className={`text-[13.5px] ${isToday ? "font-bold text-accent" : "text-ink"}`}
                 >
                   {day.getDate()}
                 </p>
@@ -332,7 +364,7 @@ function TimeGrid({
               {visibleHours.map((hour) => (
                 <div
                   key={hour}
-                  className="h-12 border-b border-line pr-2 text-right text-[10px] text-faint"
+                  className="h-11 border-b border-line pr-2 text-right text-[9.5px] text-faint"
                 >
                   {hour === 0
                     ? "12 AM"
@@ -353,7 +385,7 @@ function TimeGrid({
                   className="relative border-l border-line"
                 >
                   {visibleHours.map((hour) => (
-                    <div key={hour} className="h-12 border-b border-line" />
+                    <div key={hour} className="h-11 border-b border-line" />
                   ))}
                   {posts.map((post) => {
                     const at = new Date(post.scheduledFor);
@@ -363,7 +395,7 @@ function TimeGrid({
                     return (
                       <div
                         key={post.id}
-                        className="absolute right-1 left-1"
+                        className="absolute right-[3px] left-[3px]"
                         style={{ top: `${top}rem` }}
                       >
                         <PostChip post={post} mounted={now !== null} />
@@ -405,9 +437,9 @@ function PostChip({
           : "/dashboard/posts"
       }
       title={`${time ? `${time} · ` : ""}${post.accounts.join(", ")}\n${post.caption}`}
-      className="block overflow-hidden rounded-md border border-line-strong bg-chip transition hover:border-line-strong"
+      className="block overflow-hidden rounded-md border border-line bg-chip px-1.5 py-[3px] transition hover:border-accent"
     >
-      <div className="flex items-start gap-1.5 p-1">
+      <div className="flex items-start gap-1.5">
         {post.thumbnail && !compact ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -417,23 +449,21 @@ function PostChip({
           />
         ) : null}
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1 text-[10px] text-muted">
+          <p className="flex items-center gap-1 text-[9.5px] text-faint">
+            <span
+              aria-hidden
+              className={`h-[5px] w-[5px] shrink-0 rounded-full ${STATUS_DOT[post.status] ?? "bg-faint"}`}
+            />
             {time ? <span>{time}</span> : null}
             <span className="truncate uppercase">
               {post.platforms.slice(0, 3).join(" ")}
             </span>
           </p>
-          <p className="truncate text-[11px] text-ink">
+          <p className="truncate text-[10.5px] text-ink">
             {post.caption || "No caption"}
           </p>
         </div>
       </div>
-      {post.status !== "scheduled" ? (
-        <p className="px-1 pb-1">
-          <Pill tone={STATUS_TONE[post.status] ?? "neutral"}>{post.status}</Pill>
-        </p>
-      ) : null}
     </Link>
   );
 }
-
