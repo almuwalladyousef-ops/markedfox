@@ -354,8 +354,9 @@ function Avatar({
   return (
     <span className="relative block h-9 w-9 shrink-0">
       {url ? (
-        // eslint-disable-next-line @next/next/no-img-element -- avatars come
-        // from four platforms' CDNs; see video-card.tsx for the same reasoning.
+        /* Avatars come from four platforms' CDNs; see video-card.tsx for the
+           same reasoning about next/image. */
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={url}
           alt=""
