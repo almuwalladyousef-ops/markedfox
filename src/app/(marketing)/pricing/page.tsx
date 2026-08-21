@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 
 import Link from "next/link";
 
+import { PlanGrid, type MarketingPlan } from "./plan-grid";
+
 export const metadata: Metadata = {
   title: "Pricing · MarkedFox",
   description:
@@ -16,149 +18,98 @@ export const metadata: Metadata = {
 // "unlimited" appears, in the comparison itself — X bills per post and is
 // never unlimited on any plan.
 
-type Plan = {
-  id: string;
-  name: string;
-  monthly: string;
-  annual?: string;
-  blurb: string;
-  cta: { label: string; href: string };
-  highlight?: boolean;
-  features: string[];
-};
+const X_LINE =
+  "X: 300 posts per month, no external links — X charges per post, so it is never unlimited";
 
-const PLANS: Plan[] = [
+const PLANS: MarketingPlan[] = [
   {
     id: "free",
     name: "Free",
     monthly: "$0",
+    annual: "$0",
     blurb: "Everything you need to see it work.",
     cta: { label: "Start free", href: "/signup" },
     features: [
-      "2 workspaces",
-      "3 connected accounts per workspace",
-      "2 posts per day (pooled)",
-      "Instagram, Facebook, Threads, TikTok, YouTube, Snapchat",
-      "1 DM rule · 200 DM sends per month",
-      "X not included — X charges per post",
+      { text: "2 workspaces" },
+      { text: "3 connected accounts per workspace" },
+      { text: "2 posts per day (pooled)" },
+      { text: "Instagram, Facebook, Threads, TikTok, YouTube, Snapchat" },
+      { text: "1 DM rule · 200 DM sends per month" },
+      { text: "X not included — X charges per post", included: false },
+      { text: "No research credits", included: false },
     ],
   },
   {
     id: "pro",
     name: "Pro",
     monthly: "$20",
-    annual: "$200/yr — two months free",
+    annual: "$200",
     blurb: "For creators posting every day.",
     cta: { label: "Get Pro", href: "/signup?plan=pro" },
     highlight: true,
     features: [
-      "5 workspaces",
-      "Unlimited connected accounts",
-      "Unlimited posts",
-      "All platforms",
-      "X: 300 posts per month, no external links — X charges per post, so it is never unlimited",
-      "Unlimited DM rules · 10,000 DM sends per month",
+      { text: "5 workspaces" },
+      { text: "Unlimited connected accounts" },
+      { text: "Unlimited posts" },
+      { text: "All platforms" },
+      { text: X_LINE },
+      { text: "Unlimited DM rules · 10,000 DM sends per month" },
+      { text: "No research credits", included: false },
     ],
   },
   {
     id: "studio",
     name: "Studio",
     monthly: "$49",
-    annual: "$490/yr — two months free",
+    annual: "$490",
     blurb: "Everything in Pro, plus research.",
     cta: { label: "Get Studio", href: "/signup?plan=studio" },
     features: [
-      "10 workspaces",
-      "Unlimited connected accounts",
-      "Unlimited posts",
-      "All platforms",
-      "X: 300 posts per month, no external links — X charges per post, so it is never unlimited",
-      "Unlimited DM rules · 10,000 DM sends per month",
-      "Research: watch any creator's channel and see which videos beat that channel's own average",
-      "100 AI generations per month — hooks, outlines, and scripts written from a winning video",
+      { text: "10 workspaces" },
+      { text: "Unlimited connected accounts" },
+      { text: "Unlimited posts" },
+      { text: "All platforms" },
+      { text: X_LINE },
+      { text: "Unlimited DM rules · 10,000 DM sends per month" },
+      {
+        text: "Research: watch any creator's channel and see which videos beat that channel's own average",
+      },
+      {
+        text: "100 AI generations per month — hooks, outlines, and scripts written from a winning video",
+      },
     ],
   },
   {
     id: "enterprise",
     name: "Enterprise",
     monthly: "Custom",
+    annual: null,
     blurb: "Raised limits for teams and agencies.",
     cta: {
       label: "Contact us",
       href: "mailto:hello@markedfox.com?subject=MarkedFox%20Enterprise",
     },
     features: [
-      "Unlimited workspaces",
-      "Raised caps on X posts, DM sends, and research credits",
-      "Priority support",
+      { text: "Unlimited workspaces" },
+      { text: "Raised caps on X posts, DM sends, and research credits" },
+      { text: "Priority support" },
     ],
   },
 ];
 
 export default function PricingPage() {
   return (
-    <main className="mx-auto max-w-6xl px-6 py-20">
-      <h1 className="text-center text-4xl font-bold tracking-tight">Pricing</h1>
-      <p className="mx-auto mt-4 max-w-xl text-center text-muted">
-        Start free, upgrade when you outgrow it. Annual billing gets roughly
-        two months free.
+    <main className="mx-auto max-w-[1120px] px-6 py-16">
+      <h1 className="font-display text-center text-[38px] font-bold tracking-[-0.02em]">
+        Pricing
+      </h1>
+      <p className="mx-auto mt-3 max-w-xl text-center text-[13.5px]/[20px] text-muted">
+        Start free, upgrade when you outgrow it.
       </p>
 
-      <div className="mt-14 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {PLANS.map((plan) => (
-          <div
-            key={plan.id}
-            className={`flex flex-col rounded-xl border p-6 ${
-              plan.highlight
-                ? "border-orange-500/60 bg-orange-950/10"
-                : "border-line"
-            }`}
-          >
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-lg font-semibold">{plan.name}</h2>
-              {plan.highlight ? (
-                <span className="rounded-full border border-orange-800/60 bg-orange-950/40 px-2 py-0.5 text-[10px] font-medium text-orange-300">
-                  Most popular
-                </span>
-              ) : null}
-            </div>
-            <p className="mt-3 text-3xl font-bold">
-              {plan.monthly}
-              {plan.monthly.startsWith("$") && plan.monthly !== "$0" ? (
-                <span className="text-sm font-normal text-faint">/mo</span>
-              ) : null}
-            </p>
-            {plan.annual ? (
-              <p className="mt-1 text-xs text-faint">{plan.annual}</p>
-            ) : null}
-            <p className="mt-3 text-sm text-muted">{plan.blurb}</p>
+      <PlanGrid plans={PLANS} />
 
-            <ul className="mt-6 flex flex-1 flex-col gap-2.5 text-sm text-ink">
-              {plan.features.map((feature) => (
-                <li key={feature} className="flex gap-2">
-                  <span aria-hidden="true" className="text-orange-400">
-                    ✓
-                  </span>
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-
-            <a
-              href={plan.cta.href}
-              className={`mt-8 rounded-md px-4 py-2.5 text-center text-sm font-semibold transition ${
-                plan.highlight
-                  ? "bg-accent text-accent-ink hover:brightness-[1.08]"
-                  : "border border-line text-ink hover:border-line-strong"
-              }`}
-            >
-              {plan.cta.label}
-            </a>
-          </div>
-        ))}
-      </div>
-
-      <div className="mx-auto mt-14 max-w-2xl rounded-lg border border-line p-5 text-sm text-muted">
+      <div className="mx-auto mt-12 max-w-2xl rounded-[14px] border border-line bg-panel p-5 text-[13px]/[20px] text-muted">
         <h2 className="font-semibold text-ink">Why is X different?</h2>
         <p className="mt-2">
           Every other platform costs nothing per post, so those are genuinely
@@ -170,9 +121,12 @@ export default function PricingPage() {
         </p>
       </div>
 
-      <p className="mt-10 text-center text-sm text-faint">
+      <p className="mt-8 text-center text-[13px] text-faint">
         Questions?{" "}
-        <Link href="mailto:support@markedfox.com" className="text-ink underline hover:text-white">
+        <Link
+          href="mailto:support@markedfox.com"
+          className="text-accent hover:brightness-[1.08]"
+        >
           support@markedfox.com
         </Link>
       </p>

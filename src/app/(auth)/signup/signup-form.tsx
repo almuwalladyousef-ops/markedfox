@@ -20,11 +20,13 @@ export function SignupForm({ plan }: { plan?: IntendedPlan }) {
   if (state.success) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-xl font-semibold">Check your email</h1>
+        <h1 className="font-display text-[19px] font-bold tracking-[-0.02em]">
+          Check your email
+        </h1>
         <FormMessage state={state} />
         <Link
           href="/login"
-          className="text-sm text-muted hover:text-ink"
+          className="text-[13px] text-accent hover:brightness-[1.08]"
         >
           Back to sign in
         </Link>
@@ -35,14 +37,16 @@ export function SignupForm({ plan }: { plan?: IntendedPlan }) {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold">Create your account</h1>
-        <p className="text-sm text-muted">
-          Publish everywhere. Automate every DM.
+        <h1 className="font-display text-[19px] font-bold tracking-[-0.02em]">
+          Create your account
+        </h1>
+        <p className="text-[13px] text-muted">
+          Publish everywhere. Automate every DM. Free to start.
         </p>
       </div>
 
       {plan ? (
-        <p className="rounded-md border border-line bg-chip px-3 py-2 text-sm text-ink">
+        <p className="rounded-[10px] border border-line bg-chip px-3 py-2 text-[13px] text-ink">
           You picked <span className="font-semibold">{PLAN_LABELS[plan]}</span>.
           Every account starts on Free; you can upgrade from Settings once
           billing opens — we will remember your choice.
@@ -68,13 +72,19 @@ export function SignupForm({ plan }: { plan?: IntendedPlan }) {
         hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
       />
 
-      <SubmitButton pending={pending}>Create account</SubmitButton>
+      <SubmitButton pending={pending}>
+        Create account — it&rsquo;s free
+      </SubmitButton>
 
-      <p className="pt-2 text-sm text-muted">
+      <p className="pt-1 text-[13px] text-muted">
         Already have an account?{" "}
-        <Link href="/login" className="text-ink hover:underline">
+        <Link href="/login" className="text-accent hover:brightness-[1.08]">
           Sign in
         </Link>
+      </p>
+
+      <p className="text-center text-[11.5px] text-faint">
+        No card required · 2 posts a day and 1 DM rule on Free
       </p>
     </form>
   );

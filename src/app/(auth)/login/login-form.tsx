@@ -14,8 +14,10 @@ export function LoginForm({ next }: { next: string }) {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold">Sign in</h1>
-        <p className="text-sm text-muted">Welcome back.</p>
+        <h1 className="font-display text-[19px] font-bold tracking-[-0.02em]">
+          Welcome back
+        </h1>
+        <p className="text-[13px] text-muted">The fox kept your queue warm.</p>
       </div>
 
       <FormMessage state={state} />
@@ -41,13 +43,13 @@ export function LoginForm({ next }: { next: string }) {
 
       <SubmitButton pending={pending}>Sign in</SubmitButton>
 
-      <div className="flex flex-col gap-2 pt-2 text-sm text-muted">
-        <Link href="/reset-password" className="hover:text-ink">
+      <div className="flex flex-col gap-2 pt-1 text-[13px] text-muted">
+        <Link href="/reset-password" className="text-accent hover:brightness-[1.08]">
           Forgot your password?
         </Link>
         <p>
           No account?{" "}
-          <Link href="/signup" className="text-ink hover:underline">
+          <Link href="/signup" className="text-accent hover:brightness-[1.08]">
             Create one
           </Link>
         </p>

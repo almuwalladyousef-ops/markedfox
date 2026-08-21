@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { FoxMark } from "@/components/ui";
+
 // The site-wide footer, patterned after the four-column layout the owner
 // asked for (2026-08-19): brand + social icons on the left, link columns on
 // the right, copyright at the bottom. Only links that exist are listed — a
@@ -53,13 +55,15 @@ const COLUMNS: { heading: string; links: { label: string; href: string }[] }[] =
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-line">
-      <div className="mx-auto max-w-6xl px-6 py-14">
-        <div className="flex flex-col gap-12 md:flex-row md:justify-between">
-          <div className="flex max-w-xs flex-col gap-6">
-            <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight">
-              <FoxMark className="h-6 w-6" />
-              MarkedFox
+    <footer className="border-t border-line bg-panel">
+      <div className="mx-auto max-w-[1120px] px-6 py-10">
+        <div className="flex flex-col gap-10 shell:flex-row shell:justify-between">
+          <div className="flex max-w-xs flex-col gap-5">
+            <Link href="/" className="flex items-center gap-2.5">
+              <FoxMark className="h-7" />
+              <span className="font-display text-lg font-bold tracking-[-0.02em]">
+                MarkedFox
+              </span>
             </Link>
 
             <ul className="flex items-center gap-4">
@@ -79,24 +83,26 @@ export function SiteFooter() {
             </ul>
           </div>
 
-          <div className="grid grid-cols-2 gap-x-12 gap-y-10 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-12 gap-y-8 shell:grid-cols-4">
             {COLUMNS.map((column) => (
               <div key={column.heading}>
-                <h3 className="text-sm text-faint">{column.heading}</h3>
-                <ul className="mt-4 flex flex-col gap-3">
+                <h3 className="text-[11.5px] font-semibold tracking-[0.04em] text-faint uppercase">
+                  {column.heading}
+                </h3>
+                <ul className="mt-3.5 flex flex-col gap-2.5">
                   {column.links.map((link) => (
                     <li key={link.label}>
                       {link.href.startsWith("mailto:") ? (
                         <a
                           href={link.href}
-                          className="text-sm font-medium text-ink transition hover:text-white"
+                          className="text-[13px] text-muted transition hover:text-ink"
                         >
                           {link.label}
                         </a>
                       ) : (
                         <Link
                           href={link.href}
-                          className="text-sm font-medium text-ink transition hover:text-white"
+                          className="text-[13px] text-muted transition hover:text-ink"
                         >
                           {link.label}
                         </Link>
@@ -109,25 +115,11 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <p className="mt-14 text-sm text-faint">
+        <p className="mt-10 text-[13px] text-faint">
           © 2026 MarkedFox. All rights reserved.
         </p>
       </div>
     </footer>
-  );
-}
-
-// A minimal fox mark: two ears and a muzzle, one path. Placeholder until a
-// real logo exists; consistent everywhere it appears.
-export function FoxMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
-      <path
-        d="M3 4l4 4h10l4-4v7c0 5-4 9-9 9s-9-4-9-9V4z"
-        fill="#f97316"
-      />
-      <path d="M9 13l3 4 3-4" fill="#0a0a0a" />
-    </svg>
   );
 }
 

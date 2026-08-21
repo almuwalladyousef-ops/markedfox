@@ -1,38 +1,37 @@
 import Link from "next/link";
 
-import { FoxMark } from "./site-footer";
+import { ButtonLink, FoxMark } from "@/components/ui";
 
 // Shared header for the public marketing pages. Static: no session lookup —
 // a logged-in visitor clicking Dashboard is routed by the proxy anyway, and
 // keeping this env-free keeps every marketing page prerenderable.
 export function SiteHeader() {
   return (
-    <header className="border-b border-line">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight">
-          <FoxMark className="h-6 w-6" />
-          MarkedFox
+    <header className="sticky top-0 z-40 border-b border-line bg-panel">
+      <div className="mx-auto flex max-w-[1120px] items-center justify-between px-6 py-3.5">
+        <Link href="/" className="flex items-center gap-2.5">
+          <FoxMark className="h-7" />
+          <span className="font-display text-lg font-bold tracking-[-0.02em]">
+            MarkedFox
+          </span>
         </Link>
 
-        <nav className="flex items-center gap-2 sm:gap-4">
+        <nav className="flex items-center gap-4 shell:gap-6">
           <Link
             href="/pricing"
-            className="rounded-md px-3 py-2 text-sm text-ink transition hover:text-white"
+            className="text-[13.5px] font-medium text-muted transition hover:text-ink"
           >
             Pricing
           </Link>
           <Link
             href="/login"
-            className="rounded-md px-3 py-2 text-sm text-ink transition hover:text-white"
+            className="text-[13.5px] font-medium text-muted transition hover:text-ink"
           >
             Log in
           </Link>
-          <Link
-            href="/signup"
-            className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-accent-ink transition hover:brightness-[1.08]"
-          >
-            Get started
-          </Link>
+          <ButtonLink href="/signup" tone="primary" size="sm">
+            Start free
+          </ButtonLink>
         </nav>
       </div>
     </header>

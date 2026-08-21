@@ -1,14 +1,19 @@
 import Link from "next/link";
 
+import { FoxMark } from "@/components/ui";
+
 export default function AuthLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-panel px-4 py-12 text-ink">
-      <Link href="/" className="text-2xl font-bold tracking-tight">
-        MarkedFox
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-bg px-4 py-12 text-ink">
+      <Link href="/" className="flex items-center gap-2.5">
+        <FoxMark className="h-8" />
+        <span className="font-display text-[22px] font-bold tracking-[-0.02em]">
+          MarkedFox
+        </span>
       </Link>
-      <div className="w-full max-w-sm rounded-xl border border-line bg-panel p-6 shadow-2xl">
+      <div className="w-full max-w-[392px] rounded-2xl border border-line bg-panel p-[26px] shadow-panel">
         {children}
       </div>
     </main>

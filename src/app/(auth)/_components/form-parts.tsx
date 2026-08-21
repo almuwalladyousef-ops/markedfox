@@ -27,7 +27,7 @@ export function Field({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={name} className="text-sm font-medium text-ink">
+      <label htmlFor={name} className="text-xs font-semibold text-muted">
         {label}
       </label>
       <input
@@ -39,14 +39,16 @@ export function Field({
         required
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : hint ? hintId : undefined}
-        className="rounded-md border border-line bg-chip px-3 py-2 text-ink outline-none transition focus:border-line-strong focus:ring-1 focus:ring-neutral-500 aria-[invalid=true]:border-danger"
+        /* 15px rather than 14: anything smaller makes iOS Safari zoom the
+           whole page on focus, which reads as the form jumping away. */
+        className="rounded-[10px] border border-line bg-chip px-3 py-2.5 text-[15px] text-ink outline-none transition focus:border-accent aria-[invalid=true]:border-danger"
       />
       {error ? (
-        <p id={errorId} className="text-sm text-danger">
+        <p id={errorId} className="text-[12.5px] text-danger">
           {error}
         </p>
       ) : hint ? (
-        <p id={hintId} className="text-xs text-faint">
+        <p id={hintId} className="text-[11.5px] text-faint">
           {hint}
         </p>
       ) : null}
@@ -65,7 +67,7 @@ export function SubmitButton({
     <button
       type="submit"
       disabled={pending}
-      className="mt-1 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-accent-ink transition hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-60"
+      className="mt-1 w-full rounded-[10px] bg-accent px-3 py-[11px] text-sm font-semibold text-accent-ink transition hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-45"
     >
       {pending ? "Working…" : children}
     </button>
@@ -82,8 +84,8 @@ export function FormMessage({ state }: { state: AuthFormState }) {
       aria-live="polite"
       className={
         state.success
-          ? "rounded-md border border-ok bg-ok-soft px-3 py-2 text-sm text-ok"
-          : "rounded-md border border-danger bg-danger-soft px-3 py-2 text-sm text-danger"
+          ? "rounded-[10px] border border-ok bg-ok-soft px-3 py-2 text-[13px] text-ok"
+          : "rounded-[10px] border border-danger bg-danger-soft px-3 py-2 text-[13px] text-danger"
       }
     >
       {state.message}
