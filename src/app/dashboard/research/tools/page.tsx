@@ -73,17 +73,17 @@ export default async function ResearchToolsPage() {
             {transcripts.map((transcript) => (
               <li
                 key={transcript.id}
-                className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-4"
+                className="rounded-lg border border-line bg-panel p-4"
               >
                 <a
                   href={transcript.url}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="text-xs text-neutral-500 underline hover:text-neutral-300"
+                  className="text-xs text-faint underline hover:text-ink"
                 >
                   {transcript.url}
                 </a>
-                <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-neutral-400">
+                <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-muted">
                   {transcript.text}
                 </p>
               </li>
@@ -99,14 +99,14 @@ export default async function ResearchToolsPage() {
             {standalone.map((script) => (
               <li
                 key={script.id}
-                className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-4"
+                className="rounded-lg border border-line bg-panel p-4"
               >
-                <p className="text-xs text-neutral-500">
+                <p className="text-xs text-faint">
                   {script.kind}
                   {script.topic ? ` · ${script.topic}` : ""} ·{" "}
                   <LocalTime value={script.created_at} />
                 </p>
-                <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-neutral-200">
+                <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-ink">
                   {script.output}
                 </pre>
               </li>

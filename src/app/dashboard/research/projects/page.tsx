@@ -42,7 +42,7 @@ export default async function ResearchProjectsPage() {
       <NewProjectForm />
 
       {projects.length === 0 ? (
-        <p className="rounded-lg border border-neutral-800 bg-neutral-950 px-4 py-6 text-center text-sm text-neutral-500">
+        <p className="rounded-lg border border-line bg-panel px-4 py-6 text-center text-sm text-faint">
           No projects yet. Create one, then save outliers into it from the feed.
         </p>
       ) : (
@@ -50,7 +50,7 @@ export default async function ResearchProjectsPage() {
           {projects.map((project) => (
             <li
               key={project.id}
-              className="flex items-center justify-between gap-4 rounded-lg border border-neutral-800 bg-neutral-950/60 px-4 py-3"
+              className="flex items-center justify-between gap-4 rounded-lg border border-line bg-panel px-4 py-3"
             >
               <div className="min-w-0">
                 <Link
@@ -59,7 +59,7 @@ export default async function ResearchProjectsPage() {
                 >
                   {project.name}
                 </Link>
-                <p className="mt-0.5 text-xs text-neutral-500">
+                <p className="mt-0.5 text-xs text-faint">
                   {project.item_count} saved
                   {project.description ? ` · ${project.description}` : ""}
                 </p>
@@ -69,7 +69,7 @@ export default async function ResearchProjectsPage() {
                 <button
                   type="submit"
                   aria-label={`Delete ${project.name}`}
-                  className="rounded px-2 py-1 text-neutral-600 transition hover:bg-neutral-800 hover:text-red-300"
+                  className="rounded px-2 py-1 text-faint transition hover:bg-chip hover:text-danger"
                 >
                   ×
                 </button>

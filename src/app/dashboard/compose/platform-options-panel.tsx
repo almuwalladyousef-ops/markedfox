@@ -49,9 +49,9 @@ export function PlatformOptionsPanel({
             return (
               <div key={field.key} className="flex items-start justify-between gap-4">
                 <label htmlFor={id} className="min-w-0">
-                  <span className="text-sm text-neutral-200">{field.label}</span>
+                  <span className="text-sm text-ink">{field.label}</span>
                   {field.help ? (
-                    <span className="mt-0.5 block text-xs text-neutral-500">
+                    <span className="mt-0.5 block text-xs text-faint">
                       {field.help}
                     </span>
                   ) : null}
@@ -64,11 +64,11 @@ export function PlatformOptionsPanel({
                   aria-label={field.label}
                   onClick={() => set(field.key, !checked)}
                   className={`relative mt-0.5 inline-flex h-5 w-10 shrink-0 items-center rounded-full transition ${
-                    checked ? "bg-emerald-600" : "bg-neutral-700"
+                    checked ? "bg-ok" : "bg-chip"
                   }`}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                    className={`inline-block h-4 w-4 transform rounded-full bg-accent transition ${
                       checked ? "translate-x-5" : "translate-x-1"
                     }`}
                   />
@@ -81,14 +81,14 @@ export function PlatformOptionsPanel({
             const value = String(values[field.key] ?? field.default);
             return (
               <div key={field.key}>
-                <label htmlFor={id} className="text-sm text-neutral-200">
+                <label htmlFor={id} className="text-sm text-ink">
                   {field.label}
                 </label>
                 <select
                   id={id}
                   value={value}
                   onChange={(event) => set(field.key, event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-50 outline-none focus:border-neutral-600"
+                  className="mt-1 w-full rounded-lg border border-line bg-chip px-3 py-2 text-sm text-ink outline-none focus:border-line-strong"
                 >
                   {field.choices.map((choice) => (
                     <option key={choice.value} value={choice.value}>
@@ -97,7 +97,7 @@ export function PlatformOptionsPanel({
                   ))}
                 </select>
                 {field.help ? (
-                  <p className="mt-1 text-xs text-neutral-500">{field.help}</p>
+                  <p className="mt-1 text-xs text-faint">{field.help}</p>
                 ) : null}
               </div>
             );
@@ -106,7 +106,7 @@ export function PlatformOptionsPanel({
           const text = String(values[field.key] ?? "");
           return (
             <div key={field.key}>
-              <label htmlFor={id} className="text-sm text-neutral-200">
+              <label htmlFor={id} className="text-sm text-ink">
                 {field.label}
               </label>
               {field.multiline ? (
@@ -117,7 +117,7 @@ export function PlatformOptionsPanel({
                   maxLength={field.maxLength}
                   placeholder={field.placeholder}
                   onChange={(event) => set(field.key, event.target.value)}
-                  className="mt-1 w-full resize-y rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-50 outline-none placeholder:text-neutral-600 focus:border-neutral-600"
+                  className="mt-1 w-full resize-y rounded-lg border border-line bg-chip px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-line-strong"
                 />
               ) : (
                 <input
@@ -126,15 +126,15 @@ export function PlatformOptionsPanel({
                   maxLength={field.maxLength}
                   placeholder={field.placeholder}
                   onChange={(event) => set(field.key, event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-50 outline-none placeholder:text-neutral-600 focus:border-neutral-600"
+                  className="mt-1 w-full rounded-lg border border-line bg-chip px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-line-strong"
                 />
               )}
-              <p className="mt-1 flex justify-between text-xs text-neutral-500">
+              <p className="mt-1 flex justify-between text-xs text-faint">
                 <span>{field.help}</span>
                 {text ? (
                   <span
                     className={
-                      text.length > field.maxLength ? "text-red-400" : undefined
+                      text.length > field.maxLength ? "text-danger" : undefined
                     }
                   >
                     {text.length}/{field.maxLength}

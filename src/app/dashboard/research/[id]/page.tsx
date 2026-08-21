@@ -119,15 +119,15 @@ export default async function ResearchVideoPage({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-xl leading-snug font-semibold">{video.title}</h1>
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-400">
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
             <span>
               {source?.handle ? `@${source.handle}` : (source?.title ?? "Unknown channel")}
             </span>
-            <span className="text-neutral-700">·</span>
+            <span className="text-faint">·</span>
             <span className="uppercase">{source?.platform}</span>
             {video.published_at ? (
               <>
-                <span className="text-neutral-700">·</span>
+                <span className="text-faint">·</span>
                 <span><LocalTime value={video.published_at} mode="date" /></span>
               </>
             ) : null}
@@ -138,7 +138,7 @@ export default async function ResearchVideoPage({
             best one, read it, press next. */}
         <div className="flex shrink-0 items-center gap-1.5">
           {neighbors.total > 0 ? (
-            <span className="mr-1 text-xs text-neutral-600">
+            <span className="mr-1 text-xs text-faint">
               {neighbors.index} of {neighbors.total}
               {neighbors.truncated ? "+" : ""}
             </span>
@@ -151,7 +151,7 @@ export default async function ResearchVideoPage({
       <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
         <div className="flex flex-col gap-4">
           <Card className="overflow-hidden p-0">
-            <div className="relative aspect-[9/16] w-full bg-neutral-900">
+            <div className="relative aspect-[9/16] w-full bg-chip">
               {video.thumbnail_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -183,11 +183,11 @@ export default async function ResearchVideoPage({
                   source?.platform === "instagram" ? "likes" : "views"
                 }
               />
-              <p className="text-xs text-emerald-300">
+              <p className="text-xs text-ok">
                 {describeScore(score, source?.baseline_sample ?? 0)}
               </p>
               {video.baseline_views !== null ? (
-                <p className="text-xs text-neutral-500">
+                <p className="text-xs text-faint">
                   This channel normally does {formatCount(video.baseline_views)}.
                 </p>
               ) : null}
@@ -220,10 +220,10 @@ export default async function ResearchVideoPage({
               <input type="hidden" name="video_id" value={id} />
               <button
                 type="submit"
-                className="w-full rounded-lg border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600"
+                className="w-full rounded-lg border border-line px-3 py-2 text-sm text-ink transition hover:border-line-strong"
               >
                 Fetch transcript
-                <span className="ml-2 text-xs text-neutral-600">Free</span>
+                <span className="ml-2 text-xs text-faint">Free</span>
               </button>
             </form>
           ) : null}
@@ -233,7 +233,7 @@ export default async function ResearchVideoPage({
           {breakdown?.summary ? (
             <Card>
               <CardTitle>Summary</CardTitle>
-              <p className="mt-2 text-sm leading-relaxed text-neutral-300">
+              <p className="mt-2 text-sm leading-relaxed text-ink">
                 {breakdown.summary}
               </p>
             </Card>
@@ -274,16 +274,16 @@ export default async function ResearchVideoPage({
                 {forThisVideo.map((script) => (
                   <li
                     key={script.id}
-                    className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-4"
+                    className="rounded-xl border border-line bg-panel p-4"
                   >
-                    <p className="flex items-center gap-2 text-xs text-neutral-500">
+                    <p className="flex items-center gap-2 text-xs text-faint">
                       <Pill>{script.kind}</Pill>
                       {script.topic ? script.topic : null}
                       <span className="ml-auto">
                         <LocalTime value={script.created_at} mode="date" />
                       </span>
                     </p>
-                    <pre className="mt-2 font-sans text-sm leading-relaxed whitespace-pre-wrap text-neutral-200">
+                    <pre className="mt-2 font-sans text-sm leading-relaxed whitespace-pre-wrap text-ink">
                       {script.output}
                     </pre>
                   </li>
@@ -307,10 +307,10 @@ function NeighborLink({
   query: FeedQuery;
 }) {
   const className =
-    "rounded-lg border border-neutral-800 px-2.5 py-1.5 text-sm transition";
+    "rounded-lg border border-line px-2.5 py-1.5 text-sm transition";
   if (!href) {
     return (
-      <span className={`${className} text-neutral-700`} aria-hidden>
+      <span className={`${className} text-faint`} aria-hidden>
         {label}
       </span>
     );
@@ -328,7 +328,7 @@ function NeighborLink({
   return (
     <Link
       href={`/dashboard/research/${href}${suffix ? `?${suffix}` : ""}`}
-      className={`${className} text-neutral-300 hover:border-neutral-600 hover:text-neutral-50`}
+      className={`${className} text-ink hover:border-line-strong hover:text-ink`}
     >
       {label}
     </Link>

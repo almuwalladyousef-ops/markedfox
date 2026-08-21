@@ -117,7 +117,7 @@ export default async function CalendarPage() {
       ) : (
         // The grid reads the view and date from the URL, which needs Suspense
         // in an app-router page.
-        <Suspense fallback={<p className="text-sm text-neutral-500">Loading…</p>}>
+        <Suspense fallback={<p className="text-sm text-faint">Loading…</p>}>
           <CalendarGrid posts={posts} today={now.toISOString()} />
         </Suspense>
       )}

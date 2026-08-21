@@ -30,8 +30,9 @@ export function FoxMark({
   className?: string;
   alt?: string;
 }) {
-  // eslint-disable-next-line @next/next/no-img-element -- a static, already
-  // optimised PNG; next/image would add a loader for no gain.
+  // A static, already-cropped PNG: next/image would add a loader and a layout
+  // wrapper to do nothing here.
+  // eslint-disable-next-line @next/next/no-img-element
   return <img src="/logo.png" alt={alt} className={cx("w-auto", className)} />;
 }
 

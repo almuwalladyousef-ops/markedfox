@@ -32,7 +32,7 @@ export default function Home() {
           <br />
           Automate every DM.
         </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-neutral-400">
+        <p className="mx-auto mt-6 max-w-2xl text-lg text-muted">
           One composer that posts to every platform at once, and comment-to-DM
           automation that turns your audience into conversations — in one tool,
           for less than either of the tools it replaces.
@@ -40,19 +40,19 @@ export default function Home() {
         <div className="mt-10 flex items-center justify-center gap-3">
           <Link
             href="/signup"
-            className="rounded-md bg-neutral-50 px-5 py-3 text-sm font-semibold text-neutral-950 transition hover:bg-white"
+            className="rounded-md bg-accent px-5 py-3 text-sm font-semibold text-accent-ink transition hover:brightness-[1.08]"
           >
             Start free
           </Link>
           <Link
             href="/pricing"
-            className="rounded-md border border-neutral-800 px-5 py-3 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-white"
+            className="rounded-md border border-line px-5 py-3 text-sm text-ink transition hover:border-line-strong hover:text-white"
           >
             See pricing
           </Link>
         </div>
 
-        <ul className="mt-14 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-neutral-500">
+        <ul className="mt-14 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-faint">
           {PLATFORM_NAMES.map((name) => (
             <li key={name}>{name}</li>
           ))}
@@ -60,21 +60,21 @@ export default function Home() {
       </section>
 
       {/* ── Publisher ────────────────────────────────────────────────── */}
-      <section id="publisher" className="border-t border-neutral-900">
+      <section id="publisher" className="border-t border-line">
         <div className="mx-auto grid max-w-6xl gap-10 px-6 py-20 md:grid-cols-2">
           <div>
             <p className="text-sm font-medium text-orange-400">Publisher</p>
             <h2 className="mt-2 text-3xl font-bold tracking-tight">
               Write once, post everywhere
             </h2>
-            <p className="mt-4 text-neutral-400">
+            <p className="mt-4 text-muted">
               Compose one post, pick any mix of connected accounts, and publish
               or schedule to all of them at once. Every platform&apos;s limits —
               caption length, media rules, formats — are checked while you
               type, never after you hit publish.
             </p>
           </div>
-          <ul className="flex flex-col gap-4 text-sm text-neutral-300">
+          <ul className="flex flex-col gap-4 text-sm text-ink">
             <Feature title="Every account, one place">
               Connect multiple accounts per platform across separate workspaces
               — one per brand or client.
@@ -92,20 +92,20 @@ export default function Home() {
       </section>
 
       {/* ── Automation ───────────────────────────────────────────────── */}
-      <section id="automation" className="border-t border-neutral-900">
+      <section id="automation" className="border-t border-line">
         <div className="mx-auto grid max-w-6xl gap-10 px-6 py-20 md:grid-cols-2">
           <div>
             <p className="text-sm font-medium text-orange-400">DM automation</p>
             <h2 className="mt-2 text-3xl font-bold tracking-tight">
               Comments in, conversations out
             </h2>
-            <p className="mt-4 text-neutral-400">
+            <p className="mt-4 text-muted">
               The part ManyChat charges for, built in. Trigger DMs from
               comments and keywords, target specific posts, and follow up with
               sequences — without a second subscription.
             </p>
           </div>
-          <ul className="flex flex-col gap-4 text-sm text-neutral-300">
+          <ul className="flex flex-col gap-4 text-sm text-ink">
             <Feature title="Comment-to-DM triggers">
               &ldquo;Comment LINK and I&apos;ll send it to you&rdquo; — handled
               automatically, around the clock, within your plan&apos;s monthly
@@ -123,18 +123,18 @@ export default function Home() {
       </section>
 
       {/* ── Closer ───────────────────────────────────────────────────── */}
-      <section className="border-t border-neutral-900">
+      <section className="border-t border-line">
         <div className="mx-auto max-w-6xl px-6 py-20 text-center">
           <h2 className="text-3xl font-bold tracking-tight">
             Two subscriptions&apos; work. One tool.
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-neutral-400">
+          <p className="mx-auto mt-4 max-w-xl text-muted">
             Buffer publishes but doesn&apos;t touch your DMs. ManyChat automates
             DMs but publishes nothing. MarkedFox does both.
           </p>
           <Link
             href="/signup"
-            className="mt-8 inline-block rounded-md bg-neutral-50 px-5 py-3 text-sm font-semibold text-neutral-950 transition hover:bg-white"
+            className="mt-8 inline-block rounded-md bg-accent px-5 py-3 text-sm font-semibold text-accent-ink transition hover:brightness-[1.08]"
           >
             Start free — no card required
           </Link>
@@ -152,9 +152,9 @@ function Feature({
   children: React.ReactNode;
 }) {
   return (
-    <li className="rounded-lg border border-neutral-900 p-4">
-      <p className="font-semibold text-neutral-100">{title}</p>
-      <p className="mt-1 text-neutral-400">{children}</p>
+    <li className="rounded-lg border border-line p-4">
+      <p className="font-semibold text-ink">{title}</p>
+      <p className="mt-1 text-muted">{children}</p>
     </li>
   );
 }

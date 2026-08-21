@@ -41,7 +41,7 @@ export default async function EditRulePage({ params }: { params: Promise<{ id: s
         actions={
           <Link
             href="/dashboard/automations"
-            className="rounded-lg border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:border-line-strong hover:text-ink"
           >
             Back
           </Link>

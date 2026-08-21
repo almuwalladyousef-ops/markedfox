@@ -85,7 +85,7 @@ export default async function HooksPage({
             placeholder="Search by formula, category, or channel"
             className={`${inputClass} max-w-md flex-1`}
           />
-          <label className="flex items-center gap-2 text-sm text-neutral-400">
+          <label className="flex items-center gap-2 text-sm text-muted">
             <input
               type="checkbox"
               name="fav"
@@ -101,7 +101,7 @@ export default async function HooksPage({
           {q || fav ? (
             <Link
               href="/dashboard/research/hooks"
-              className="text-xs text-neutral-500 hover:text-neutral-300"
+              className="text-xs text-faint hover:text-ink"
             >
               Clear
             </Link>
@@ -111,12 +111,12 @@ export default async function HooksPage({
 
       <Card>
         <details>
-          <summary className="cursor-pointer text-sm font-medium text-neutral-300">
+          <summary className="cursor-pointer text-sm font-medium text-ink">
             Add a formula by hand
           </summary>
           <form action={saveHookAction} className="mt-4 flex flex-col gap-3">
             <label className="block">
-              <span className="text-xs font-medium text-neutral-400">
+              <span className="text-xs font-medium text-muted">
                 Formula
               </span>
               <input
@@ -126,14 +126,14 @@ export default async function HooksPage({
                 placeholder="Most people have never [experienced] [common thing]."
                 className={`${inputClass} mt-1.5 font-mono text-xs`}
               />
-              <span className="mt-1 block text-xs text-neutral-600">
+              <span className="mt-1 block text-xs text-faint">
                 Put the parts that change in [brackets] — that is what makes it
                 reusable for another topic.
               </span>
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
-                <span className="text-xs font-medium text-neutral-400">
+                <span className="text-xs font-medium text-muted">
                   Example line
                 </span>
                 <input
@@ -143,7 +143,7 @@ export default async function HooksPage({
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-medium text-neutral-400">
+                <span className="text-xs font-medium text-muted">
                   Category
                 </span>
                 <select name="category" className={`${inputClass} mt-1.5`}>
@@ -185,12 +185,12 @@ export default async function HooksPage({
               key={hook.id}
               className={`flex flex-col gap-2 rounded-xl border p-4 ${
                 hook.favorite
-                  ? "border-amber-900/60 bg-amber-950/10"
-                  : "border-neutral-800 bg-neutral-950/60"
+                  ? "border-warn bg-warn-soft"
+                  : "border-line bg-panel"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="font-mono text-xs leading-relaxed text-neutral-200">
+                <p className="font-mono text-xs leading-relaxed text-ink">
                   {hook.formula}
                 </p>
                 <div className="flex shrink-0 gap-1">
@@ -204,8 +204,8 @@ export default async function HooksPage({
                     <button
                       type="submit"
                       aria-label={hook.favorite ? "Unfavourite" : "Favourite"}
-                      className={`rounded px-1.5 py-1 text-sm transition hover:bg-neutral-800 ${
-                        hook.favorite ? "text-amber-300" : "text-neutral-600"
+                      className={`rounded px-1.5 py-1 text-sm transition hover:bg-chip ${
+                        hook.favorite ? "text-warn" : "text-faint"
                       }`}
                     >
                       ★
@@ -216,7 +216,7 @@ export default async function HooksPage({
                     <button
                       type="submit"
                       aria-label="Delete"
-                      className="rounded px-1.5 py-1 text-sm text-neutral-600 transition hover:bg-neutral-800 hover:text-red-300"
+                      className="rounded px-1.5 py-1 text-sm text-faint transition hover:bg-chip hover:text-danger"
                     >
                       ×
                     </button>
@@ -225,12 +225,12 @@ export default async function HooksPage({
               </div>
 
               {hook.example ? (
-                <p className="text-sm text-neutral-400 italic">
+                <p className="text-sm text-muted italic">
                   &ldquo;{hook.example}&rdquo;
                 </p>
               ) : null}
 
-              <div className="mt-auto flex flex-wrap items-center gap-2 pt-1 text-xs text-neutral-500">
+              <div className="mt-auto flex flex-wrap items-center gap-2 pt-1 text-xs text-faint">
                 {hook.category ? (
                   <Pill tone="accent">
                     {HOOK_TYPE_LABELS[hook.category as HookType]?.split(
@@ -247,7 +247,7 @@ export default async function HooksPage({
                 {hook.video_id ? (
                   <Link
                     href={`/dashboard/research/${hook.video_id}`}
-                    className="ml-auto underline hover:text-neutral-300"
+                    className="ml-auto underline hover:text-ink"
                   >
                     Source
                   </Link>

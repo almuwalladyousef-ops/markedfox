@@ -99,7 +99,7 @@ export default function PricingPage() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-20">
       <h1 className="text-center text-4xl font-bold tracking-tight">Pricing</h1>
-      <p className="mx-auto mt-4 max-w-xl text-center text-neutral-400">
+      <p className="mx-auto mt-4 max-w-xl text-center text-muted">
         Start free, upgrade when you outgrow it. Annual billing gets roughly
         two months free.
       </p>
@@ -111,7 +111,7 @@ export default function PricingPage() {
             className={`flex flex-col rounded-xl border p-6 ${
               plan.highlight
                 ? "border-orange-500/60 bg-orange-950/10"
-                : "border-neutral-900"
+                : "border-line"
             }`}
           >
             <div className="flex items-baseline justify-between">
@@ -125,15 +125,15 @@ export default function PricingPage() {
             <p className="mt-3 text-3xl font-bold">
               {plan.monthly}
               {plan.monthly.startsWith("$") && plan.monthly !== "$0" ? (
-                <span className="text-sm font-normal text-neutral-500">/mo</span>
+                <span className="text-sm font-normal text-faint">/mo</span>
               ) : null}
             </p>
             {plan.annual ? (
-              <p className="mt-1 text-xs text-neutral-500">{plan.annual}</p>
+              <p className="mt-1 text-xs text-faint">{plan.annual}</p>
             ) : null}
-            <p className="mt-3 text-sm text-neutral-400">{plan.blurb}</p>
+            <p className="mt-3 text-sm text-muted">{plan.blurb}</p>
 
-            <ul className="mt-6 flex flex-1 flex-col gap-2.5 text-sm text-neutral-300">
+            <ul className="mt-6 flex flex-1 flex-col gap-2.5 text-sm text-ink">
               {plan.features.map((feature) => (
                 <li key={feature} className="flex gap-2">
                   <span aria-hidden="true" className="text-orange-400">
@@ -148,8 +148,8 @@ export default function PricingPage() {
               href={plan.cta.href}
               className={`mt-8 rounded-md px-4 py-2.5 text-center text-sm font-semibold transition ${
                 plan.highlight
-                  ? "bg-neutral-50 text-neutral-950 hover:bg-white"
-                  : "border border-neutral-800 text-neutral-200 hover:border-neutral-600"
+                  ? "bg-accent text-accent-ink hover:brightness-[1.08]"
+                  : "border border-line text-ink hover:border-line-strong"
               }`}
             >
               {plan.cta.label}
@@ -158,8 +158,8 @@ export default function PricingPage() {
         ))}
       </div>
 
-      <div className="mx-auto mt-14 max-w-2xl rounded-lg border border-neutral-900 p-5 text-sm text-neutral-400">
-        <h2 className="font-semibold text-neutral-200">Why is X different?</h2>
+      <div className="mx-auto mt-14 max-w-2xl rounded-lg border border-line p-5 text-sm text-muted">
+        <h2 className="font-semibold text-ink">Why is X different?</h2>
         <p className="mt-2">
           Every other platform costs nothing per post, so those are genuinely
           unlimited. X charges for every post made through its API — and 13x
@@ -170,9 +170,9 @@ export default function PricingPage() {
         </p>
       </div>
 
-      <p className="mt-10 text-center text-sm text-neutral-500">
+      <p className="mt-10 text-center text-sm text-faint">
         Questions?{" "}
-        <Link href="mailto:support@markedfox.com" className="text-neutral-300 underline hover:text-white">
+        <Link href="mailto:support@markedfox.com" className="text-ink underline hover:text-white">
           support@markedfox.com
         </Link>
       </p>

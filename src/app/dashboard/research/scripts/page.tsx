@@ -80,13 +80,13 @@ export default async function ScriptsPage() {
             <li key={draft.id}>
               <Link
                 href={`/dashboard/research/scripts/${draft.id}`}
-                className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-950/60 px-4 py-3 transition hover:border-neutral-600"
+                className="flex items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3 transition hover:border-line-strong"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">
                     {draft.title}
                   </span>
-                  <span className="block truncate text-xs text-neutral-500">
+                  <span className="block truncate text-xs text-faint">
                     {draft.chosen_hook
                       ? `“${draft.chosen_hook}”`
                       : (draft.topic ?? "No topic yet")}
@@ -95,7 +95,7 @@ export default async function ScriptsPage() {
                 <Pill tone={draft.script ? "ok" : "neutral"}>
                   {draft.script ? "Written" : STAGE_LABELS[draft.stage]}
                 </Pill>
-                <span className="shrink-0 text-xs text-neutral-600">
+                <span className="shrink-0 text-xs text-faint">
                   <LocalTime value={draft.updated_at} mode="date" />
                 </span>
               </Link>

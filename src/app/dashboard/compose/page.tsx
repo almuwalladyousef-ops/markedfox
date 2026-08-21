@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { PageHeader } from "@/components/ui";
+import { Card, Page, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { listConnections } from "@/lib/connections/store";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
@@ -33,10 +33,14 @@ export default async function ComposePage({
   const active = await getActiveWorkspace();
   if (!active) {
     return (
-      <>
-        <h1 className="text-2xl font-semibold">Account setup incomplete</h1>
-        <p className="mt-2 text-neutral-400">No workspace exists for this account.</p>
-      </>
+      <Page width="max-w-2xl">
+        <h1 className="font-display text-[26px] font-bold tracking-[-0.02em]">
+          Account setup incomplete
+        </h1>
+        <p className="text-[13.5px] text-muted">
+          No workspace exists for this account.
+        </p>
+      </Page>
     );
   }
 
@@ -108,24 +112,38 @@ export default async function ComposePage({
   }));
 
   return (
-    <>
+    <Page width="max-w-[1120px]">
       <PageHeader
         title={draft ? "Edit draft" : "Compose"}
         subtitle={
           <>
-            Posting from <span className="text-neutral-200">{active.name}</span>
+            One post, every platform. Posting from{" "}
+            <span className="text-ink">{active.name}</span>.
           </>
+        }
+        actions={
+          <span className="text-xs text-faint">
+            Posts today{" "}
+            <span className="font-display font-semibold text-ink">
+              {snapshot.usage.postsToday}
+              {snapshot.limits.postsPerDay === null
+                ? ""
+                : ` / ${snapshot.limits.postsPerDay}`}
+            </span>
+          </span>
         }
       />
 
       {accounts.length === 0 ? (
-        <section className="rounded-lg border border-neutral-900 p-6 text-sm text-neutral-400">
-          No accounts are connected in this workspace yet.{" "}
-          <Link href="/dashboard" className="text-neutral-100 underline">
-            Connect one on the dashboard
-          </Link>{" "}
-          and come back.
-        </section>
+        <Card className="p-6">
+          <p className="text-[13.5px] text-muted">
+            No accounts are connected in this workspace yet.{" "}
+            <Link href="/dashboard" className="text-accent underline">
+              Connect one on the dashboard
+            </Link>{" "}
+            and come back.
+          </p>
+        </Card>
       ) : (
         <Composer
           workspaceId={active.id}
@@ -147,6 +165,6 @@ export default async function ComposePage({
           }}
         />
       )}
-    </>
+    </Page>
   );
 }

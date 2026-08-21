@@ -61,33 +61,33 @@ export default async function SettingsPage({
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Settings</h1>
-          <p className="mt-1 text-sm text-neutral-400">{user.email}</p>
+          <p className="mt-1 text-sm text-muted">{user.email}</p>
         </div>
         <Link
           href="/dashboard"
-          className="rounded-md border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+          className="rounded-md border border-line px-3 py-1.5 text-sm text-ink transition hover:border-line-strong hover:text-ink"
         >
           Back to dashboard
         </Link>
       </header>
 
       {params.checkout === "success" ? (
-        <p className="rounded-lg border border-emerald-900/50 bg-emerald-950/20 px-4 py-3 text-sm text-emerald-200">
+        <p className="rounded-lg border border-ok bg-ok-soft px-4 py-3 text-sm text-ok">
           Payment received. Your plan updates within a few seconds of
           Stripe&rsquo;s confirmation — reload if it has not yet.
         </p>
       ) : params.checkout === "canceled" ? (
-        <p className="rounded-lg border border-neutral-800 bg-neutral-950 px-4 py-3 text-sm text-neutral-400">
+        <p className="rounded-lg border border-line bg-panel px-4 py-3 text-sm text-muted">
           Checkout canceled — nothing was charged.
         </p>
       ) : null}
 
-      <section className="rounded-lg border border-neutral-900 p-4">
-        <h2 className="text-sm font-medium text-neutral-300">Plan</h2>
+      <section className="rounded-lg border border-line p-4">
+        <h2 className="text-sm font-medium text-ink">Plan</h2>
         <p className="mt-2 text-lg font-semibold capitalize">
           {snapshot?.planId ?? "free"}
         </p>
-        <p className="mt-1 text-xs text-neutral-500">
+        <p className="mt-1 text-xs text-faint">
           Workspaces: {snapshot?.usage.workspaceCount ?? 0}
           {snapshot?.limits.maxWorkspaces === null
             ? " / unlimited"
@@ -96,7 +96,7 @@ export default async function SettingsPage({
         </p>
         <Link
           href="/pricing"
-          className="mt-3 inline-block text-sm text-neutral-300 underline hover:text-white"
+          className="mt-3 inline-block text-sm text-ink underline hover:text-white"
         >
           Compare plans
         </Link>
@@ -109,9 +109,9 @@ export default async function SettingsPage({
         plans={checkoutPlans}
       />
 
-      <section className="rounded-lg border border-neutral-900 p-4">
-        <h2 className="text-sm font-medium text-neutral-300">Your data</h2>
-        <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5 text-sm text-neutral-400">
+      <section className="rounded-lg border border-line p-4">
+        <h2 className="text-sm font-medium text-ink">Your data</h2>
+        <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5 text-sm text-muted">
           <li>
             Connected accounts and their tokens: disconnect any of them from the
             dashboard with the × next to its name.
@@ -131,9 +131,9 @@ export default async function SettingsPage({
         </ul>
       </section>
 
-      <section className="rounded-lg border border-red-950 bg-red-950/10 p-4">
-        <h2 className="text-sm font-medium text-red-300">Delete account</h2>
-        <p className="mt-2 text-sm text-neutral-400">
+      <section className="rounded-lg border border-danger bg-danger-soft p-4">
+        <h2 className="text-sm font-medium text-danger">Delete account</h2>
+        <p className="mt-2 text-sm text-muted">
           Permanently deletes your MarkedFox account and everything in it:
           workspaces, connected accounts and their tokens, posts (scheduled ones
           will not go out), automation rules, and uploaded media. Where a

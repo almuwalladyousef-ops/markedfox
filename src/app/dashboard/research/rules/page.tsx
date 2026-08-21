@@ -117,7 +117,7 @@ export default async function RulesPage() {
                     {rule.active ? "ACTIVE" : "PAUSED"}
                   </Pill>
                   <p className="text-sm font-medium">{rule.name}</p>
-                  <p className="text-xs text-neutral-500">
+                  <p className="text-xs text-faint">
                     {rule.source_id
                       ? (byId.get(rule.source_id) ?? "a deleted channel")
                       : "All channels"}{" "}
@@ -130,20 +130,20 @@ export default async function RulesPage() {
                     <input type="hidden" name="id" value={rule.id} />
                     <button
                       type="submit"
-                      className="text-xs text-neutral-600 transition hover:text-red-300"
+                      className="text-xs text-faint transition hover:text-danger"
                     >
                       Delete
                     </button>
                   </form>
                 </div>
-                <p className="mt-1 text-xs text-neutral-600">
+                <p className="mt-1 text-xs text-faint">
                   {rule.last_run_at
                     ? <>Last ran <LocalTime value={rule.last_run_at} /></>
                     : "Has not run yet"}
                 </p>
 
                 <details className="mt-3">
-                  <summary className="cursor-pointer text-xs text-neutral-500">
+                  <summary className="cursor-pointer text-xs text-faint">
                     Edit
                   </summary>
                   <div className="mt-3">

@@ -15,7 +15,7 @@ export function UpdatePasswordForm() {
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold">Set a new password</h1>
-        <p className="text-sm text-neutral-400">
+        <p className="text-sm text-muted">
           You are signed in from your reset link.
         </p>
       </div>

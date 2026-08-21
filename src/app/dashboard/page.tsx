@@ -1,11 +1,20 @@
 import type { Metadata } from "next";
 
-import { Card, CardTitle, Notice, PageHeader, Stat } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardTitle,
+  Notice,
+  Page,
+  PageHeader,
+  Stat,
+} from "@/components/ui";
 import { signOut } from "@/lib/auth/actions";
 import { requireUser } from "@/lib/auth/session";
 import { listConnections } from "@/lib/connections/store";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
+import { parsePlanLimits, type PlanLimits } from "@/lib/entitlements/types";
 import { PLATFORM_LABELS as LABELS } from "@/lib/platforms/labels";
 import { listRegisteredPlatforms } from "@/lib/platforms/registry";
 import { PLATFORMS, type Platform } from "@/lib/platforms/types";
@@ -35,6 +44,25 @@ const CONNECT_ERRORS: Record<string, string> = {
     "That platform is not switched on for this deployment yet.",
 };
 
+type PublicPlan = { id: string; name: string; cents: number; limits: PlanLimits };
+
+/** The cheapest public plan that includes this platform, so the badge can say
+ *  what upgrading actually buys instead of the word "Locked". Read from the
+ *  plans table rather than hardcoded, because every limit here is a row edit. */
+function cheapestPlanWith(
+  plans: PublicPlan[],
+  platform: Platform,
+): PublicPlan | null {
+  return (
+    plans.find((plan) => {
+      if (platform === "x") return plan.limits.xPostsPerMonth > 0;
+      return plan.limits.platforms === null
+        ? true
+        : plan.limits.platforms.includes(platform);
+    }) ?? null
+  );
+}
+
 // Everything here reads through the user's own client, so RLS is what returns
 // the rows — not a filter this page remembered to apply.
 export default async function DashboardPage({
@@ -61,33 +89,48 @@ export default async function DashboardPage({
     const supabaseForCheck = await createClient();
     const { data: userRow } = await supabaseForCheck.from("users").select("id").eq("id", user.id).maybeSingle();
     return (
-      <main className="mx-auto max-w-2xl px-4 py-16">
-        <h1 className="text-2xl font-semibold">
+      <Page width="max-w-2xl">
+        <h1 className="font-display text-[26px] font-bold tracking-[-0.02em]">
           {userRow ? "Account setup incomplete" : "This account no longer exists"}
         </h1>
-        <p className="mt-2 text-neutral-400">
+        <p className="text-[13.5px]/[20px] text-muted">
           {userRow
             ? "No workspace exists for this account. Contact support@markedfox.com."
             : "It was deleted. Sign out to clear this browser's session."}
         </p>
-        <form action={signOut} className="mt-4">
-          <button
-            type="submit"
-            className="rounded-md border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
-          >
-            Sign out
-          </button>
+        <form action={signOut}>
+          <Button type="submit">Sign out</Button>
         </form>
-      </main>
+      </Page>
     );
   }
 
   const supabase = await createClient();
-  const [snapshot, connections, onboarding] = await Promise.all([
+  const [snapshot, connections, onboarding, planRows] = await Promise.all([
     getEntitlementSnapshot(supabase, user.id, active.id),
     listConnections(supabase, active.id),
     getOnboarding(supabase, user.id),
+    supabase
+      .from("plans")
+      .select("id, name, price_monthly_cents, is_public, limits")
+      .eq("is_public", true)
+      .order("price_monthly_cents", { ascending: true }),
   ]);
+
+  const publicPlans: PublicPlan[] = (planRows.data ?? []).map((row) => {
+    const plan = row as {
+      id: string;
+      name: string;
+      price_monthly_cents: number;
+      limits: unknown;
+    };
+    return {
+      id: plan.id,
+      name: plan.name,
+      cents: plan.price_monthly_cents,
+      limits: parsePlanLimits(plan.limits),
+    };
+  });
 
   // Counted rather than read: the checklist ticks a step when the thing is
   // actually true, so it can never disagree with the rest of the dashboard.
@@ -142,6 +185,7 @@ export default async function DashboardPage({
     });
     const included =
       decision.allowed || decision.code !== "plan_platform_locked";
+    const upgradeTo = included ? null : cheapestPlanWith(publicPlans, platform);
 
     return {
       id: platform,
@@ -164,20 +208,30 @@ export default async function DashboardPage({
       reason: included ? undefined : decision.allowed ? undefined : decision.reason,
       atAccountCap: included && atAccountCap,
       capReason: atAccountCap && !accountCap.allowed ? accountCap.reason : undefined,
+      upgradeNote: upgradeTo
+        ? platform === "x"
+          ? `On ${upgradeTo.name} · ${upgradeTo.limits.xPostsPerMonth}/mo`
+          : `On ${upgradeTo.name}`
+        : undefined,
+      // The one platform that is never "unlimited", said on the row itself
+      // rather than in fine print somewhere else.
+      note:
+        platform === "x" && included
+          ? `${snapshot.limits.xPostsPerMonth}/mo · no links — X charges per post`
+          : undefined,
     };
   });
 
 
   return (
-    <>
+    <Page width="max-w-[980px]">
       <PageHeader
         title="Accounts"
         subtitle={
           <>
-            Connecting into{" "}
-            <span className="text-neutral-200">{active.name}</span>. Posts, DMs
-            and credits are shared across all your workspaces; connected
-            accounts belong to this one.
+            Connecting into <span className="text-ink">{active.name}</span>.
+            Posts, DMs and credits are shared across all your workspaces;
+            connected accounts belong to this one.
           </>
         }
       />
@@ -187,7 +241,7 @@ export default async function DashboardPage({
           {CONNECT_ERRORS[params.connect_error] ??
             "Connecting that account did not work."}
           {params.connect_detail ? (
-            <span className="mt-1 block text-red-200/80">
+            <span className="mt-1 block opacity-80">
               {params.connect_detail}
             </span>
           ) : null}
@@ -218,9 +272,9 @@ export default async function DashboardPage({
 
       <Card>
         <CardTitle
-          hint="Pooled figures are shared across every workspace you own."
+          hint="pooled figures are shared across every workspace you own"
           action={
-            <span className="text-lg font-semibold capitalize">
+            <span className="font-display text-[17px] font-bold capitalize">
               {snapshot.planId}
             </span>
           }
@@ -228,7 +282,7 @@ export default async function DashboardPage({
           Plan
         </CardTitle>
 
-        <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <dl className="mt-3.5 grid grid-cols-2 gap-2.5 shell:grid-cols-3">
           <Stat
             label="Posts today"
             value={limitText(snapshot.usage.postsToday, snapshot.limits.postsPerDay)}
@@ -274,12 +328,12 @@ export default async function DashboardPage({
       </Card>
 
       <Card>
-        <CardTitle hint="Every platform is shown. One outside your plan wears a 💎 and says what upgrading buys.">
+        <CardTitle hint="one outside your plan wears a 💎 and says what upgrading buys">
           Platforms
         </CardTitle>
         <PlatformToggles rows={rows} />
       </Card>
-    </>
+    </Page>
   );
 }
 

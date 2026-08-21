@@ -4,6 +4,15 @@ import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
 import {
+  Button,
+  Card,
+  Eyebrow,
+  FoxMark,
+  segmentedItem,
+  segmentedTrack,
+} from "@/components/ui";
+
+import {
   parseTikTokOptions,
   validateTikTokOptions,
   type TikTokCreatorContext,
@@ -679,72 +688,65 @@ export function Composer({
   }, [accounts]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="grid items-start gap-4 shell:grid-cols-[1.6fr_1fr]">
+      <div className="flex min-w-0 flex-col gap-3.5">
       {/* accounts */}
-      <section className="rounded-lg border border-neutral-900 p-4">
-        <h2 className="text-sm font-medium text-neutral-300">Post to</h2>
-        <ul className="mt-3 flex flex-col gap-3">
-          {grouped.map(([platform, list]) => {
+      <Card>
+        <Eyebrow>Post to</Eyebrow>
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {grouped.flatMap(([platform, list]) => {
             const gate = gates[platform];
-            return (
-              <li key={platform}>
-                <p className="flex items-center gap-2 text-xs uppercase tracking-wide text-neutral-500">
-                  {labels[platform]}
-                  {gate ? (
+            return list.map((account) => {
+              const disabledReason = gate
+                ? gate.message
+                : account.status !== "active"
+                  ? "Reconnect this account on the dashboard first."
+                  : !account.publishable
+                    ? "Publishing to this platform is not available yet."
+                    : null;
+              const checked = selected.includes(account.id);
+              return (
+                <li key={account.id}>
+                  <label
+                    title={disabledReason ?? gate?.message}
+                    className={`flex cursor-pointer items-center gap-2 rounded-full border px-3.5 py-2 text-[13px] font-medium transition ${
+                      checked
+                        ? "border-accent bg-accent-soft text-ink"
+                        : "border-line text-muted hover:border-line-strong"
+                    } ${disabledReason ? "cursor-not-allowed opacity-50" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={checked}
+                      disabled={Boolean(disabledReason)}
+                      onChange={() => toggleAccount(account.id)}
+                    />
                     <span
-                      title={gate.message}
-                      className="rounded-full border border-amber-800/60 bg-amber-950/40 px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-amber-300"
-                    >
-                      💎 Upgrade
+                      aria-hidden
+                      className={`h-[7px] w-[7px] rounded-full ${checked ? "bg-accent" : "bg-faint"}`}
+                    />
+                    <span>
+                      {labels[platform]} · {account.name}
                     </span>
-                  ) : null}
-                </p>
-                <ul className="mt-1 flex flex-wrap gap-2">
-                  {list.map((account) => {
-                    const disabledReason = gate
-                      ? gate.message
-                      : account.status !== "active"
-                        ? "Reconnect this account on the dashboard first."
-                        : !account.publishable
-                          ? "Publishing to this platform is not available yet."
-                          : null;
-                    const checked = selected.includes(account.id);
-                    return (
-                      <li key={account.id}>
-                        <label
-                          title={disabledReason ?? undefined}
-                          className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition ${
-                            checked
-                              ? "border-emerald-700 bg-emerald-950/40 text-neutral-50"
-                              : "border-neutral-800 text-neutral-300 hover:border-neutral-600"
-                          } ${disabledReason ? "cursor-not-allowed opacity-50" : ""}`}
-                        >
-                          <input
-                            type="checkbox"
-                            className="accent-emerald-500"
-                            checked={checked}
-                            disabled={Boolean(disabledReason)}
-                            onChange={() => toggleAccount(account.id)}
-                          />
-                          <span>{account.name}</span>
-                          {account.status !== "active" ? (
-                            <span className="text-xs text-red-400">
-                              reconnect
-                            </span>
-                          ) : null}
-                        </label>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </li>
-            );
+                    {gate ? (
+                      <span className="text-[10px]" title={gate.message}>
+                        💎
+                      </span>
+                    ) : null}
+                    {account.status !== "active" ? (
+                      <span className="text-[11px] text-danger">reconnect</span>
+                    ) : null}
+                  </label>
+                </li>
+              );
+            });
           })}
         </ul>
 
         {connectable.length > 0 ? (
-          <div className="mt-4 border-t border-neutral-900 pt-3">
-            <p className="text-xs text-neutral-500">Not connected here yet</p>
+          <div className="mt-3.5 border-t border-line pt-3">
+            <p className="text-[11.5px] text-faint">Not connected here yet</p>
             <ul className="mt-2 flex flex-wrap gap-2">
               {/* Shown, never hidden, and never a dead label: a person deciding
                   whether this tool does what they need should see the whole
@@ -755,12 +757,12 @@ export function Composer({
                   <a
                     href={`/api/connect/${item.platform}/start`}
                     title={item.reason}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-neutral-700 px-3 py-1.5 text-sm text-neutral-400 transition hover:border-neutral-500 hover:text-neutral-200"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-line-strong px-3.5 py-2 text-[13px] text-muted transition hover:border-accent hover:text-accent"
                   >
-                    <span className="text-neutral-500">+</span>
+                    <span className="text-faint">+</span>
                     {item.label}
                     {item.reason ? (
-                      <span className="text-[10px] text-sky-300">setup</span>
+                      <span className="text-[10px] text-sky">setup</span>
                     ) : null}
                   </a>
                 </li>
@@ -768,57 +770,57 @@ export function Composer({
             </ul>
           </div>
         ) : null}
-      </section>
+      </Card>
 
       {/* caption */}
-      <section className="rounded-lg border border-neutral-900 p-4">
-        <label
-          htmlFor="caption"
-          className="text-sm font-medium text-neutral-300"
-        >
-          Caption
-        </label>
+      <Card>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <label htmlFor="caption">
+            <Eyebrow>Caption</Eyebrow>
+          </label>
+          {selectedPlatforms.length > 0 ? (
+            <ul className="flex flex-wrap gap-3 text-[11.5px]">
+              {selectedPlatforms.map((platform) => {
+                const spec = specs[platform];
+                if (!spec) return null;
+                const length = captionLength(captionFor(platform));
+                const over = length > spec.rules.captionMaxChars;
+                return (
+                  <li
+                    key={platform}
+                    className={over ? "text-danger" : "text-faint"}
+                  >
+                    {labels[platform]} {length.toLocaleString()}/
+                    {spec.rules.captionMaxChars.toLocaleString()}
+                    {overrides[platform] !== undefined ? " (custom)" : ""}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-[11.5px] text-faint">
+              Pick at least one account above.
+            </p>
+          )}
+        </div>
         <textarea
           id="caption"
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           rows={6}
           placeholder="What do you want to say?"
-          className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-neutral-50 outline-none transition focus:border-neutral-500"
+          className="mt-2.5 w-full resize-y rounded-[10px] border border-line bg-chip px-3.5 py-3 text-sm/[21px] text-ink outline-none transition placeholder:text-faint focus:border-accent"
         />
-        {selectedPlatforms.length > 0 ? (
-          <ul className="mt-2 flex flex-wrap gap-3 text-xs">
-            {selectedPlatforms.map((platform) => {
-              const spec = specs[platform];
-              if (!spec) return null;
-              const length = captionLength(captionFor(platform));
-              const over = length > spec.rules.captionMaxChars;
-              return (
-                <li
-                  key={platform}
-                  className={over ? "text-red-400" : "text-neutral-500"}
-                >
-                  {labels[platform]} {length.toLocaleString()}/
-                  {spec.rules.captionMaxChars.toLocaleString()}
-                  {overrides[platform] !== undefined ? " (custom)" : ""}
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="mt-2 text-xs text-neutral-500">
-            Pick at least one account above.
-          </p>
-        )}
 
         {/* per-platform overrides */}
         {selectedPlatforms.length > 1 || Object.keys(overrides).length > 0 ? (
-          <div className="mt-4 flex flex-col gap-3">
-            {selectedPlatforms.map((platform) => {
-              const enabled = overrides[platform] !== undefined;
-              return (
-                <div key={platform}>
+          <div className="mt-3 flex flex-col gap-3">
+            <div className="flex flex-wrap gap-4">
+              {selectedPlatforms.map((platform) => {
+                const enabled = overrides[platform] !== undefined;
+                return (
                   <button
+                    key={platform}
                     type="button"
                     onClick={() =>
                       setOverrides((prev) => {
@@ -828,32 +830,35 @@ export function Composer({
                         return next;
                       })
                     }
-                    className="text-xs text-neutral-400 underline-offset-2 hover:text-neutral-200 hover:underline"
+                    className="text-xs font-medium text-accent transition hover:brightness-[1.08]"
                   >
                     {enabled
                       ? `Use the shared caption for ${labels[platform]}`
                       : `Customize for ${labels[platform]}`}
                   </button>
-                  {enabled ? (
-                    <textarea
-                      value={overrides[platform] ?? ""}
-                      onChange={(e) =>
-                        setOverrides((prev) => ({
-                          ...prev,
-                          [platform]: e.target.value,
-                        }))
-                      }
-                      rows={3}
-                      aria-label={`Caption for ${labels[platform]}`}
-                      className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-50 outline-none transition focus:border-neutral-500"
-                    />
-                  ) : null}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            {selectedPlatforms.map((platform) =>
+              overrides[platform] !== undefined ? (
+                <textarea
+                  key={platform}
+                  value={overrides[platform] ?? ""}
+                  onChange={(e) =>
+                    setOverrides((prev) => ({
+                      ...prev,
+                      [platform]: e.target.value,
+                    }))
+                  }
+                  rows={3}
+                  aria-label={`Caption for ${labels[platform]}`}
+                  className="w-full resize-y rounded-[10px] border border-line bg-chip px-3.5 py-2.5 text-[13.5px] text-ink outline-none transition focus:border-accent"
+                />
+              ) : null,
+            )}
           </div>
         ) : null}
-      </section>
+      </Card>
 
       {/* per-platform options */}
       {selectedPlatforms.map((platform) => {
@@ -887,12 +892,12 @@ export function Composer({
       ) : null}
 
       {/* media */}
-      <section className="rounded-lg border border-neutral-900 p-4">
+      <Card>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-medium text-neutral-300">Media</h2>
+          <Eyebrow>Media</Eyebrow>
           <div className="flex items-center gap-3">
             {uploadsEnabled ? (
-              <label className="cursor-pointer text-xs font-medium text-neutral-100 underline-offset-2 hover:underline">
+              <label className="cursor-pointer text-xs font-semibold text-accent transition hover:brightness-[1.08]">
                 + Upload a file
                 <input
                   type="file"
@@ -911,13 +916,13 @@ export function Composer({
             <button
               type="button"
               onClick={addMedia}
-              className="text-xs text-neutral-400 underline-offset-2 hover:text-neutral-200 hover:underline"
+              className="text-xs font-medium text-muted transition hover:text-ink"
             >
               + Paste a link
             </button>
           </div>
         </div>
-        <p className="mt-1 text-xs text-neutral-500">
+        <p className="mt-1.5 text-[11.5px]/[17px] text-faint">
           {uploadsEnabled
             ? "JPEG, PNG, or WebP up to 8MB; MP4 or MOV up to 300MB. Instagram needs at least one item — it has no text-only posts."
             : "File upload is not switched on yet — paste a public https link to a JPEG, PNG, or MP4. Instagram needs at least one; the platforms fetch it from that link."}
@@ -929,15 +934,21 @@ export function Composer({
               return (
                 <li key={row.key} className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
+                    <span
+                      aria-hidden
+                      className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg bg-chip text-sm text-faint"
+                    >
+                      {row.type === "video" ? "▶" : "◲"}
+                    </span>
                     {isUpload ? (
-                      <span className="min-w-0 flex-1 truncate rounded-md border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-300">
+                      <span className="min-w-0 flex-1 truncate rounded-[10px] border border-line bg-chip px-3 py-2 text-[13px] text-muted">
                         {row.name ?? "Uploaded file"}
                         {row.progress !== undefined ? (
-                          <span className="ml-2 text-xs text-neutral-500">
+                          <span className="ml-2 text-[11.5px] text-faint">
                             {row.progress}%
                           </span>
                         ) : row.url ? (
-                          <span className="ml-2 text-xs text-emerald-400">
+                          <span className="ml-2 text-[11.5px] text-ok">
                             ready
                           </span>
                         ) : null}
@@ -958,7 +969,7 @@ export function Composer({
                               : row.type,
                           })
                         }
-                        className="min-w-0 flex-1 rounded-md border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-50 outline-none focus:border-neutral-500"
+                        className="min-w-0 flex-1 rounded-[10px] border border-line bg-chip px-3 py-2 text-[13px] text-ink outline-none transition placeholder:text-faint focus:border-accent"
                       />
                     )}
                     <select
@@ -970,7 +981,7 @@ export function Composer({
                           type: e.target.value as MediaRef["type"],
                         })
                       }
-                      className="rounded-md border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-sm text-neutral-200 disabled:opacity-50"
+                      className="rounded-[10px] border border-line bg-chip px-2 py-2 text-[13px] text-ink disabled:opacity-50"
                     >
                       <option value="image">Image</option>
                       <option value="video">Video</option>
@@ -979,14 +990,14 @@ export function Composer({
                       type="button"
                       onClick={() => removeMedia(row.key)}
                       aria-label={`Remove media ${index + 1}`}
-                      className="rounded-md border border-neutral-800 px-2 py-1.5 text-sm text-neutral-400 hover:border-neutral-600"
+                      className="px-1.5 py-1.5 text-[13px] text-faint transition hover:text-danger"
                     >
                       ✕
                     </button>
                   </div>
                   {row.progress !== undefined ? (
                     <div
-                      className="h-1 w-full overflow-hidden rounded-full bg-neutral-800"
+                      className="h-1 w-full overflow-hidden rounded-full bg-chip"
                       role="progressbar"
                       aria-valuenow={row.progress}
                       aria-valuemin={0}
@@ -994,60 +1005,37 @@ export function Composer({
                       aria-label={`Uploading ${row.name ?? "file"}`}
                     >
                       <div
-                        className="h-full bg-emerald-500 transition-all"
+                        className="h-full bg-ok transition-all"
                         style={{ width: `${row.progress}%` }}
                       />
                     </div>
                   ) : null}
                   {row.error ? (
-                    <p className="text-xs text-red-400">{row.error}</p>
+                    <p className="text-[11.5px] text-danger">{row.error}</p>
                   ) : null}
                 </li>
               );
             })}
           </ul>
         ) : null}
-      </section>
-
-      {selectedPlatforms.length > 0 ? (
-        <PostPreview
-          platforms={selectedPlatforms}
-          labels={labels}
-          caption={caption}
-          overrides={overrides}
-          media={mediaRefs}
-          accountsByPlatform={Object.fromEntries(
-            selectedPlatforms.map((platform) => [
-              platform,
-              selected
-                .map((id) => accountById.get(id))
-                .filter((account) => account?.platform === platform)
-                .map((account) => account!.name),
-            ]),
-          )}
-        />
-      ) : null}
+      </Card>
 
       {/* when */}
-      <section className="rounded-lg border border-neutral-900 p-4">
-        <h2 className="text-sm font-medium text-neutral-300">When</h2>
-        <div className="mt-2 flex flex-wrap items-center gap-4 text-sm">
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="mode"
-              checked={mode === "now"}
-              onChange={() => setMode("now")}
-              className="accent-emerald-500"
-            />
-            Publish now
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="mode"
-              checked={mode === "schedule"}
-              onChange={() => {
+      <Card>
+        <Eyebrow>When</Eyebrow>
+        <div className="mt-2.5 flex flex-wrap items-center gap-3">
+          <div className={segmentedTrack}>
+            <button
+              type="button"
+              onClick={() => setMode("now")}
+              aria-pressed={mode === "now"}
+              className={segmentedItem(mode === "now")}
+            >
+              Publish now
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 setMode("schedule");
                 const now = new Date();
                 setMinSchedule(toLocalInputValue(now));
@@ -1057,10 +1045,12 @@ export function Composer({
                   );
                 }
               }}
-              className="accent-emerald-500"
-            />
-            Schedule
-          </label>
+              aria-pressed={mode === "schedule"}
+              className={segmentedItem(mode === "schedule")}
+            >
+              Schedule
+            </button>
+          </div>
           {mode === "schedule" ? (
             <input
               type="datetime-local"
@@ -1068,59 +1058,70 @@ export function Composer({
               min={minSchedule}
               onChange={(e) => setScheduledFor(e.target.value)}
               aria-label="Scheduled time"
-              className="rounded-md border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-sm text-neutral-50 [color-scheme:dark]"
+              className="rounded-[10px] border border-line bg-chip px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
             />
           ) : null}
         </div>
-        <p className="mt-2 text-xs text-neutral-500">
+        {mode === "schedule" ? (
+          <p className="mt-2.5 text-[11.5px]/[17px] text-faint">
+            🦊 It publishes on the server — no tab open, no reminder needed.
+          </p>
+        ) : null}
+        <p className="mt-2 text-[11.5px] text-faint">
           Posts today: {usage.postsToday}
           {usage.postsPerDay === null ? "" : ` / ${usage.postsPerDay}`}
           {selectedPlatforms.includes("x")
             ? ` · X this month: ${usage.xPostsThisMonth} / ${usage.xPostsPerMonth}`
             : ""}
         </p>
-      </section>
+      </Card>
 
       {/* issues */}
       {issues.length > 0 && selected.length > 0 ? (
-        <ul
+        <div
           aria-live="polite"
-          className="flex flex-col gap-1 rounded-md border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-sm text-amber-200"
+          className="rounded-xl border border-warn bg-warn-soft px-3.5 py-3"
         >
-          {issues.map((issue, i) => (
-            <li key={i}>
-              {issue.platform ? (
-                <span className="font-medium">{labels[issue.platform]}: </span>
-              ) : null}
-              {issue.message}
-            </li>
-          ))}
-        </ul>
+          <p className="text-xs font-semibold text-warn">
+            Fix before publishing
+          </p>
+          <ul className="mt-1.5 flex list-disc flex-col gap-1 pl-4 text-[13px]/[19px] text-ink">
+            {issues.map((issue, i) => (
+              <li key={i}>
+                {issue.platform ? (
+                  <span className="font-semibold">
+                    {labels[issue.platform]}:{" "}
+                  </span>
+                ) : null}
+                {issue.message}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       <div className="flex items-center gap-3">
-        <button
+        <Button
           type="button"
+          tone="primary"
           onClick={submit}
           disabled={!canSubmit}
-          className="rounded-md bg-neutral-50 px-4 py-2 text-sm font-semibold text-neutral-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting
             ? "Working…"
             : mode === "now"
               ? "Publish now"
-              : "Schedule"}
-        </button>
-        <button
+              : "Schedule post"}
+        </Button>
+        <Button
           type="button"
           onClick={saveDraft}
           disabled={savingDraft || submitting}
-          className="rounded-lg border border-neutral-800 px-4 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50 disabled:opacity-50"
         >
           {savingDraft ? "Saving…" : "Save draft"}
-        </button>
+        </Button>
         {selected.length === 0 ? (
-          <span className="text-xs text-neutral-500">
+          <span className="text-[11.5px] text-faint">
             Choose at least one account.
           </span>
         ) : null}
@@ -1128,6 +1129,32 @@ export function Composer({
 
       {/* outcome */}
       {outcome ? <OutcomePanel outcome={outcome} labels={labels} /> : null}
+      </div>
+
+      {/* The preview is the aside on a wide screen and nothing at all on a
+          phone: a second rendering of the post below the composer costs more
+          scrolling than it explains. */}
+      {selectedPlatforms.length > 0 ? (
+        <aside className="hidden shell:sticky shell:top-8 shell:block">
+          <PostPreview
+            platforms={selectedPlatforms}
+            labels={labels}
+            caption={caption}
+            overrides={overrides}
+            media={mediaRefs}
+            scheduledFor={mode === "schedule" ? scheduledFor : null}
+            accountsByPlatform={Object.fromEntries(
+              selectedPlatforms.map((platform) => [
+                platform,
+                selected
+                  .map((id) => accountById.get(id))
+                  .filter((account) => account?.platform === platform)
+                  .map((account) => account!.name),
+              ]),
+            )}
+          />
+        </aside>
+      ) : null}
     </div>
   );
 }
@@ -1141,16 +1168,20 @@ function OutcomePanel({
 }) {
   if (outcome.kind === "scheduled") {
     return (
-      <p
+      <div
         aria-live="polite"
-        className="rounded-md border border-emerald-900 bg-emerald-950/50 px-3 py-2 text-sm text-emerald-300"
+        className="flex items-center gap-3 rounded-xl border border-ok bg-ok-soft px-3.5 py-3 text-[13px] text-ink"
       >
-        Scheduled for {new Date(outcome.scheduledFor).toLocaleString()}.{" "}
-        <a href="/dashboard/posts" className="underline">
-          See it in Posts
-        </a>
-        .
-      </p>
+        <FoxMark className="h-6" />
+        <p>
+          Scheduled — the fox will take it from here.{" "}
+          {new Date(outcome.scheduledFor).toLocaleString()}.{" "}
+          <a href="/dashboard/posts" className="text-accent underline">
+            See it in Posts
+          </a>
+          .
+        </p>
+      </div>
     );
   }
 
@@ -1158,7 +1189,7 @@ function OutcomePanel({
     return (
       <div
         aria-live="polite"
-        className="rounded-md border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300"
+        className="rounded-xl border border-danger bg-danger-soft px-3.5 py-3 text-[13px] text-danger"
       >
         <p>{outcome.message}</p>
         {outcome.details.length > 0 ? (
@@ -1174,7 +1205,7 @@ function OutcomePanel({
 
   const heading =
     outcome.status === "published"
-      ? "Published everywhere."
+      ? "Published everywhere. Sly work."
       : outcome.status === "partial"
         ? "Published to some accounts — not all."
         : "Nothing was published.";
@@ -1182,16 +1213,19 @@ function OutcomePanel({
   return (
     <div
       aria-live="polite"
-      className={`rounded-md border px-3 py-2 text-sm ${
+      className={`rounded-xl border px-3.5 py-3 text-[13px] text-ink ${
         outcome.status === "published"
-          ? "border-emerald-900 bg-emerald-950/50 text-emerald-200"
+          ? "border-ok bg-ok-soft"
           : outcome.status === "partial"
-            ? "border-amber-900 bg-amber-950/40 text-amber-200"
-            : "border-red-900 bg-red-950/50 text-red-200"
+            ? "border-warn bg-warn-soft"
+            : "border-danger bg-danger-soft"
       }`}
     >
-      <p className="font-medium">{heading}</p>
-      <ul className="mt-2 flex flex-col gap-1">
+      <p className="flex items-center gap-2.5 font-semibold">
+        <FoxMark className="h-5" />
+        {heading}
+      </p>
+      <ul className="mt-2 flex flex-col gap-1 text-[12.5px]">
         {outcome.results.map((r) => (
           <li key={r.connectionId}>
             <span className="font-medium">

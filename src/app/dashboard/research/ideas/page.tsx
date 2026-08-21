@@ -55,7 +55,7 @@ export default async function IdeasPage({
             <form action={discardAllInboxAction}>
               <button
                 type="submit"
-                className="text-sm text-neutral-500 transition hover:text-red-300"
+                className="text-sm text-faint transition hover:text-danger"
               >
                 Discard all
               </button>
@@ -64,7 +64,7 @@ export default async function IdeasPage({
         }
       />
 
-      <div className="flex gap-1 rounded-lg bg-neutral-900/60 p-1 sm:w-fit">
+      <div className="flex gap-1 rounded-lg bg-chip p-1 sm:w-fit">
         <Tab href="/dashboard/research/ideas" label="Inbox" active={status === "inbox"} />
         <Tab
           href="/dashboard/research/ideas?tab=shortlist"
@@ -92,8 +92,8 @@ function Tab({
       href={href}
       className={`rounded-md px-3 py-1.5 text-sm transition ${
         active
-          ? "bg-neutral-800 font-medium text-neutral-50"
-          : "text-neutral-400 hover:text-neutral-200"
+          ? "bg-chip font-medium text-ink"
+          : "text-muted hover:text-ink"
       }`}
     >
       {label}

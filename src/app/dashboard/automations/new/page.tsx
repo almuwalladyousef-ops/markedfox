@@ -46,7 +46,7 @@ export default async function NewRulePage({
         actions={
           <Link
             href="/dashboard/automations/templates"
-            className="rounded-lg border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:border-line-strong hover:text-ink"
           >
             Browse templates
           </Link>

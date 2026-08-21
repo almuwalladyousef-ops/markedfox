@@ -113,9 +113,9 @@ export default async function DraftsPage({
                         className="h-16 w-12 shrink-0 rounded-md object-cover"
                       />
                     ) : null}
-                    <p className="line-clamp-4 min-w-0 flex-1 text-sm leading-relaxed text-neutral-300">
+                    <p className="line-clamp-4 min-w-0 flex-1 text-sm leading-relaxed text-ink">
                       {draft.caption || (
-                        <span className="text-neutral-600 italic">No caption yet</span>
+                        <span className="text-faint italic">No caption yet</span>
                       )}
                     </p>
                   </div>
@@ -144,7 +144,7 @@ export default async function DraftsPage({
                   <div className="mt-auto flex items-center gap-3 pt-1 text-xs">
                     <Link
                       href={`/dashboard/compose?draft=${draft.id}`}
-                      className="text-neutral-200 underline-offset-2 hover:underline"
+                      className="text-ink underline-offset-2 hover:underline"
                     >
                       Open
                     </Link>
@@ -152,12 +152,12 @@ export default async function DraftsPage({
                       <input type="hidden" name="post_id" value={draft.id} />
                       <button
                         type="submit"
-                        className="text-neutral-500 underline-offset-2 hover:text-red-300 hover:underline"
+                        className="text-faint underline-offset-2 hover:text-danger hover:underline"
                       >
                         Delete
                       </button>
                     </form>
-                    <span className="ml-auto text-neutral-600">
+                    <span className="ml-auto text-faint">
                       <LocalTime value={draft.updated_at} mode="date" />
                     </span>
                   </div>

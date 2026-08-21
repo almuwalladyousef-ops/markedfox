@@ -44,28 +44,28 @@ export function PhonePreview({
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <div className="w-full max-w-[19rem] overflow-hidden rounded-[2rem] border-4 border-neutral-800 bg-black">
-        <div className="flex items-center justify-between px-4 py-2 text-[10px] text-neutral-500">
+      <div className="w-full max-w-[19rem] overflow-hidden rounded-[2rem] border-4 border-line bg-black">
+        <div className="flex items-center justify-between px-4 py-2 text-[10px] text-faint">
           <span>{accountName}</span>
           <span>▁▂▃ ▮</span>
         </div>
 
-        <div className="h-[26rem] overflow-y-auto bg-neutral-950 px-3 pb-4">
+        <div className="h-[26rem] overflow-y-auto bg-panel px-3 pb-4">
           {surface === "Post" ? (
             <div className="flex h-full flex-col">
               <div className="flex items-center gap-2 py-2">
-                <span className="h-6 w-6 rounded-full bg-neutral-800" />
-                <span className="text-xs text-neutral-300">{accountName}</span>
+                <span className="h-6 w-6 rounded-full bg-chip" />
+                <span className="text-xs text-ink">{accountName}</span>
               </div>
-              <div className="flex flex-1 items-center justify-center rounded-lg bg-neutral-900 text-xs text-neutral-600">
+              <div className="flex flex-1 items-center justify-center rounded-lg bg-chip text-xs text-faint">
                 your post
               </div>
-              <div className="flex gap-3 py-2 text-neutral-400">
+              <div className="flex gap-3 py-2 text-muted">
                 <span>♡</span>
                 <span>💬</span>
                 <span>↗</span>
               </div>
-              <p className="text-[11px] text-neutral-500">
+              <p className="text-[11px] text-faint">
                 {trigger === "comment"
                   ? `Comment “${triggerWord}” and I'll send it over`
                   : "This rule does not run on posts."}
@@ -73,7 +73,7 @@ export function PhonePreview({
             </div>
           ) : surface === "Comments" ? (
             <div className="flex flex-col gap-3 py-3">
-              <p className="text-center text-[11px] text-neutral-600">
+              <p className="text-center text-[11px] text-faint">
                 Comments
               </p>
               {trigger === "comment" ? (
@@ -84,20 +84,20 @@ export function PhonePreview({
                       <Comment name={accountName} text={commentReply} own />
                     </div>
                   ) : (
-                    <p className="pl-8 text-[11px] text-neutral-600">
+                    <p className="pl-8 text-[11px] text-faint">
                       No public reply — only the DM goes out.
                     </p>
                   )}
                 </>
               ) : (
-                <p className="text-[11px] text-neutral-600">
+                <p className="text-[11px] text-faint">
                   This rule is not triggered by comments.
                 </p>
               )}
             </div>
           ) : (
             <div className="flex flex-col gap-2 py-3">
-              <p className="text-center text-[11px] text-neutral-600">
+              <p className="text-center text-[11px] text-faint">
                 {accountName}
               </p>
               {trigger !== "comment" ? (
@@ -107,7 +107,7 @@ export function PhonePreview({
                 />
               ) : null}
               {messages.length === 0 ? (
-                <p className="text-center text-[11px] text-neutral-600">
+                <p className="text-center text-[11px] text-faint">
                   Write the first message and it appears here.
                 </p>
               ) : (
@@ -125,7 +125,7 @@ export function PhonePreview({
         </div>
       </div>
 
-      <div className="flex gap-1 rounded-lg bg-neutral-900/60 p-1">
+      <div className="flex gap-1 rounded-lg bg-chip p-1">
         {SURFACES.map((item) => (
           <button
             key={item}
@@ -133,8 +133,8 @@ export function PhonePreview({
             onClick={() => setSurface(item)}
             className={`rounded-md px-3 py-1 text-xs transition ${
               surface === item
-                ? "bg-neutral-800 font-medium text-neutral-50"
-                : "text-neutral-500 hover:text-neutral-300"
+                ? "bg-chip font-medium text-ink"
+                : "text-faint hover:text-ink"
             }`}
           >
             {item}
@@ -156,12 +156,12 @@ function Comment({
 }) {
   return (
     <div className="flex gap-2">
-      <span className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-neutral-800" />
+      <span className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-chip" />
       <p className="text-[11px] leading-relaxed">
-        <span className={own ? "text-neutral-300" : "text-neutral-400"}>
+        <span className={own ? "text-ink" : "text-muted"}>
           {name}
         </span>{" "}
-        <span className="text-neutral-500">{text}</span>
+        <span className="text-faint">{text}</span>
       </p>
     </div>
   );
@@ -183,12 +183,12 @@ function Bubble({
         className={`max-w-[85%] rounded-2xl px-3 py-2 text-[11px] leading-relaxed whitespace-pre-wrap ${
           mine
             ? "bg-indigo-600 text-white"
-            : "bg-neutral-800 text-neutral-100"
+            : "bg-chip text-ink"
         }`}
       >
         {text}
         {buttonLabel ? (
-          <span className="mt-2 block rounded-lg border border-neutral-600 bg-neutral-900 px-2 py-1 text-center text-[11px] text-neutral-200">
+          <span className="mt-2 block rounded-lg border border-line-strong bg-chip px-2 py-1 text-center text-[11px] text-ink">
             {buttonLabel}
           </span>
         ) : null}

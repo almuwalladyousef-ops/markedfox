@@ -27,7 +27,7 @@ export function Field({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={name} className="text-sm font-medium text-neutral-300">
+      <label htmlFor={name} className="text-sm font-medium text-ink">
         {label}
       </label>
       <input
@@ -39,14 +39,14 @@ export function Field({
         required
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : hint ? hintId : undefined}
-        className="rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-neutral-50 outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500 aria-[invalid=true]:border-red-800"
+        className="rounded-md border border-line bg-chip px-3 py-2 text-ink outline-none transition focus:border-line-strong focus:ring-1 focus:ring-neutral-500 aria-[invalid=true]:border-danger"
       />
       {error ? (
-        <p id={errorId} className="text-sm text-red-400">
+        <p id={errorId} className="text-sm text-danger">
           {error}
         </p>
       ) : hint ? (
-        <p id={hintId} className="text-xs text-neutral-500">
+        <p id={hintId} className="text-xs text-faint">
           {hint}
         </p>
       ) : null}
@@ -65,7 +65,7 @@ export function SubmitButton({
     <button
       type="submit"
       disabled={pending}
-      className="mt-1 rounded-md bg-neutral-50 px-3 py-2 text-sm font-semibold text-neutral-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+      className="mt-1 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-accent-ink transition hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? "Working…" : children}
     </button>
@@ -82,8 +82,8 @@ export function FormMessage({ state }: { state: AuthFormState }) {
       aria-live="polite"
       className={
         state.success
-          ? "rounded-md border border-emerald-900 bg-emerald-950/50 px-3 py-2 text-sm text-emerald-300"
-          : "rounded-md border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300"
+          ? "rounded-md border border-ok bg-ok-soft px-3 py-2 text-sm text-ok"
+          : "rounded-md border border-danger bg-danger-soft px-3 py-2 text-sm text-danger"
       }
     >
       {state.message}

@@ -85,7 +85,7 @@ export default async function TemplatesPage() {
         if (templates.length === 0) return null;
         return (
           <section key={goal}>
-            <h2 className="text-[10px] font-semibold tracking-widest text-neutral-500 uppercase">
+            <h2 className="text-[10px] font-semibold tracking-widest text-faint uppercase">
               {GOAL_LABELS[goal]}
             </h2>
             <ul className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -95,12 +95,12 @@ export default async function TemplatesPage() {
                     href={`/dashboard/automations/new?template=${template.id}`}
                     className="block h-full"
                   >
-                    <Card className="flex h-full flex-col gap-2 p-4 transition hover:border-neutral-600">
+                    <Card className="flex h-full flex-col gap-2 p-4 transition hover:border-line-strong">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-medium">{template.name}</p>
                         {template.popular ? <Pill tone="warn">POPULAR</Pill> : null}
                       </div>
-                      <p className="text-sm leading-relaxed text-neutral-400">
+                      <p className="text-sm leading-relaxed text-muted">
                         {template.description}
                       </p>
                       <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-2">

@@ -142,8 +142,8 @@ export default async function ResearchPage({
         <div className="grid gap-6 lg:grid-cols-[16rem_1fr]">
           <div className="flex flex-col gap-3">
             {savedFilters.length > 0 ? (
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-3">
-                <p className="text-[10px] font-semibold tracking-widest text-neutral-500 uppercase">
+              <div className="rounded-xl border border-line bg-panel p-3">
+                <p className="text-[10px] font-semibold tracking-widest text-faint uppercase">
                   Saved
                 </p>
                 <ul className="mt-2 flex flex-col gap-1">
@@ -156,7 +156,7 @@ export default async function ResearchPage({
                       >
                         <a
                           href={`/dashboard/research?${params.toString()}`}
-                          className="min-w-0 flex-1 truncate text-sm text-neutral-300 hover:text-neutral-50"
+                          className="min-w-0 flex-1 truncate text-sm text-ink hover:text-ink"
                         >
                           {filter.name}
                         </a>
@@ -165,7 +165,7 @@ export default async function ResearchPage({
                           <button
                             type="submit"
                             aria-label={`Delete ${filter.name}`}
-                            className="px-1 text-neutral-600 transition hover:text-red-300"
+                            className="px-1 text-faint transition hover:text-danger"
                           >
                             ×
                           </button>
@@ -186,7 +186,7 @@ export default async function ResearchPage({
             {parsed.active ? (
               <form
                 action={saveFilterAction}
-                className="flex gap-2 rounded-xl border border-neutral-800 bg-neutral-950/60 p-3"
+                className="flex gap-2 rounded-xl border border-line bg-panel p-3"
               >
                 {/* The filter being saved is exactly the one on screen, carried
                     as hidden fields so the saved row is the current URL. */}
@@ -203,7 +203,7 @@ export default async function ResearchPage({
                   required
                   maxLength={60}
                   placeholder="Save this filter as…"
-                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-xs outline-none focus:border-neutral-600"
+                  className="w-full rounded-lg border border-line bg-chip px-2 py-1.5 text-xs outline-none focus:border-line-strong"
                 />
                 <Button type="submit" size="sm">
                   Save
@@ -213,7 +213,7 @@ export default async function ResearchPage({
           </div>
 
           <div>
-            <p className="mb-3 text-xs text-neutral-500">
+            <p className="mb-3 text-xs text-faint">
               {feed.length} {feed.length === 1 ? "video" : "videos"}
               {parsed.active ? " matching these filters" : ""}
               {feed.length === 120 ? " (showing the first 120)" : ""}

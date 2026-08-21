@@ -59,18 +59,18 @@ export default async function ProjectPage({
       <header>
         <Link
           href="/dashboard/research/projects"
-          className="text-sm text-neutral-500 hover:text-neutral-300"
+          className="text-sm text-faint hover:text-ink"
         >
           ← Projects
         </Link>
         <h1 className="mt-2 text-2xl font-semibold">{project.name}</h1>
         {project.description ? (
-          <p className="mt-1 text-sm text-neutral-400">{project.description}</p>
+          <p className="mt-1 text-sm text-muted">{project.description}</p>
         ) : null}
       </header>
 
       {items.length === 0 ? (
-        <p className="rounded-lg border border-neutral-800 bg-neutral-950 px-4 py-6 text-center text-sm text-neutral-500">
+        <p className="rounded-lg border border-line bg-panel px-4 py-6 text-center text-sm text-faint">
           Nothing saved yet. Open an outlier from{" "}
           <Link href="/dashboard/research" className="underline">
             the feed
@@ -87,7 +87,7 @@ export default async function ProjectPage({
               <section key={stage.id}>
                 <h2 className="text-sm font-semibold">
                   {stage.label}
-                  <span className="ml-2 font-normal text-neutral-500">
+                  <span className="ml-2 font-normal text-faint">
                     {stageItems.length}
                   </span>
                 </h2>
@@ -95,7 +95,7 @@ export default async function ProjectPage({
                   {stageItems.map((item) => (
                     <li
                       key={item.id}
-                      className="flex items-start justify-between gap-4 rounded-lg border border-neutral-800 bg-neutral-950/60 px-4 py-3"
+                      className="flex items-start justify-between gap-4 rounded-lg border border-line bg-panel px-4 py-3"
                     >
                       <div className="min-w-0 flex-1">
                         <Link
@@ -104,7 +104,7 @@ export default async function ProjectPage({
                         >
                           {item.video.title}
                         </Link>
-                        <p className="mt-1 text-xs text-neutral-500">
+                        <p className="mt-1 text-xs text-faint">
                           {item.video.source.title} ·{" "}
                           {describeScore(
                             item.video.outlier_score === null
@@ -121,7 +121,7 @@ export default async function ProjectPage({
                           <select
                             name="stage"
                             defaultValue={item.stage}
-                            className="rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-xs outline-none"
+                            className="rounded-lg border border-line bg-chip px-2 py-1.5 text-xs outline-none"
                           >
                             {STAGES.map((option) => (
                               <option key={option.id} value={option.id}>
@@ -131,7 +131,7 @@ export default async function ProjectPage({
                           </select>
                           <button
                             type="submit"
-                            className="ml-1 rounded-lg border border-neutral-700 px-2 py-1.5 text-xs transition hover:bg-neutral-900"
+                            className="ml-1 rounded-lg border border-line-strong px-2 py-1.5 text-xs transition hover:bg-chip"
                           >
                             Move
                           </button>
@@ -141,7 +141,7 @@ export default async function ProjectPage({
                           <button
                             type="submit"
                             aria-label="Remove from project"
-                            className="rounded px-2 py-1 text-neutral-600 transition hover:bg-neutral-800 hover:text-red-300"
+                            className="rounded px-2 py-1 text-faint transition hover:bg-chip hover:text-danger"
                           >
                             ×
                           </button>

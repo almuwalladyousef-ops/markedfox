@@ -39,11 +39,11 @@ export function BillingPanel({
   const upgrades = plans.filter((plan) => plan.id !== planId);
 
   return (
-    <section className="rounded-lg border border-neutral-900 p-4">
-      <h2 className="text-sm font-medium text-neutral-300">Billing</h2>
+    <section className="rounded-lg border border-line p-4">
+      <h2 className="text-sm font-medium text-ink">Billing</h2>
 
       {!configured ? (
-        <p className="mt-2 text-xs text-neutral-500">
+        <p className="mt-2 text-xs text-faint">
           Payments are not configured on this deployment yet. Plans still apply;
           checkout turns on with the Stripe keys.
         </p>
@@ -55,7 +55,7 @@ export function BillingPanel({
                 <form
                   key={plan.id}
                   action={checkoutAction}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-neutral-800 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line px-3 py-2"
                 >
                   <input type="hidden" name="plan_id" value={plan.id} />
                   <span className="text-sm font-medium">{plan.name}</span>
@@ -65,7 +65,7 @@ export function BillingPanel({
                       name="interval"
                       value="monthly"
                       disabled={checkoutPending}
-                      className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs transition hover:bg-neutral-900 disabled:opacity-50"
+                      className="rounded-lg border border-line-strong px-3 py-1.5 text-xs transition hover:bg-chip disabled:opacity-50"
                     >
                       {plan.monthly}/mo
                     </button>
@@ -74,7 +74,7 @@ export function BillingPanel({
                       name="interval"
                       value="annual"
                       disabled={checkoutPending}
-                      className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black transition hover:bg-neutral-200 disabled:opacity-50"
+                      className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:brightness-[1.08] disabled:opacity-50"
                     >
                       {plan.annual}/yr — two months free
                     </button>
@@ -89,21 +89,21 @@ export function BillingPanel({
               <button
                 type="submit"
                 disabled={portalPending}
-                className="rounded-lg border border-neutral-700 px-4 py-2 text-sm transition hover:bg-neutral-900 disabled:opacity-50"
+                className="rounded-lg border border-line-strong px-4 py-2 text-sm transition hover:bg-chip disabled:opacity-50"
               >
                 {portalPending ? "Opening…" : "Manage billing"}
               </button>
-              <span className="ml-2 text-xs text-neutral-600">
+              <span className="ml-2 text-xs text-faint">
                 Card, invoices, switching plans, or canceling — on Stripe.
               </span>
             </form>
           ) : null}
 
           {checkoutState.message ? (
-            <p className="text-xs text-red-400">{checkoutState.message}</p>
+            <p className="text-xs text-danger">{checkoutState.message}</p>
           ) : null}
           {portalState.message ? (
-            <p className="text-xs text-red-400">{portalState.message}</p>
+            <p className="text-xs text-danger">{portalState.message}</p>
           ) : null}
         </div>
       )}

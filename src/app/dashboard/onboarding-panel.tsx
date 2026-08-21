@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Card, Pill } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 import {
   dismissOnboardingAction,
   saveOnboardingAnswersAction,
@@ -30,10 +30,10 @@ export function OnboardingPanel({
   if (askQuestions) {
     return (
       <Card>
-        <h2 className="text-sm font-semibold">
+        <h2 className="text-sm font-semibold text-ink">
           Three questions, then we get out of the way
         </h2>
-        <p className="mt-1 text-xs text-neutral-500">
+        <p className="mt-1 text-[11.5px] text-faint">
           They only tune what gets recommended. Skip them and nothing breaks.
         </p>
 
@@ -45,14 +45,14 @@ export function OnboardingPanel({
         <form action={saveOnboardingAnswersAction} className="mt-4 flex flex-col gap-5">
           {QUESTIONS.map((question) => (
             <fieldset key={question.key}>
-              <legend className="text-sm text-neutral-300">
+              <legend className="text-[13px] text-ink">
                 {question.question}
               </legend>
               <div className="mt-2 flex flex-wrap gap-2">
                 {question.options.map((option) => (
                   <label
                     key={option.value}
-                    className="cursor-pointer rounded-full border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 has-checked:border-neutral-400 has-checked:bg-neutral-900 has-checked:text-neutral-50"
+                    className="cursor-pointer rounded-full border border-line px-3.5 py-2 text-[13px] text-muted transition hover:border-line-strong has-checked:border-accent has-checked:bg-accent-soft has-checked:text-accent"
                   >
                     <input
                       type="radio"
@@ -68,17 +68,14 @@ export function OnboardingPanel({
           ))}
 
           <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition hover:bg-neutral-200"
-            >
+            <Button type="submit" tone="primary">
               Continue
-            </button>
+            </Button>
             <button
               type="submit"
               name="skipped"
               value="1"
-              className="text-sm text-neutral-500 transition hover:text-neutral-300"
+              className="text-[13px] text-faint transition hover:text-ink"
             >
               Skip
             </button>
@@ -91,44 +88,44 @@ export function OnboardingPanel({
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold">Getting started</h2>
-          <p className="mt-1 text-xs text-neutral-500">
+        <h2 className="text-sm font-semibold text-ink">
+          Getting started
+          <span className="ml-2 text-[11.5px] font-normal text-faint">
             {done} of {total} done
-          </p>
-        </div>
+          </span>
+        </h2>
         <form action={dismissOnboardingAction}>
           <button
             type="submit"
-            className="text-xs text-neutral-600 transition hover:text-neutral-400"
+            className="text-[11.5px] text-faint transition hover:text-ink"
           >
             Hide this
           </button>
         </form>
       </div>
 
-      <div className="mt-3 h-1 overflow-hidden rounded-full bg-neutral-900">
+      <div className="mt-3 h-1 overflow-hidden rounded-full bg-chip">
         <div
-          className="h-full rounded-full bg-emerald-600 transition-all"
+          className="h-full rounded-full bg-ok transition-all"
           style={{ width: `${total === 0 ? 0 : (done / total) * 100}%` }}
         />
       </div>
 
-      <ol className="mt-4 flex flex-col gap-1">
+      <ol className="mt-3 flex flex-col">
         {steps.map((step) => (
           <li key={step.id}>
             <Link
               href={step.href}
-              className={`flex items-start gap-3 rounded-lg px-2 py-2 transition hover:bg-neutral-900/60 ${
-                step.done ? "opacity-60" : ""
+              className={`flex items-start gap-2.5 rounded-lg px-2 py-[7px] transition hover:bg-chip ${
+                step.done ? "opacity-55" : ""
               }`}
             >
               <span
                 aria-hidden
-                className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[10px] ${
+                className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] ${
                   step.done
-                    ? "border-emerald-700 bg-emerald-950 text-emerald-300"
-                    : "border-neutral-700 text-transparent"
+                    ? "bg-ok-soft text-ok"
+                    : "border border-line-strong text-transparent"
                 }`}
               >
                 ✓
@@ -136,20 +133,24 @@ export function OnboardingPanel({
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2">
                   <span
-                    className={`text-sm ${step.done ? "text-neutral-400 line-through" : "text-neutral-100"}`}
+                    className={`text-[13px] ${step.done ? "text-muted line-through" : "text-ink"}`}
                   >
                     {step.title}
                   </span>
-                  {step.locked ? <Pill tone="warn">💎 Studio</Pill> : null}
+                  {step.locked ? (
+                    <span className="rounded-full bg-warn-soft px-2 py-px text-[10px] font-semibold text-warn">
+                      💎 Studio
+                    </span>
+                  ) : null}
                 </span>
                 {!step.done ? (
-                  <span className="mt-0.5 block text-xs leading-relaxed text-neutral-500">
+                  <span className="mt-0.5 block text-[11.5px]/[17px] text-faint">
                     {step.detail}
                   </span>
                 ) : null}
               </span>
               {!step.done ? (
-                <span className="shrink-0 text-xs text-neutral-400">
+                <span className="shrink-0 text-[11.5px] text-muted">
                   {step.cta} →
                 </span>
               ) : null}

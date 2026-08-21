@@ -21,7 +21,7 @@ export function ResetForm() {
         <FormMessage state={state} />
         <Link
           href="/login"
-          className="text-sm text-neutral-400 hover:text-neutral-200"
+          className="text-sm text-muted hover:text-ink"
         >
           Back to sign in
         </Link>
@@ -33,7 +33,7 @@ export function ResetForm() {
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold">Reset your password</h1>
-        <p className="text-sm text-neutral-400">
+        <p className="text-sm text-muted">
           We will email you a link to set a new one.
         </p>
       </div>
@@ -52,7 +52,7 @@ export function ResetForm() {
 
       <Link
         href="/login"
-        className="pt-2 text-sm text-neutral-400 hover:text-neutral-200"
+        className="pt-2 text-sm text-muted hover:text-ink"
       >
         Back to sign in
       </Link>

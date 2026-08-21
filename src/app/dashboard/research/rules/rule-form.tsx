@@ -122,16 +122,16 @@ export function RuleForm({
             aria-label="Active"
             onClick={() => setActive((v) => !v)}
             className={`relative h-5 w-10 rounded-full transition ${
-              active ? "bg-emerald-600" : "bg-neutral-700"
+              active ? "bg-ok" : "bg-chip"
             }`}
           >
             <span
-              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${
+              className={`absolute top-0.5 h-4 w-4 rounded-full bg-accent transition ${
                 active ? "translate-x-5" : "translate-x-1"
               }`}
             />
           </button>
-          <span className="text-neutral-300">Active</span>
+          <span className="text-ink">Active</span>
         </label>
 
         {state.message ? (

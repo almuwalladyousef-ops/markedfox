@@ -136,14 +136,14 @@ export function CalendarGrid({
             type="button"
             aria-label="Previous"
             onClick={() => go({ date: shift(view, anchor, -1) })}
-            className="rounded-lg border border-neutral-800 px-2.5 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600"
+            className="rounded-lg border border-line px-2.5 py-1.5 text-sm text-ink transition hover:border-line-strong"
           >
             ‹
           </button>
           <button
             type="button"
             onClick={() => go({ date: now ?? new Date() })}
-            className="rounded-lg border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600"
+            className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:border-line-strong"
           >
             Today
           </button>
@@ -151,13 +151,13 @@ export function CalendarGrid({
             type="button"
             aria-label="Next"
             onClick={() => go({ date: shift(view, anchor, 1) })}
-            className="rounded-lg border border-neutral-800 px-2.5 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600"
+            className="rounded-lg border border-line px-2.5 py-1.5 text-sm text-ink transition hover:border-line-strong"
           >
             ›
           </button>
         </div>
 
-        <div className="ml-auto flex gap-1 rounded-lg bg-neutral-900/60 p-1">
+        <div className="ml-auto flex gap-1 rounded-lg bg-chip p-1">
           {(["month", "week", "day"] as CalendarView[]).map((item) => (
             <button
               key={item}
@@ -165,8 +165,8 @@ export function CalendarGrid({
               onClick={() => go({ view: item })}
               className={`rounded-md px-3 py-1 text-sm capitalize transition ${
                 view === item
-                  ? "bg-neutral-800 font-medium text-neutral-50"
-                  : "text-neutral-400 hover:text-neutral-200"
+                  ? "bg-chip font-medium text-ink"
+                  : "text-muted hover:text-ink"
               }`}
             >
               {item}
@@ -197,12 +197,12 @@ function MonthGrid({
   now: Date | null;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-neutral-800">
-      <div className="grid grid-cols-7 border-b border-neutral-800 bg-neutral-950">
+    <div className="overflow-hidden rounded-xl border border-line">
+      <div className="grid grid-cols-7 border-b border-line bg-panel">
         {DAY_NAMES.map((name) => (
           <div
             key={name}
-            className="px-2 py-1.5 text-center text-[10px] font-semibold tracking-widest text-neutral-500 uppercase"
+            className="px-2 py-1.5 text-center text-[10px] font-semibold tracking-widest text-faint uppercase"
           >
             {name}
           </div>
@@ -216,17 +216,17 @@ function MonthGrid({
           return (
             <div
               key={day.toISOString()}
-              className={`min-h-24 border-r border-b border-neutral-900 p-1.5 last:border-r-0 ${
-                outside ? "bg-neutral-950/50" : ""
+              className={`min-h-24 border-r border-b border-line p-1.5 last:border-r-0 ${
+                outside ? "bg-panel" : ""
               }`}
             >
               <p
                 className={`text-xs ${
                   isToday
-                    ? "font-semibold text-red-400"
+                    ? "font-semibold text-danger"
                     : outside
-                      ? "text-neutral-700"
-                      : "text-neutral-500"
+                      ? "text-faint"
+                      : "text-faint"
                 }`}
               >
                 {day.getDate()}
@@ -238,7 +238,7 @@ function MonthGrid({
                   </li>
                 ))}
                 {posts.length > 3 ? (
-                  <li className="text-[10px] text-neutral-500">
+                  <li className="text-[10px] text-faint">
                     +{posts.length - 3} more
                   </li>
                 ) : null}
@@ -276,10 +276,10 @@ function TimeGrid({
     now === null ? null : now.getHours() * HOUR_HEIGHT_REM + (now.getMinutes() / 60) * HOUR_HEIGHT_REM;
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-neutral-800">
+    <div className="overflow-x-auto rounded-xl border border-line">
       <div className="min-w-[44rem]">
         <div
-          className="grid border-b border-neutral-800 bg-neutral-950"
+          className="grid border-b border-line bg-panel"
           style={{ gridTemplateColumns: `4rem repeat(${days.length}, 1fr)` }}
         >
           <div />
@@ -287,11 +287,11 @@ function TimeGrid({
             const isToday = now !== null && sameDay(day, now);
             return (
               <div key={day.toISOString()} className="px-2 py-2 text-center">
-                <p className="text-[10px] tracking-widest text-neutral-500 uppercase">
+                <p className="text-[10px] tracking-widest text-faint uppercase">
                   {DAY_NAMES[day.getDay()]}
                 </p>
                 <p
-                  className={`text-sm ${isToday ? "font-semibold text-red-400" : "text-neutral-300"}`}
+                  className={`text-sm ${isToday ? "font-semibold text-danger" : "text-ink"}`}
                 >
                   {day.getDate()}
                 </p>
@@ -312,10 +312,10 @@ function TimeGrid({
         >
           {now !== null && nowOffset !== null && days.some((day) => sameDay(day, now)) ? (
             <div
-              className="pointer-events-none absolute right-0 left-16 z-10 border-t border-red-500/70"
+              className="pointer-events-none absolute right-0 left-16 z-10 border-t border-danger"
               style={{ top: `${nowOffset}rem` }}
             >
-              <span className="absolute -top-2 -left-14 text-[10px] text-red-400">
+              <span className="absolute -top-2 -left-14 text-[10px] text-danger">
                 {now.toLocaleTimeString(undefined, {
                   hour: "numeric",
                   minute: "2-digit",
@@ -332,7 +332,7 @@ function TimeGrid({
               {visibleHours.map((hour) => (
                 <div
                   key={hour}
-                  className="h-12 border-b border-neutral-900 pr-2 text-right text-[10px] text-neutral-600"
+                  className="h-12 border-b border-line pr-2 text-right text-[10px] text-faint"
                 >
                   {hour === 0
                     ? "12 AM"
@@ -350,10 +350,10 @@ function TimeGrid({
               return (
                 <div
                   key={day.toISOString()}
-                  className="relative border-l border-neutral-900"
+                  className="relative border-l border-line"
                 >
                   {visibleHours.map((hour) => (
-                    <div key={hour} className="h-12 border-b border-neutral-900" />
+                    <div key={hour} className="h-12 border-b border-line" />
                   ))}
                   {posts.map((post) => {
                     const at = new Date(post.scheduledFor);
@@ -405,7 +405,7 @@ function PostChip({
           : "/dashboard/posts"
       }
       title={`${time ? `${time} · ` : ""}${post.accounts.join(", ")}\n${post.caption}`}
-      className="block overflow-hidden rounded-md border border-neutral-700 bg-neutral-900/90 transition hover:border-neutral-500"
+      className="block overflow-hidden rounded-md border border-line-strong bg-chip transition hover:border-line-strong"
     >
       <div className="flex items-start gap-1.5 p-1">
         {post.thumbnail && !compact ? (
@@ -417,13 +417,13 @@ function PostChip({
           />
         ) : null}
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1 text-[10px] text-neutral-400">
+          <p className="flex items-center gap-1 text-[10px] text-muted">
             {time ? <span>{time}</span> : null}
             <span className="truncate uppercase">
               {post.platforms.slice(0, 3).join(" ")}
             </span>
           </p>
-          <p className="truncate text-[11px] text-neutral-200">
+          <p className="truncate text-[11px] text-ink">
             {post.caption || "No caption"}
           </p>
         </div>

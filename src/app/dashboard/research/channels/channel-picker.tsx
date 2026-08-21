@@ -86,7 +86,7 @@ export function ChannelPicker({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-1 rounded-lg bg-neutral-900/60 p-1">
+      <div className="flex flex-wrap gap-1 rounded-lg bg-chip p-1">
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -94,8 +94,8 @@ export function ChannelPicker({
             onClick={() => setTab(item.id)}
             className={`rounded-md px-3 py-1.5 text-sm transition ${
               tab === item.id
-                ? "bg-neutral-800 font-medium text-neutral-50"
-                : "text-neutral-400 hover:text-neutral-200"
+                ? "bg-chip font-medium text-ink"
+                : "text-muted hover:text-ink"
             }`}
           >
             {item.label}
@@ -105,7 +105,7 @@ export function ChannelPicker({
 
       <form
         action={action}
-        className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-3"
+        className="rounded-xl border border-line bg-panel p-3"
       >
         <input type="hidden" name="platform" value={platform} />
         <input type="hidden" name="mode" value={tab === "suggest" ? "suggest" : "describe"} />
@@ -114,7 +114,7 @@ export function ChannelPicker({
         ))}
 
         {tab === "suggest" ? (
-          <p className="px-1 py-2 text-sm text-neutral-400">
+          <p className="px-1 py-2 text-sm text-muted">
             Suggestions are built from the channels you already track, then
             checked against {active?.label ?? "the platform"} — anything that
             does not resolve to a real account is dropped before you see it.
@@ -142,7 +142,7 @@ export function ChannelPicker({
             onChange={(event) =>
               setPlatform(event.target.value as ResearchPlatform)
             }
-            className="rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-xs outline-none focus:border-neutral-600"
+            className="rounded-lg border border-line bg-chip px-2 py-1.5 text-xs outline-none focus:border-line-strong"
           >
             {/* Selectable even when this deployment cannot read it yet: the
                 note under the box says what is missing, which is more use than
@@ -159,7 +159,7 @@ export function ChannelPicker({
             <button
               type="button"
               onClick={() => setSizeOpen((v) => !v)}
-              className="rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-xs text-neutral-300"
+              className="rounded-lg border border-line bg-chip px-2 py-1.5 text-xs text-ink"
             >
               {sizes.length === 0
                 ? "Account size"
@@ -167,11 +167,11 @@ export function ChannelPicker({
               ▾
             </button>
             {sizeOpen ? (
-              <div className="absolute z-20 mt-1 w-64 rounded-lg border border-neutral-800 bg-neutral-950 p-1 shadow-2xl">
+              <div className="absolute z-20 mt-1 w-64 rounded-lg border border-line bg-panel p-1 shadow-2xl">
                 {SIZE_TIERS.map((tier) => (
                   <label
                     key={tier.id}
-                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs transition hover:bg-neutral-900"
+                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs transition hover:bg-chip"
                   >
                     <input
                       type="checkbox"
@@ -185,10 +185,10 @@ export function ChannelPicker({
                       }
                       className="accent-neutral-200"
                     />
-                    <span className="font-medium text-neutral-200">
+                    <span className="font-medium text-ink">
                       {tier.label}
                     </span>
-                    <span className="ml-auto text-neutral-500">{tier.range}</span>
+                    <span className="ml-auto text-faint">{tier.range}</span>
                   </label>
                 ))}
               </div>
@@ -199,7 +199,7 @@ export function ChannelPicker({
             <button
               type="button"
               onClick={() => setSizes([])}
-              className="text-xs text-neutral-500 transition hover:text-neutral-300"
+              className="text-xs text-faint transition hover:text-ink"
             >
               ✕ Clear filters
             </button>
@@ -223,18 +223,18 @@ export function ChannelPicker({
         </div>
 
         {(tab === "suggest" || tab === "describe") && aiConfigured ? (
-          <p className="mt-2 px-1 text-[11px] text-neutral-600">
+          <p className="mt-2 px-1 text-[11px] text-faint">
             Costs 1 credit. {creditsLeft} left this month.
           </p>
         ) : null}
         {(tab === "suggest" || tab === "describe") && !aiConfigured ? (
-          <p className="mt-2 px-1 text-[11px] text-amber-400">
+          <p className="mt-2 px-1 text-[11px] text-warn">
             Needs an AI key on this deployment. Search and Add URL work without
             one.
           </p>
         ) : null}
         {active && !active.available ? (
-          <p className="mt-2 px-1 text-[11px] text-amber-400">{active.note}</p>
+          <p className="mt-2 px-1 text-[11px] text-warn">{active.note}</p>
         ) : null}
       </form>
 
@@ -246,7 +246,7 @@ export function ChannelPicker({
           and it is free to repeat one. */}
       {state.groups?.map((group, index) => (
         <section key={`${index}-${group.group}`}>
-          <p className="text-[10px] font-semibold tracking-widest text-neutral-500 uppercase">
+          <p className="text-[10px] font-semibold tracking-widest text-faint uppercase">
             {group.group}
           </p>
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -268,8 +268,8 @@ export function ChannelPicker({
                     }
                     className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition disabled:opacity-50 ${
                       chosen
-                        ? "border-neutral-500 bg-neutral-900"
-                        : "border-neutral-800 hover:border-neutral-600"
+                        ? "border-line-strong bg-chip"
+                        : "border-line hover:border-line-strong"
                     }`}
                   >
                     <Avatar url={channel.thumbnailUrl} platform={channel.platform} />
@@ -277,14 +277,14 @@ export function ChannelPicker({
                       <span className="block truncate text-sm font-medium">
                         {channel.handle ? `@${channel.handle}` : channel.title}
                       </span>
-                      <span className="block text-xs text-neutral-500">
+                      <span className="block text-xs text-faint">
                         {formatCount(channel.followerCount)} followers
                       </span>
                     </span>
                     {channel.watching ? (
                       <Pill tone="ok">Watching</Pill>
                     ) : chosen ? (
-                      <span className="text-sm text-neutral-200">✓</span>
+                      <span className="text-sm text-ink">✓</span>
                     ) : null}
                   </button>
                 </li>
@@ -297,7 +297,7 @@ export function ChannelPicker({
       {pickedList.length > 0 ? (
         <form
           action={runAdd}
-          className="sticky bottom-4 flex items-center gap-3 rounded-xl border border-neutral-700 bg-neutral-900 p-3 shadow-2xl"
+          className="sticky bottom-4 flex items-center gap-3 rounded-xl border border-line-strong bg-chip p-3 shadow-2xl"
         >
           {/* JSON rather than a delimited string: "Alex Hormozi | Acquisition"
               is a perfectly ordinary channel name, and a pipe-joined value
@@ -323,7 +323,7 @@ export function ChannelPicker({
             <button
               type="button"
               onClick={() => setPicked({})}
-              className="ml-3 text-xs text-neutral-500 transition hover:text-neutral-300"
+              className="ml-3 text-xs text-faint transition hover:text-ink"
             >
               Clear
             </button>
@@ -367,9 +367,9 @@ function Avatar({
           className="h-9 w-9 rounded-full object-cover"
         />
       ) : (
-        <span className="block h-9 w-9 rounded-full bg-neutral-800" />
+        <span className="block h-9 w-9 rounded-full bg-chip" />
       )}
-      <span className="absolute -right-0.5 -bottom-0.5 rounded bg-neutral-950 px-1 text-[8px] font-bold text-neutral-400 uppercase">
+      <span className="absolute -right-0.5 -bottom-0.5 rounded bg-panel px-1 text-[8px] font-bold text-muted uppercase">
         {platform.slice(0, 2)}
       </span>
     </span>

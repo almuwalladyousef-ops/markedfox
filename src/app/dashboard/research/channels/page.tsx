@@ -128,7 +128,7 @@ export default async function ChannelsPage() {
           </CardTitle>
 
           {sources.length === 0 ? (
-            <p className="mt-4 text-sm text-neutral-500">
+            <p className="mt-4 text-sm text-faint">
               Nothing here yet. Pick channels on the left.
             </p>
           ) : (
@@ -136,7 +136,7 @@ export default async function ChannelsPage() {
               {sources.map((source) => (
                 <li
                   key={source.id}
-                  className="flex items-center gap-2.5 rounded-lg px-2 py-2 transition hover:bg-neutral-900"
+                  className="flex items-center gap-2.5 rounded-lg px-2 py-2 transition hover:bg-chip"
                 >
                   <span className="relative block h-8 w-8 shrink-0">
                     {source.thumbnail_url ? (
@@ -148,9 +148,9 @@ export default async function ChannelsPage() {
                         className="h-8 w-8 rounded-full object-cover"
                       />
                     ) : (
-                      <span className="block h-8 w-8 rounded-full bg-neutral-800" />
+                      <span className="block h-8 w-8 rounded-full bg-chip" />
                     )}
-                    <span className="absolute -right-0.5 -bottom-0.5 rounded bg-neutral-950 px-1 text-[8px] font-bold text-neutral-400 uppercase">
+                    <span className="absolute -right-0.5 -bottom-0.5 rounded bg-panel px-1 text-[8px] font-bold text-muted uppercase">
                       {source.platform.slice(0, 2)}
                     </span>
                   </span>
@@ -159,14 +159,14 @@ export default async function ChannelsPage() {
                     <span className="block truncate text-sm">
                       {source.handle ? `@${source.handle}` : source.title}
                     </span>
-                    <span className="block text-xs text-neutral-500">
+                    <span className="block text-xs text-faint">
                       {formatCount(source.follower_count)} followers
                       {source.baseline_views !== null
                         ? ` · typical ${formatCount(source.baseline_views)}`
                         : " · no baseline yet"}
                     </span>
                     {source.last_error ? (
-                      <span className="mt-0.5 block text-xs text-red-400">
+                      <span className="mt-0.5 block text-xs text-danger">
                         {source.last_error}
                       </span>
                     ) : null}
@@ -177,7 +177,7 @@ export default async function ChannelsPage() {
                     <button
                       type="submit"
                       title="Sync now"
-                      className="rounded px-1.5 py-1 text-xs text-neutral-500 transition hover:bg-neutral-800 hover:text-neutral-200"
+                      className="rounded px-1.5 py-1 text-xs text-faint transition hover:bg-chip hover:text-ink"
                     >
                       ⟳
                     </button>
@@ -187,7 +187,7 @@ export default async function ChannelsPage() {
                     <button
                       type="submit"
                       aria-label={`Stop watching ${source.title}`}
-                      className="rounded px-1.5 py-1 text-xs text-neutral-600 transition hover:bg-neutral-800 hover:text-red-300"
+                      className="rounded px-1.5 py-1 text-xs text-faint transition hover:bg-chip hover:text-danger"
                     >
                       ×
                     </button>

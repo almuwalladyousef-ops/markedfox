@@ -38,11 +38,11 @@ export function BreakdownPanel({
   const [state, action, pending] = useActionState(breakdownVideoAction, EMPTY);
 
   return (
-    <section className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-5">
+    <section className="rounded-xl border border-line bg-panel p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-sm font-semibold">Why it worked</h2>
-          <p className="mt-1 text-xs text-neutral-500">
+          <p className="mt-1 text-xs text-faint">
             {breakdown
               ? "The mechanism behind this video. Scripts written from here reuse the structure, not the wording."
               : "Break the video down into its hook, its open loop, and its beats — then write from that instead of from the title."}
@@ -54,7 +54,7 @@ export function BreakdownPanel({
             <button
               type="submit"
               disabled={!enabled || pending || creditsLeft <= 0}
-              className="shrink-0 rounded-lg bg-white px-3 py-2 text-xs font-medium text-black transition hover:bg-neutral-200 disabled:opacity-50"
+              className="shrink-0 rounded-lg bg-accent px-3 py-2 text-xs font-medium text-accent-ink transition hover:brightness-[1.08] disabled:opacity-50"
             >
               {pending ? "Analysing…" : "Break it down"}
             </button>
@@ -65,21 +65,21 @@ export function BreakdownPanel({
       {/* Only worth saying when there is no breakdown yet and no button to
           press. Beside a finished breakdown it explains nothing. */}
       {!enabled && !breakdown ? (
-        <p className="mt-4 rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 text-xs text-neutral-500">
+        <p className="mt-4 rounded-lg border border-line bg-chip px-4 py-3 text-xs text-faint">
           Breakdowns need an AI key on this deployment. Tracking and outlier
           scoring already work.
         </p>
       ) : null}
 
       {!breakdown && enabled && !hasTranscript ? (
-        <p className="mt-4 text-xs text-amber-400/80">
+        <p className="mt-4 text-xs text-warn">
           No transcript yet. Fetch one first (it is free) — without it the
           breakdown works from the title alone and will say so rather than guess.
         </p>
       ) : null}
 
       {state.message ? (
-        <p className={`mt-3 text-xs ${state.ok ? "text-emerald-400" : "text-red-400"}`}>
+        <p className={`mt-3 text-xs ${state.ok ? "text-ok" : "text-danger"}`}>
           {state.message}
         </p>
       ) : null}
@@ -88,9 +88,9 @@ export function BreakdownPanel({
         <dl className="mt-4 flex flex-col gap-4 text-sm">
           {breakdown.hook ? (
             <Field label="Hook">
-              <p className="italic text-neutral-200">&ldquo;{breakdown.hook}&rdquo;</p>
+              <p className="italic text-ink">&ldquo;{breakdown.hook}&rdquo;</p>
               {breakdown.hookType ? (
-                <p className="mt-1 text-xs text-neutral-500">
+                <p className="mt-1 text-xs text-faint">
                   {HOOK_TYPE_LABELS[breakdown.hookType as HookType]}
                 </p>
               ) : null}
@@ -99,7 +99,7 @@ export function BreakdownPanel({
 
           {breakdown.curiosityLoop ? (
             <Field label="What holds attention">
-              <p className="text-neutral-300">{breakdown.curiosityLoop}</p>
+              <p className="text-ink">{breakdown.curiosityLoop}</p>
             </Field>
           ) : null}
 
@@ -107,8 +107,8 @@ export function BreakdownPanel({
             <Field label="Beats">
               <ol className="flex flex-col gap-1.5">
                 {breakdown.structure.map((beat, index) => (
-                  <li key={index} className="flex gap-3 text-neutral-300">
-                    <span className="w-16 shrink-0 text-xs uppercase tracking-wide text-neutral-500">
+                  <li key={index} className="flex gap-3 text-ink">
+                    <span className="w-16 shrink-0 text-xs uppercase tracking-wide text-faint">
                       {beat.label}
                     </span>
                     <span className="min-w-0">{beat.detail}</span>
@@ -120,13 +120,13 @@ export function BreakdownPanel({
 
           {breakdown.formatNotes ? (
             <Field label="Format">
-              <p className="text-neutral-300">{breakdown.formatNotes}</p>
+              <p className="text-ink">{breakdown.formatNotes}</p>
             </Field>
           ) : null}
 
           {breakdown.takeaway ? (
             <Field label="Copy this">
-              <p className="rounded-lg border border-emerald-900/50 bg-emerald-950/20 px-3 py-2 text-emerald-100">
+              <p className="rounded-lg border border-ok bg-ok-soft px-3 py-2 text-ok">
                 {breakdown.takeaway}
               </p>
             </Field>
@@ -134,7 +134,7 @@ export function BreakdownPanel({
 
           {breakdown.notes ? (
             <Field label="Notes">
-              <p className="text-neutral-400">{breakdown.notes}</p>
+              <p className="text-muted">{breakdown.notes}</p>
             </Field>
           ) : null}
         </dl>
@@ -152,7 +152,7 @@ function Field({
 }) {
   return (
     <div>
-      <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+      <dt className="text-xs font-medium uppercase tracking-wide text-faint">
         {label}
       </dt>
       <dd className="mt-1.5">{children}</dd>

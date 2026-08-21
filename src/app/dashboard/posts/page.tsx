@@ -34,13 +34,13 @@ type HistoryRow = {
 };
 
 const STATUS_STYLE: Record<PostStatus, string> = {
-  draft: "text-neutral-400 border-neutral-800",
-  scheduled: "text-sky-300 border-sky-900",
-  publishing: "text-amber-300 border-amber-900",
-  published: "text-emerald-300 border-emerald-900",
-  partial: "text-amber-300 border-amber-900",
-  failed: "text-red-300 border-red-900",
-  canceled: "text-neutral-500 border-neutral-800",
+  draft: "text-muted border-line",
+  scheduled: "text-sky border-sky",
+  publishing: "text-warn border-warn",
+  published: "text-ok border-ok",
+  partial: "text-warn border-warn",
+  failed: "text-danger border-danger",
+  canceled: "text-faint border-line",
 };
 
 // Recent posts in the active workspace with what happened per platform. Reads
@@ -112,7 +112,7 @@ export default async function PostsPage() {
         title="Posts"
         subtitle={
           <>
-            In <span className="text-neutral-200">{active.name}</span>, newest
+            In <span className="text-ink">{active.name}</span>, newest
             first — with what happened on each platform.
           </>
         }
@@ -148,13 +148,13 @@ export default async function PostsPage() {
                   ? (["Published", post.published_at] as const)
                   : (["Created", post.created_at] as const);
             return (
-              <li key={post.id} className="rounded-lg border border-neutral-900 p-4">
+              <li key={post.id} className="rounded-lg border border-line p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm text-neutral-100">
-                      {post.caption.trim() || <span className="text-neutral-500">(no caption)</span>}
+                    <p className="truncate text-sm text-ink">
+                      {post.caption.trim() || <span className="text-faint">(no caption)</span>}
                     </p>
-                    <p className="mt-1 text-xs text-neutral-500">
+                    <p className="mt-1 text-xs text-faint">
                       {whenLabel} <LocalTime value={whenAt} />
                     </p>
                   </div>
@@ -170,7 +170,7 @@ export default async function PostsPage() {
                     {rows.map((row, i) => {
                       const account = row.connection_id ? names.get(row.connection_id) : undefined;
                       return (
-                        <li key={i} className={row.outcome === "published" ? "text-emerald-300" : "text-red-300"}>
+                        <li key={i} className={row.outcome === "published" ? "text-ok" : "text-danger"}>
                           {PLATFORM_LABELS[row.platform]}
                           {account ? ` · ${account.name}` : ""}:{" "}
                           {row.outcome === "published" ? (
@@ -189,7 +189,7 @@ export default async function PostsPage() {
                     })}
                   </ul>
                 ) : post.status === "scheduled" || post.status === "canceled" ? (
-                  <p className="mt-3 text-xs text-neutral-500">
+                  <p className="mt-3 text-xs text-faint">
                     To:{" "}
                     {post.target_connection_ids
                       .map((id) => {
@@ -203,7 +203,7 @@ export default async function PostsPage() {
                 ) : null}
 
                 {post.last_error && rows.length === 0 ? (
-                  <p className="mt-2 text-xs text-red-300">{post.last_error}</p>
+                  <p className="mt-2 text-xs text-danger">{post.last_error}</p>
                 ) : null}
 
                 {post.status === "scheduled" ? (
@@ -211,7 +211,7 @@ export default async function PostsPage() {
                     <input type="hidden" name="post_id" value={post.id} />
                     <button
                       type="submit"
-                      className="rounded-md border border-neutral-800 px-2 py-1 text-xs text-neutral-300 transition hover:border-neutral-600"
+                      className="rounded-md border border-line px-2 py-1 text-xs text-ink transition hover:border-line-strong"
                     >
                       Cancel
                     </button>

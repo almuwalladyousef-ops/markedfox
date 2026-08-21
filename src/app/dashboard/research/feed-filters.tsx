@@ -51,10 +51,10 @@ export function FeedFilters({
   return (
     <form
       method="get"
-      className="flex flex-col gap-4 rounded-xl border border-neutral-800 bg-neutral-950/60 p-4"
+      className="flex flex-col gap-4 rounded-xl border border-line bg-panel p-4"
     >
       <div className="flex items-center justify-between">
-        <p className="text-[10px] font-semibold tracking-widest text-neutral-500 uppercase">
+        <p className="text-[10px] font-semibold tracking-widest text-faint uppercase">
           Filters
         </p>
         {parsed.active ? (
@@ -63,7 +63,7 @@ export function FeedFilters({
           // once a filter is already applied.
           <Link
             href="/dashboard/research"
-            className="text-xs text-neutral-500 transition hover:text-neutral-300"
+            className="text-xs text-faint transition hover:text-ink"
           >
             Clear
           </Link>
@@ -71,21 +71,21 @@ export function FeedFilters({
       </div>
 
       <label className="block">
-        <span className="text-xs font-medium text-neutral-400">Channels</span>
+        <span className="text-xs font-medium text-muted">Channels</span>
         <button
           type="button"
           onClick={() => setChannelsOpen((v) => !v)}
           className={`${inputClass} mt-1.5 flex items-center justify-between text-left`}
         >
           <span className="truncate">{selectedLabel}</span>
-          <span className="text-neutral-500">{channelsOpen ? "▴" : "▾"}</span>
+          <span className="text-faint">{channelsOpen ? "▴" : "▾"}</span>
         </button>
       </label>
 
       {channelsOpen ? (
-        <div className="-mt-2 max-h-64 overflow-y-auto rounded-lg border border-neutral-800">
+        <div className="-mt-2 max-h-64 overflow-y-auto rounded-lg border border-line">
           {channels.length === 0 ? (
-            <p className="px-3 py-3 text-xs text-neutral-500">
+            <p className="px-3 py-3 text-xs text-faint">
               No channels yet.
             </p>
           ) : (
@@ -94,7 +94,7 @@ export function FeedFilters({
                 const checked = selected.includes(channel.id);
                 return (
                   <li key={channel.id}>
-                    <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition hover:bg-neutral-900">
+                    <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition hover:bg-chip">
                       <input
                         type="checkbox"
                         name="source"
@@ -112,7 +112,7 @@ export function FeedFilters({
                       <span className="min-w-0 flex-1 truncate">
                         {channel.handle ? `@${channel.handle}` : channel.title}
                       </span>
-                      <span className="shrink-0 text-[10px] text-neutral-600 uppercase">
+                      <span className="shrink-0 text-[10px] text-faint uppercase">
                         {channel.platform}
                       </span>
                     </label>
@@ -129,7 +129,7 @@ export function FeedFilters({
       )}
 
       <label className="block">
-        <span className="text-xs font-medium text-neutral-400">Keywords</span>
+        <span className="text-xs font-medium text-muted">Keywords</span>
         <input
           name="q"
           defaultValue={form.keywords}
@@ -174,7 +174,7 @@ export function FeedFilters({
       />
 
       <label className="block">
-        <span className="text-xs font-medium text-neutral-400">
+        <span className="text-xs font-medium text-muted">
           Posted in last
         </span>
         <div className="mt-1.5 flex gap-2">
@@ -197,7 +197,7 @@ export function FeedFilters({
       </label>
 
       <label className="block">
-        <span className="text-xs font-medium text-neutral-400">Platform</span>
+        <span className="text-xs font-medium text-muted">Platform</span>
         <select
           name="platform"
           defaultValue={form.platform}
@@ -212,7 +212,7 @@ export function FeedFilters({
       </label>
 
       <fieldset>
-        <legend className="text-xs font-medium text-neutral-400">Status</legend>
+        <legend className="text-xs font-medium text-muted">Status</legend>
         <div className="mt-1.5 flex flex-col gap-1.5 text-sm">
           <label className="flex items-center gap-2">
             <input
@@ -238,7 +238,7 @@ export function FeedFilters({
       </fieldset>
 
       <label className="block">
-        <span className="text-xs font-medium text-neutral-400">Sort by</span>
+        <span className="text-xs font-medium text-muted">Sort by</span>
         <select
           name="sort"
           defaultValue={form.sort}
@@ -257,7 +257,7 @@ export function FeedFilters({
       </Button>
 
       {savedCount > 0 ? (
-        <p className="text-[11px] text-neutral-600">
+        <p className="text-[11px] text-faint">
           {savedCount} saved {savedCount === 1 ? "filter" : "filters"} above.
         </p>
       ) : null}
@@ -285,7 +285,7 @@ function Range({
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-neutral-400">{label}</span>
+      <span className="text-xs font-medium text-muted">{label}</span>
       <div className="mt-1.5 flex items-center gap-2">
         <input
           type="number"
@@ -295,7 +295,7 @@ function Range({
           min={0}
           className={`${inputClass} w-full`}
         />
-        <span className="text-xs text-neutral-600">–</span>
+        <span className="text-xs text-faint">–</span>
         <div className="relative w-full">
           <input
             type="number"
@@ -307,7 +307,7 @@ function Range({
             className={inputClass}
           />
           {suffix ? (
-            <span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-xs text-neutral-600">
+            <span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-xs text-faint">
               {suffix}
             </span>
           ) : null}

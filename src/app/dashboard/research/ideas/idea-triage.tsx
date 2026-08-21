@@ -122,8 +122,8 @@ export function IdeaTriage({
                 onClick={() => setIndex(position)}
                 className={`flex w-full gap-3 rounded-xl border p-2.5 text-left transition ${
                   active
-                    ? "border-neutral-500 bg-neutral-900"
-                    : "border-neutral-800 hover:border-neutral-700"
+                    ? "border-line-strong bg-chip"
+                    : "border-line hover:border-line-strong"
                 }`}
               >
                 <Thumb url={idea.video.thumbnail_url} />
@@ -146,7 +146,7 @@ export function IdeaTriage({
                       }
                     />
                   </span>
-                  <span className="mt-1 block truncate text-xs text-neutral-500">
+                  <span className="mt-1 block truncate text-xs text-faint">
                     {idea.video.source.handle
                       ? `@${idea.video.source.handle}`
                       : idea.video.source.title}
@@ -172,7 +172,7 @@ export function IdeaTriage({
               <button
                 ref={shortlistRef}
                 type="submit"
-                className="flex items-center gap-2 rounded-lg border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+                className="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:border-line-strong hover:text-ink"
               >
                 {status === "inbox" ? "Shortlist" : "Back to inbox"}
                 <Kbd>S</Kbd>
@@ -185,7 +185,7 @@ export function IdeaTriage({
               <button
                 ref={discardRef}
                 type="submit"
-                className="flex items-center gap-2 rounded-lg border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-red-900 hover:text-red-300"
+                className="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:border-danger hover:text-danger"
               >
                 Discard
                 <Kbd>D</Kbd>
@@ -195,7 +195,7 @@ export function IdeaTriage({
             <Link
               ref={analysisRef}
               href={`/dashboard/research/${selected.video_id}`}
-              className="flex items-center gap-2 rounded-lg border border-neutral-800 px-3 py-1.5 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+              className="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:border-line-strong hover:text-ink"
             >
               Go to analysis
               <Kbd>A</Kbd>
@@ -208,7 +208,7 @@ export function IdeaTriage({
               <button
                 ref={scriptRef}
                 type="submit"
-                className="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-black transition hover:bg-neutral-200"
+                className="flex items-center gap-2 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink transition hover:brightness-[1.08]"
               >
                 Create script
                 <Kbd>C</Kbd>
@@ -225,22 +225,22 @@ export function IdeaTriage({
                 href={selected.video.url}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="shrink-0 text-xs text-neutral-500 underline hover:text-neutral-300"
+                className="shrink-0 text-xs text-faint underline hover:text-ink"
               >
                 Watch ↗
               </a>
             </div>
             {selected.summary ? (
-              <p className="mt-3 text-sm leading-relaxed text-neutral-300">
+              <p className="mt-3 text-sm leading-relaxed text-ink">
                 {selected.summary}
               </p>
             ) : (
-              <p className="mt-3 text-sm text-neutral-500">
+              <p className="mt-3 text-sm text-faint">
                 No summary — this idea came from a video whose breakdown did not
                 produce one.
               </p>
             )}
-            <p className="mt-4 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+            <p className="mt-4 flex flex-wrap items-center gap-2 text-xs text-faint">
               <Pill>{selected.video.source.platform}</Pill>
               <span>
                 from{" "}
@@ -248,7 +248,7 @@ export function IdeaTriage({
                   ? `@${selected.video.source.handle}`
                   : selected.video.source.title}
               </span>
-              <span className="text-neutral-700">·</span>
+              <span className="text-faint">·</span>
               <span className="truncate">{selected.video.title}</span>
             </p>
           </Card>
@@ -287,7 +287,7 @@ function NoteCard({ ideaId, note }: { ideaId: string; note: string | null }) {
           {state.message ? (
             <span
               aria-live="polite"
-              className={`text-xs ${state.ok ? "text-emerald-400" : "text-red-400"}`}
+              className={`text-xs ${state.ok ? "text-ok" : "text-danger"}`}
             >
               {state.message}
             </span>
@@ -300,7 +300,7 @@ function NoteCard({ ideaId, note }: { ideaId: string; note: string | null }) {
 
 function Thumb({ url }: { url: string | null }) {
   if (!url) {
-    return <span className="block h-16 w-11 shrink-0 rounded-md bg-neutral-800" />;
+    return <span className="block h-16 w-11 shrink-0 rounded-md bg-chip" />;
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element

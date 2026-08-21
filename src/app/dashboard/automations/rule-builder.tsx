@@ -171,12 +171,12 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
   };
 
   const input =
-    "mt-1 w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-50 outline-none transition placeholder:text-neutral-600 focus:border-neutral-500";
-  const label = "text-sm font-medium text-neutral-300";
-  const help = "mt-1 text-xs text-neutral-500";
+    "mt-1 w-full rounded-lg border border-line bg-chip px-3 py-2 text-sm text-ink outline-none transition placeholder:text-faint focus:border-line-strong";
+  const label = "text-sm font-medium text-ink";
+  const help = "mt-1 text-xs text-faint";
   const err = (key: string) =>
     errors[key] ? (
-      <p className="mt-1 text-xs text-red-400">{errors[key]}</p>
+      <p className="mt-1 text-xs text-danger">{errors[key]}</p>
     ) : null;
 
   const keywordList = keywords
@@ -217,15 +217,15 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
         {state.message ? (
           <p
             aria-live="polite"
-            className="rounded-lg border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300"
+            className="rounded-lg border border-danger bg-danger-soft px-3 py-2 text-sm text-danger"
           >
             {state.message}
           </p>
         ) : null}
 
         {template && !rule ? (
-          <p className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm text-neutral-400">
-            Started from <span className="text-neutral-200">{template.name}</span>.
+          <p className="rounded-lg border border-line bg-chip px-3 py-2 text-sm text-muted">
+            Started from <span className="text-ink">{template.name}</span>.
             Change anything — nothing here is fixed.
           </p>
         ) : null}
@@ -272,7 +272,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
             </div>
             <div>
               <label htmlFor="folder" className={label}>
-                Folder <span className="font-normal text-neutral-500">(optional)</span>
+                Folder <span className="font-normal text-faint">(optional)</span>
               </label>
               <input
                 id="folder"
@@ -288,7 +288,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
 
         <Card className="p-4">
           <p className={label}>When someone</p>
-          <div className="mt-2 flex flex-col gap-2 text-sm text-neutral-200">
+          <div className="mt-2 flex flex-col gap-2 text-sm text-ink">
             {TRIGGERS.map(([value, text]) => (
               <label key={value} className="flex items-center gap-2">
                 <input
@@ -305,7 +305,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                     // error named a field that was not on screen.
                     if (value === "dm_keyword") setKeywordMode("keywords");
                   }}
-                  className="accent-emerald-500"
+                  className="accent-accent"
                 />
                 {text}
               </label>
@@ -315,7 +315,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           {trigger === "comment" ? (
             <div className="mt-4">
               <p className={label}>On which posts</p>
-              <div className="mt-2 flex flex-wrap gap-4 text-sm text-neutral-200">
+              <div className="mt-2 flex flex-wrap gap-4 text-sm text-ink">
                 <label className="flex items-center gap-2">
                   <input
                     type="radio"
@@ -323,7 +323,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                     value="any"
                     checked={postScope === "any"}
                     onChange={() => setPostScope("any")}
-                    className="accent-emerald-500"
+                    className="accent-accent"
                   />
                   Any post or reel
                 </label>
@@ -334,7 +334,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                     value="specific"
                     checked={postScope === "specific"}
                     onChange={chooseSpecific}
-                    className="accent-emerald-500"
+                    className="accent-accent"
                   />
                   Specific posts
                 </label>
@@ -347,7 +347,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                   {posts === null && !postsError ? (
                     <p className={help}>Loading recent posts…</p>
                   ) : postsError ? (
-                    <p className="mt-1 text-xs text-red-400">{postsError}</p>
+                    <p className="mt-1 text-xs text-danger">{postsError}</p>
                   ) : posts && posts.length === 0 ? (
                     <p className={help}>No recent posts found on this account.</p>
                   ) : (
@@ -366,7 +366,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                                 )
                               }
                               aria-pressed={on}
-                              className={`block w-full overflow-hidden rounded-md border text-left transition ${on ? "border-emerald-500" : "border-neutral-800 hover:border-neutral-600"}`}
+                              className={`block w-full overflow-hidden rounded-md border text-left transition ${on ? "border-ok" : "border-line hover:border-line-strong"}`}
                             >
                               {post.thumbnailUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element -- Instagram CDN thumbnails
@@ -376,9 +376,9 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                                   className="aspect-square w-full object-cover"
                                 />
                               ) : (
-                                <span className="block aspect-square w-full bg-neutral-900" />
+                                <span className="block aspect-square w-full bg-chip" />
                               )}
-                              <span className="block truncate px-2 py-1 text-[11px] text-neutral-400">
+                              <span className="block truncate px-2 py-1 text-[11px] text-muted">
                                 {post.caption?.slice(0, 40) ||
                                   post.mediaType ||
                                   post.id}
@@ -399,7 +399,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
             <p className={label}>
               And what they wrote
             </p>
-            <div className="mt-2 flex flex-wrap gap-4 text-sm text-neutral-200">
+            <div className="mt-2 flex flex-wrap gap-4 text-sm text-ink">
               {trigger !== "dm_keyword" ? (
                 <label className="flex items-center gap-2">
                   <input
@@ -408,7 +408,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                     value="any"
                     checked={keywordMode === "any"}
                     onChange={() => setKeywordMode("any")}
-                    className="accent-emerald-500"
+                    className="accent-accent"
                   />
                   Anything at all
                 </label>
@@ -422,7 +422,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                   value="keywords"
                   checked={keywordMode === "keywords"}
                   onChange={() => setKeywordMode("keywords")}
-                  className="accent-emerald-500"
+                  className="accent-accent"
                 />
                 A specific word or words
               </label>
@@ -447,13 +447,13 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                     ))}
                   </p>
                 ) : null}
-                <label className="mt-2 flex items-center gap-2 text-xs text-neutral-400">
+                <label className="mt-2 flex items-center gap-2 text-xs text-muted">
                   <input
                     type="checkbox"
                     name="keyword_match"
                     value="exact"
                     defaultChecked={rule?.config.keyword_match === "exact"}
-                    className="accent-emerald-500"
+                    className="accent-accent"
                   />
                   Only when the whole message is exactly one of these words
                 </label>
@@ -486,7 +486,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           {showLink ? (
             <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_2fr]">
               <div>
-                <label htmlFor="button_title" className="text-xs text-neutral-400">
+                <label htmlFor="button_title" className="text-xs text-muted">
                   Button label
                 </label>
                 <input
@@ -501,7 +501,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                 {err("button_title")}
               </div>
               <div>
-                <label htmlFor="button_url" className="text-xs text-neutral-400">
+                <label htmlFor="button_url" className="text-xs text-muted">
                   Link
                 </label>
                 <input
@@ -515,7 +515,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                 />
                 {err("button_url")}
               </div>
-              <p className="text-xs text-neutral-500 sm:col-span-2">
+              <p className="text-xs text-faint sm:col-span-2">
                 Clicks on this link are counted on the rule.
               </p>
             </div>
@@ -523,7 +523,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
             <button
               type="button"
               onClick={() => setShowLink(true)}
-              className="mt-3 text-xs text-neutral-300 underline-offset-2 hover:underline"
+              className="mt-3 text-xs text-ink underline-offset-2 hover:underline"
             >
               + Add a link
             </button>
@@ -533,7 +533,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
             <div className="mt-5">
               <label htmlFor="comment_reply_text" className={label}>
                 And a public reply under the comment{" "}
-                <span className="font-normal text-neutral-500">(optional)</span>
+                <span className="font-normal text-faint">(optional)</span>
               </label>
               <input
                 id="comment_reply_text"
@@ -552,18 +552,18 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
         </Card>
 
         <Card className="p-4">
-          <label className="flex items-start gap-2 text-sm text-neutral-200">
+          <label className="flex items-start gap-2 text-sm text-ink">
             <input
               type="checkbox"
               name="collect_email"
               value="on"
               checked={collectEmail}
               onChange={(e) => setCollectEmail(e.target.checked)}
-              className="mt-0.5 accent-emerald-500"
+              className="mt-0.5 accent-accent"
             />
             <span>
               And then ask for their email
-              <span className="block text-xs text-neutral-500">
+              <span className="block text-xs text-faint">
                 Their next message is read as the answer and stored on the
                 contact. If it is not an address, we stop waiting rather than
                 swallowing everything else they say.
@@ -571,7 +571,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
             </span>
           </label>
           {collectEmail && trigger === "comment" ? (
-            <p className="mt-2 rounded-lg border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
+            <p className="mt-2 rounded-lg border border-warn bg-warn-soft px-3 py-2 text-xs text-warn">
               Instagram only lets an automation send a second message to
               somebody who has messaged you. On a comment rule, the question
               reaches the people who reply to your first DM and nobody else — so
@@ -592,7 +592,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
         <Card className="p-4">
           <p className={label}>
             Follow-ups{" "}
-            <span className="font-normal text-neutral-500">(optional)</span>
+            <span className="font-normal text-faint">(optional)</span>
           </p>
           <p className={help}>
             Extra DMs sent later. Instagram only allows them within 24 hours of
@@ -600,7 +600,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
             window is skipped, not sent.
           </p>
           {trigger === "comment" && followUps.length > 0 ? (
-            <p className="mt-2 rounded-lg border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
+            <p className="mt-2 rounded-lg border border-warn bg-warn-soft px-3 py-2 text-xs text-warn">
               Answering a comment does not open that window, and neither does
               tapping your link. These follow-ups reach the people who write
               back to your first DM, and are skipped for everyone else — you
@@ -609,9 +609,9 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           ) : null}
           <ul className="mt-2 flex flex-col gap-3">
             {followUps.map((f, index) => (
-              <li key={f.key} className="rounded-lg border border-neutral-800 p-3">
+              <li key={f.key} className="rounded-lg border border-line p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <label className="text-xs text-neutral-400">
+                  <label className="text-xs text-muted">
                     Wait{" "}
                     <select
                       name={`followup_delay_${index}`}
@@ -625,7 +625,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                           ),
                         )
                       }
-                      className="rounded-md border border-neutral-800 bg-neutral-900 px-2 py-1 text-xs text-neutral-50"
+                      className="rounded-md border border-line bg-chip px-2 py-1 text-xs text-ink"
                     >
                       {DELAY_CHOICES.map((d) => (
                         <option key={d.minutes} value={d.minutes}>
@@ -645,7 +645,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                     onClick={() =>
                       setFollowUps((prev) => prev.filter((x) => x.key !== f.key))
                     }
-                    className="text-xs text-neutral-500 hover:text-red-300"
+                    className="text-xs text-faint hover:text-danger"
                   >
                     Remove
                   </button>
@@ -665,7 +665,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                   className={input}
                 />
                 {showLink && buttonTitle ? (
-                  <label className="mt-2 flex items-start gap-2 text-xs text-neutral-400">
+                  <label className="mt-2 flex items-start gap-2 text-xs text-muted">
                     <input
                       type="checkbox"
                       name={`followup_skip_${index}`}
@@ -680,11 +680,11 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                           ),
                         )
                       }
-                      className="mt-0.5 accent-emerald-500"
+                      className="mt-0.5 accent-accent"
                     />
                     <span>
                       Only send this to people who never tapped the link
-                      <span className="block text-neutral-600">
+                      <span className="block text-faint">
                         Chasing somebody who already did the thing is the
                         fastest way to be muted.
                       </span>
@@ -710,7 +710,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                 ]);
                 setNextKey((k) => k + 1);
               }}
-              className="mt-2 text-xs text-neutral-300 underline-offset-2 hover:underline"
+              className="mt-2 text-xs text-ink underline-offset-2 hover:underline"
             >
               + Add a follow-up
             </button>
@@ -718,7 +718,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
         </Card>
 
         <Card className="p-4">
-          <label className="flex items-start gap-2 text-sm text-neutral-200">
+          <label className="flex items-start gap-2 text-sm text-ink">
             <input
               type="checkbox"
               name="once_per_contact"
@@ -729,11 +729,11 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                     rule.trigger_type === "comment")
                   : (seed?.oncePerContact ?? true)
               }
-              className="mt-0.5 accent-emerald-500"
+              className="mt-0.5 accent-accent"
             />
             <span>
               Answer each person only once
-              <span className="block text-xs text-neutral-500">
+              <span className="block text-xs text-faint">
                 Off means the same person gets the DM again every time they
                 trigger the rule.
               </span>
@@ -745,13 +745,13 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           <button
             type="submit"
             disabled={pending}
-            className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending ? "Saving…" : rule ? "Save changes" : "Turn it on"}
           </button>
           <Link
             href="/dashboard/automations"
-            className="text-sm text-neutral-400 hover:text-neutral-200"
+            className="text-sm text-muted hover:text-ink"
           >
             Cancel
           </Link>
@@ -759,7 +759,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
       </form>
 
       <div className="lg:sticky lg:top-6 lg:self-start">
-        <p className="mb-3 text-[10px] font-semibold tracking-widest text-neutral-500 uppercase">
+        <p className="mb-3 text-[10px] font-semibold tracking-widest text-faint uppercase">
           Preview
         </p>
         <PhonePreview

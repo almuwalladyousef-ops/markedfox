@@ -53,7 +53,7 @@ const COLUMNS: { heading: string; links: { label: string; href: string }[] }[] =
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-neutral-900">
+    <footer className="border-t border-line">
       <div className="mx-auto max-w-6xl px-6 py-14">
         <div className="flex flex-col gap-12 md:flex-row md:justify-between">
           <div className="flex max-w-xs flex-col gap-6">
@@ -68,7 +68,7 @@ export function SiteFooter() {
                   <a
                     href={href}
                     aria-label={`MarkedFox on ${name}`}
-                    className="text-neutral-500 transition hover:text-neutral-200"
+                    className="text-faint transition hover:text-ink"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -82,21 +82,21 @@ export function SiteFooter() {
           <div className="grid grid-cols-2 gap-x-12 gap-y-10 sm:grid-cols-4">
             {COLUMNS.map((column) => (
               <div key={column.heading}>
-                <h3 className="text-sm text-neutral-500">{column.heading}</h3>
+                <h3 className="text-sm text-faint">{column.heading}</h3>
                 <ul className="mt-4 flex flex-col gap-3">
                   {column.links.map((link) => (
                     <li key={link.label}>
                       {link.href.startsWith("mailto:") ? (
                         <a
                           href={link.href}
-                          className="text-sm font-medium text-neutral-200 transition hover:text-white"
+                          className="text-sm font-medium text-ink transition hover:text-white"
                         >
                           {link.label}
                         </a>
                       ) : (
                         <Link
                           href={link.href}
-                          className="text-sm font-medium text-neutral-200 transition hover:text-white"
+                          className="text-sm font-medium text-ink transition hover:text-white"
                         >
                           {link.label}
                         </Link>
@@ -109,7 +109,7 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <p className="mt-14 text-sm text-neutral-600">
+        <p className="mt-14 text-sm text-faint">
           © 2026 MarkedFox. All rights reserved.
         </p>
       </div>

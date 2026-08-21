@@ -53,7 +53,7 @@ export default async function ScriptDraftPage({
         <div className="min-w-0">
           <Link
             href="/dashboard/research/scripts"
-            className="text-sm text-neutral-500 transition hover:text-neutral-300"
+            className="text-sm text-faint transition hover:text-ink"
           >
             ← Scripts
           </Link>
@@ -70,7 +70,7 @@ export default async function ScriptDraftPage({
           <input type="hidden" name="id" value={draft.id} />
           <button
             type="submit"
-            className="text-xs text-neutral-600 transition hover:text-red-300"
+            className="text-xs text-faint transition hover:text-danger"
           >
             Delete script
           </button>

@@ -13,9 +13,9 @@ export default function TermsPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
       <h1 className="text-3xl font-bold tracking-tight">Terms of Service</h1>
-      <p className="mt-2 text-sm text-neutral-500">Effective date: August 19, 2026</p>
+      <p className="mt-2 text-sm text-faint">Effective date: August 19, 2026</p>
 
-      <div className="mt-8 flex flex-col gap-8 text-neutral-300">
+      <div className="mt-8 flex flex-col gap-8 text-ink">
         <Section title="1. The service">
           <p>
             MarkedFox lets you publish and schedule content to social platforms you
@@ -151,7 +151,7 @@ export default function TermsPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="text-xl font-semibold text-neutral-100">{title}</h2>
+      <h2 className="text-xl font-semibold text-ink">{title}</h2>
       <div className="mt-3 text-sm leading-relaxed">{children}</div>
     </section>
   );

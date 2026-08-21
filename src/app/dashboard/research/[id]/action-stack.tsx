@@ -124,7 +124,7 @@ export function ActionStack({
           <select
             name="project_id"
             aria-label="Project"
-            className="min-w-0 flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-2 text-xs outline-none focus:border-neutral-600"
+            className="min-w-0 flex-1 rounded-lg border border-line bg-chip px-2 py-2 text-xs outline-none focus:border-line-strong"
           >
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
@@ -134,7 +134,7 @@ export function ActionStack({
           </select>
           <button
             type="submit"
-            className="rounded-lg border border-neutral-800 px-3 py-2 text-xs text-neutral-300 transition hover:border-neutral-600"
+            className="rounded-lg border border-line px-3 py-2 text-xs text-ink transition hover:border-line-strong"
           >
             Add
           </button>
@@ -167,7 +167,7 @@ export function ActionStack({
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
         }}
-        className="flex w-full items-center justify-between rounded-lg border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+        className="flex w-full items-center justify-between rounded-lg border border-line px-3 py-2 text-sm text-ink transition hover:border-line-strong hover:text-ink"
       >
         <span>{copied ? "Copied" : "Copy for an LLM"}</span>
         <Kbd>E</Kbd>
@@ -177,14 +177,14 @@ export function ActionStack({
         href={videoUrl}
         target="_blank"
         rel="noreferrer noopener"
-        className="flex w-full items-center justify-between rounded-lg border border-neutral-800 px-3 py-2 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-neutral-50"
+        className="flex w-full items-center justify-between rounded-lg border border-line px-3 py-2 text-sm text-ink transition hover:border-line-strong hover:text-ink"
       >
         <span>Open original</span>
         <Kbd>O</Kbd>
       </a>
 
       {transcript ? null : (
-        <p className="px-1 text-[11px] text-neutral-600">
+        <p className="px-1 text-[11px] text-faint">
           No transcript yet — fetch one for a sharper breakdown.
         </p>
       )}
@@ -212,8 +212,8 @@ function Row({
       disabled={disabled}
       className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition disabled:cursor-default disabled:opacity-60 ${
         tone === "primary"
-          ? "bg-white font-medium text-black hover:bg-neutral-200"
-          : "border border-neutral-800 text-neutral-300 hover:border-neutral-600 hover:text-neutral-50"
+          ? "bg-accent font-medium text-accent-ink hover:brightness-[1.08]"
+          : "border border-line text-ink hover:border-line-strong hover:text-ink"
       }`}
     >
       <span>{label}</span>

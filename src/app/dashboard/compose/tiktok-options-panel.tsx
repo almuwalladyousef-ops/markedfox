@@ -58,8 +58,8 @@ export function TikTokOptionsPanel({
   const consent = tiktokConsentText(options);
 
   return (
-    <section className="rounded-lg border border-neutral-900 p-4" aria-labelledby="tiktok-options-heading">
-      <h2 id="tiktok-options-heading" className="text-sm font-medium text-neutral-300">
+    <section className="rounded-lg border border-line p-4" aria-labelledby="tiktok-options-heading">
+      <h2 id="tiktok-options-heading" className="text-sm font-medium text-ink">
         TikTok settings
       </h2>
 
@@ -68,7 +68,7 @@ export function TikTokOptionsPanel({
         {accounts.map((account) => {
           const state = contexts[account.id];
           return (
-            <li key={account.id} className="flex items-center gap-2 text-neutral-300">
+            <li key={account.id} className="flex items-center gap-2 text-ink">
               {state?.status === "ready" && state.context.creatorAvatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- remote avatar host varies per creator
                 <img
@@ -77,24 +77,24 @@ export function TikTokOptionsPanel({
                   className="h-6 w-6 rounded-full"
                 />
               ) : (
-                <span className="inline-block h-6 w-6 rounded-full bg-neutral-800" aria-hidden="true" />
+                <span className="inline-block h-6 w-6 rounded-full bg-chip" aria-hidden="true" />
               )}
               <span>
                 Posting to{" "}
-                <span className="font-medium text-neutral-100">
+                <span className="font-medium text-ink">
                   {state?.status === "ready"
                     ? (state.context.creatorNickname ?? account.name)
                     : account.name}
                 </span>
                 {state?.status === "ready" && state.context.creatorUsername ? (
-                  <span className="text-neutral-500"> @{state.context.creatorUsername}</span>
+                  <span className="text-faint"> @{state.context.creatorUsername}</span>
                 ) : null}
               </span>
               {state?.status === "loading" || !state ? (
-                <span className="text-xs text-neutral-500">loading…</span>
+                <span className="text-xs text-faint">loading…</span>
               ) : null}
               {state?.status === "error" ? (
-                <span className="text-xs text-red-400">{state.message}</span>
+                <span className="text-xs text-danger">{state.message}</span>
               ) : null}
             </li>
           );
@@ -103,7 +103,7 @@ export function TikTokOptionsPanel({
 
       {/* privacy */}
       <div className="mt-4">
-        <label htmlFor="tiktok-privacy" className="text-sm text-neutral-300">
+        <label htmlFor="tiktok-privacy" className="text-sm text-ink">
           Who can view this post
         </label>
         <select
@@ -111,7 +111,7 @@ export function TikTokOptionsPanel({
           value={options.privacy_level ?? ""}
           disabled={!allReady}
           onChange={(e) => set({ privacy_level: e.target.value || undefined })}
-          className="mt-1 block w-full max-w-xs rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-50 outline-none focus:border-neutral-500 disabled:opacity-50"
+          className="mt-1 block w-full max-w-xs rounded-md border border-line bg-chip px-3 py-2 text-sm text-ink outline-none focus:border-line-strong disabled:opacity-50"
         >
           <option value="">
             {allReady ? "Choose…" : anyError ? "Unavailable — see above" : "Loading account details…"}
@@ -128,7 +128,7 @@ export function TikTokOptionsPanel({
           ))}
         </select>
         {allReady && privacyOptions.length === 0 ? (
-          <p className="mt-1 text-xs text-red-400">
+          <p className="mt-1 text-xs text-danger">
             These accounts share no allowed visibility — post to them separately.
           </p>
         ) : null}
@@ -136,12 +136,12 @@ export function TikTokOptionsPanel({
 
       {/* interactions */}
       <fieldset className="mt-4">
-        <legend className="text-sm text-neutral-300">Allow users to</legend>
-        <div className="mt-1 flex flex-wrap gap-4 text-sm text-neutral-300">
+        <legend className="text-sm text-ink">Allow users to</legend>
+        <div className="mt-1 flex flex-wrap gap-4 text-sm text-ink">
           <label className={`flex items-center gap-2 ${commentDisabled ? "opacity-50" : ""}`}>
             <input
               type="checkbox"
-              className="accent-emerald-500"
+              className="accent-accent"
               checked={Boolean(options.allow_comment)}
               disabled={commentDisabled}
               onChange={(e) => set({ allow_comment: e.target.checked })}
@@ -153,7 +153,7 @@ export function TikTokOptionsPanel({
               <label className={`flex items-center gap-2 ${duetDisabled ? "opacity-50" : ""}`}>
                 <input
                   type="checkbox"
-                  className="accent-emerald-500"
+                  className="accent-accent"
                   checked={Boolean(options.allow_duet)}
                   disabled={duetDisabled}
                   onChange={(e) => set({ allow_duet: e.target.checked })}
@@ -163,7 +163,7 @@ export function TikTokOptionsPanel({
               <label className={`flex items-center gap-2 ${stitchDisabled ? "opacity-50" : ""}`}>
                 <input
                   type="checkbox"
-                  className="accent-emerald-500"
+                  className="accent-accent"
                   checked={Boolean(options.allow_stitch)}
                   disabled={stitchDisabled}
                   onChange={(e) => set({ allow_stitch: e.target.checked })}
@@ -174,7 +174,7 @@ export function TikTokOptionsPanel({
           ) : null}
         </div>
         {commentDisabled || (hasVideo && (duetDisabled || stitchDisabled)) ? (
-          <p className="mt-1 text-xs text-neutral-500">
+          <p className="mt-1 text-xs text-faint">
             Greyed-out options are turned off in the account&apos;s TikTok settings.
           </p>
         ) : null}
@@ -182,10 +182,10 @@ export function TikTokOptionsPanel({
 
       {/* commercial content */}
       <fieldset className="mt-4">
-        <label className="flex items-center gap-2 text-sm text-neutral-300">
+        <label className="flex items-center gap-2 text-sm text-ink">
           <input
             type="checkbox"
-            className="accent-emerald-500"
+            className="accent-accent"
             checked={Boolean(options.disclose_commercial)}
             onChange={(e) =>
               set(
@@ -197,22 +197,22 @@ export function TikTokOptionsPanel({
           />
           Disclose commercial content
         </label>
-        <p className="mt-1 text-xs text-neutral-500">
+        <p className="mt-1 text-xs text-faint">
           Turn this on if the post promotes yourself, your business, or a brand or
           third party in exchange for something of value.
         </p>
         {options.disclose_commercial ? (
-          <div className="mt-2 flex flex-col gap-2 pl-6 text-sm text-neutral-300">
+          <div className="mt-2 flex flex-col gap-2 pl-6 text-sm text-ink">
             <label className="flex items-start gap-2">
               <input
                 type="checkbox"
-                className="mt-0.5 accent-emerald-500"
+                className="mt-0.5 accent-accent"
                 checked={Boolean(options.brand_organic)}
                 onChange={(e) => set({ brand_organic: e.target.checked })}
               />
               <span>
                 Your brand
-                <span className="block text-xs text-neutral-500">
+                <span className="block text-xs text-faint">
                   You are promoting yourself or your own business. TikTok labels this
                   &ldquo;Promotional content&rdquo;.
                 </span>
@@ -221,22 +221,22 @@ export function TikTokOptionsPanel({
             <label className="flex items-start gap-2">
               <input
                 type="checkbox"
-                className="mt-0.5 accent-emerald-500"
+                className="mt-0.5 accent-accent"
                 checked={Boolean(options.brand_content)}
                 onChange={(e) => set({ brand_content: e.target.checked })}
               />
               <span>
                 Branded content
-                <span className="block text-xs text-neutral-500">
+                <span className="block text-xs text-faint">
                   You are promoting another brand or a third party. TikTok labels this
                   &ldquo;Paid partnership&rdquo; and it cannot be posted as &ldquo;Only you&rdquo;.
                 </span>
               </span>
             </label>
             {options.brand_content || options.brand_organic ? (
-              <p className="text-xs text-neutral-400">
+              <p className="text-xs text-muted">
                 Your post will be labeled{" "}
-                <span className="font-medium text-neutral-200">
+                <span className="font-medium text-ink">
                   {options.brand_content ? "Paid partnership" : "Promotional content"}
                 </span>
                 .
@@ -247,13 +247,13 @@ export function TikTokOptionsPanel({
       </fieldset>
 
       {hasVideo && maxDuration ? (
-        <p className="mt-4 text-xs text-neutral-500">
+        <p className="mt-4 text-xs text-faint">
           Videos up to {Math.round(maxDuration / 60)} minutes ({maxDuration}s) for this account.
         </p>
       ) : null}
 
       {/* consent */}
-      <p className="mt-4 text-xs text-neutral-400">
+      <p className="mt-4 text-xs text-muted">
         {consent.prefix}{" "}
         {consent.links.map((link, index) => (
           <span key={link.href}>
