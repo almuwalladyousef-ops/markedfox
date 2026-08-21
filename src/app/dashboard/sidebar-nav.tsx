@@ -37,8 +37,10 @@ export function SidebarNav({ sections }: { sections: NavSection[] }) {
     .filter((item) => isActive(pathname, item.href))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
+  // min-h-0 is what lets this column scroll instead of pushing the sidebar
+  // footer — email, plan, Sign out — off the bottom.
   return (
-    <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-0.5">
+    <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-0.5">
       {sections.map((section) => (
         <div key={section.title}>
           <p className="px-2.5 text-[9.5px] font-bold tracking-[0.12em] text-faint uppercase">

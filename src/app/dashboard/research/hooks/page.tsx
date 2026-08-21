@@ -84,7 +84,7 @@ export default async function HooksPage({
             name="q"
             defaultValue={q ?? ""}
             placeholder="Search by formula, category, or channel"
-            className={`${inputClass} w-[280px] flex-none`}
+            className={`${inputClass} w-[280px]! flex-none`}
           />
           <label className="flex items-center gap-2 text-sm text-muted">
             <input

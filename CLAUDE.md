@@ -1057,6 +1057,48 @@ schedule; filing early is the only lever we control.
   webhook configuration that still gates App Review and the launch; and the
   role account's 2FA.
 
+- **2026-08-21 — the design handoff, implemented.** See
+  `sessions/2026-08-21-redesign.md`. Branch
+  `claude/handoff-completion-2d2d54`, six commits, **not merged and not
+  deployed**.
+
+  A full visual redesign, supplied as a README plus 24 HTML prototypes. The
+  structural half first: every colour now resolves through CSS variables
+  exposed to Tailwind as `bg-panel` / `border-line` / `text-muted` and the
+  rest, so **light is the default theme and dark is one attribute away**. The
+  choice is written to the attribute, `localStorage` and a cookie at once, and
+  the server renders `data-theme` from the cookie, so there is no flash. Two
+  breakpoints of our own: `shell` at 880px, where the sidebar becomes a fixed
+  bottom tab bar with Compose raised in the centre, and `wide` at 1020px,
+  where the two-column research and builder layouts stack.
+
+  Then every screen: Accounts, Compose (sticky preview aside), Calendar,
+  Posts, Drafts, Automations, Templates, the rule builder, the research feed,
+  Ideas, Hooks, Scripts, Channels, Persona, Auto-analyze, the analysis page,
+  Projects, Settings, the marketing landing and pricing pages, and the auth
+  forms. The fox mark supplied by the owner replaces the placeholder SVG
+  everywhere it appeared.
+
+  *One deliberate departure from the handoff.* It asked for a "Coming soon"
+  pill on platforms this deployment has no keys for; that stays a live toggle
+  that explains itself, because the house rule against dead labels is pinned
+  by `every-platform-shown.test.ts`. Unconfigured platforms wear "Setup
+  needed" instead, and the upgrade badge's "On Pro · 300/mo" is read from the
+  `plans` table rather than written into the page.
+
+  *One piece of new behaviour, not a restyle:* "Edit time" on a scheduled
+  post, a server action scoped exactly like cancel, so a post the tick has
+  already claimed cannot have its time rewritten underneath it.
+
+  **The open item from 2026-08-20 is closed:** the pages have now been signed
+  into and clicked through, in light and dark, at 1280px and 375px, using a
+  throwaway `auth-smoke-*` user with seeded rows (deleted afterwards, cascade
+  confirmed). That found and fixed two layout bugs — the sidebar footer pushed
+  off the bottom by the nav column, and the mobile wordmark colliding with the
+  workspace switcher. Build, lint, typecheck and 530 tests green. Screens with
+  no data on a fresh account (the month grid with posts in it, the feed's
+  cards, idea triage, the hook vault) were seen only in their empty states.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know

@@ -171,14 +171,17 @@ export default async function DashboardLayout({
           neither belongs in a five-item tab bar. */}
       <div className="min-w-0 flex-1">
         <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3 shell:hidden">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <FoxMark className="h-6" />
-            <span className="font-display text-[15px] font-bold tracking-[-0.02em]">
+          <Link href="/dashboard" className="flex min-w-0 items-center gap-2">
+            <FoxMark className="h-6 shrink-0" />
+            {/* The wordmark is the first thing to go on a narrow phone: the
+                mark alone still says whose app this is, and the workspace
+                switcher beside it is the control people actually press. */}
+            <span className="font-display hidden text-[15px] font-bold tracking-[-0.02em] min-[420px]:inline">
               MarkedFox
             </span>
           </Link>
-          <div className="flex items-center gap-2">
-            <div className="w-40">
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="w-36">
               <WorkspaceSwitcher
                 workspaces={workspaces}
                 activeId={active.id}

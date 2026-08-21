@@ -222,7 +222,7 @@ export default async function AutomationsPage({
             name="q"
             defaultValue={params.q ?? ""}
             placeholder="Search automations"
-            className={`${inputClass} w-[200px]`}
+            className={`${inputClass} w-[200px]!`}
           />
           <select
             name="trigger"
