@@ -5,6 +5,7 @@ import {
   CardTitle,
   EmptyState,
   Notice,
+  Page,
   PageHeader,
   Pill,
   UpgradeCard,
@@ -56,13 +57,13 @@ export default async function ChannelsPage() {
   const allowed = canUserDo(snapshot, { type: "use_research" });
   if (!allowed.allowed) {
     return (
-      <>
+      <Page width="max-w-[1020px]">
         <PageHeader title="Channels" />
         <UpgradeCard title="Studio" reason={allowed.reason}>
           Pick the creators worth studying, and MarkedFox watches them for you —
           flagging the videos that beat each channel&rsquo;s own average.
         </UpgradeCard>
-      </>
+      </Page>
     );
   }
 
@@ -102,7 +103,7 @@ export default async function ChannelsPage() {
   );
 
   return (
-    <>
+    <Page width="max-w-[1020px]">
       <PageHeader
         title="Channels"
         subtitle="Pick which channels to include in your videos feed."
@@ -206,6 +207,6 @@ export default async function ChannelsPage() {
           a view count and no multiple, rather than a confident wrong number.
         </EmptyState>
       ) : null}
-    </>
+    </Page>
   );
 }

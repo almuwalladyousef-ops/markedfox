@@ -8,6 +8,7 @@ import {
   Card,
   EmptyState,
   Notice,
+  Page,
   PageHeader,
   Pill,
   UpgradeCard,
@@ -52,7 +53,7 @@ export default async function HooksPage({
   const allowed = canUserDo(snapshot, { type: "use_research" });
   if (!allowed.allowed) {
     return (
-      <>
+      <Page width="max-w-[900px]">
         <PageHeader title="Hooks" />
         <UpgradeCard title="Studio" reason={allowed.reason}>
           Save the opening pattern from every video you break down. The script
@@ -60,7 +61,7 @@ export default async function HooksPage({
           topic — using shapes that already worked in your niche rather than a
           model&rsquo;s taste.
         </UpgradeCard>
-      </>
+      </Page>
     );
   }
 
@@ -70,11 +71,11 @@ export default async function HooksPage({
   });
 
   return (
-    <>
+    <Page width="max-w-[900px]">
       <PageHeader
         title="Hook vault"
         subtitle="Opening patterns lifted from videos that beat their channel's average. The script builder fills these in for your topic."
-        actions={<Pill>{hooks.length} saved</Pill>}
+        actions={<Pill className="text-xs">{hooks.length} saved</Pill>}
       />
 
       <div className="flex flex-wrap items-end gap-3">
@@ -83,7 +84,7 @@ export default async function HooksPage({
             name="q"
             defaultValue={q ?? ""}
             placeholder="Search by formula, category, or channel"
-            className={`${inputClass} max-w-md flex-1`}
+            className={`${inputClass} w-[280px] flex-none`}
           />
           <label className="flex items-center gap-2 text-sm text-muted">
             <input
@@ -91,7 +92,7 @@ export default async function HooksPage({
               name="fav"
               value="1"
               defaultChecked={fav === "1"}
-              className="accent-neutral-200"
+              className="accent-accent"
             />
             Favourites only
           </label>
@@ -111,12 +112,12 @@ export default async function HooksPage({
 
       <Card>
         <details>
-          <summary className="cursor-pointer text-sm font-medium text-ink">
-            Add a formula by hand
+          <summary className="cursor-pointer text-xs font-semibold text-accent">
+            + Add a formula by hand
           </summary>
           <form action={saveHookAction} className="mt-4 flex flex-col gap-3">
             <label className="block">
-              <span className="text-xs font-medium text-muted">
+              <span className="text-xs font-semibold text-muted">
                 Formula
               </span>
               <input
@@ -133,7 +134,7 @@ export default async function HooksPage({
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
-                <span className="text-xs font-medium text-muted">
+                <span className="text-xs font-semibold text-muted">
                   Example line
                 </span>
                 <input
@@ -143,7 +144,7 @@ export default async function HooksPage({
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-medium text-muted">
+                <span className="text-xs font-semibold text-muted">
                   Category
                 </span>
                 <select name="category" className={`${inputClass} mt-1.5`}>
@@ -179,18 +180,18 @@ export default async function HooksPage({
             : "Break a video down, then press Save hook to vault on it. Every saved pattern makes the next script's hooks better."}
         </EmptyState>
       ) : (
-        <ul className="grid gap-3 md:grid-cols-2">
+        <ul className="grid gap-3 shell:grid-cols-2">
           {hooks.map((hook) => (
             <li
               key={hook.id}
-              className={`flex flex-col gap-2 rounded-xl border p-4 ${
+              className={`flex flex-col gap-2 rounded-[14px] border px-4 py-[15px] ${
                 hook.favorite
-                  ? "border-warn bg-warn-soft"
+                  ? "border-[rgba(217,119,6,.45)] bg-warn-soft"
                   : "border-line bg-panel"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="font-mono text-xs leading-relaxed text-ink">
+                <p className="font-mono text-[11.5px]/[17px] text-ink">
                   {hook.formula}
                 </p>
                 <div className="flex shrink-0 gap-1">
@@ -204,8 +205,8 @@ export default async function HooksPage({
                     <button
                       type="submit"
                       aria-label={hook.favorite ? "Unfavourite" : "Favourite"}
-                      className={`rounded px-1.5 py-1 text-sm transition hover:bg-chip ${
-                        hook.favorite ? "text-warn" : "text-faint"
+                      className={`rounded px-1.5 py-1 text-sm transition ${
+                        hook.favorite ? "text-warn" : "text-line-strong hover:text-warn"
                       }`}
                     >
                       ★
@@ -216,7 +217,7 @@ export default async function HooksPage({
                     <button
                       type="submit"
                       aria-label="Delete"
-                      className="rounded px-1.5 py-1 text-sm text-faint transition hover:bg-chip hover:text-danger"
+                      className="rounded px-1.5 py-1 text-sm text-faint transition hover:text-danger"
                     >
                       ×
                     </button>
@@ -225,12 +226,12 @@ export default async function HooksPage({
               </div>
 
               {hook.example ? (
-                <p className="text-sm text-muted italic">
+                <p className="text-[12.5px]/[18px] text-muted italic">
                   &ldquo;{hook.example}&rdquo;
                 </p>
               ) : null}
 
-              <div className="mt-auto flex flex-wrap items-center gap-2 pt-1 text-xs text-faint">
+              <div className="mt-auto flex flex-wrap items-center gap-2 pt-1 text-[11px] text-faint">
                 {hook.category ? (
                   <Pill tone="accent">
                     {HOOK_TYPE_LABELS[hook.category as HookType]?.split(
@@ -257,6 +258,6 @@ export default async function HooksPage({
           ))}
         </ul>
       )}
-    </>
+    </Page>
   );
 }

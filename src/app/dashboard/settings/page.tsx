@@ -1,12 +1,23 @@
 import type { Metadata } from "next";
 
 import Link from "next/link";
+import { cookies } from "next/headers";
 
+import {
+  ButtonLink,
+  Card,
+  CardTitle,
+  Notice,
+  Page,
+  PageHeader,
+} from "@/components/ui";
+import { ThemeSegmented } from "@/components/theme-toggle";
 import { requireUser } from "@/lib/auth/session";
 import { getStripeCustomerId } from "@/lib/billing/store";
 import { isStripeConfigured } from "@/lib/billing/stripe";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeTheme, THEME_COOKIE } from "@/lib/theme";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
 import { BillingPanel } from "./billing-panel";
@@ -28,6 +39,8 @@ export default async function SettingsPage({
   const snapshot = active
     ? await getEntitlementSnapshot(supabase, user.id, active.id)
     : null;
+
+  const theme = normalizeTheme((await cookies()).get(THEME_COOKIE)?.value);
 
   const stripeReady = isStripeConfigured();
   const customerId = stripeReady
@@ -57,50 +70,48 @@ export default async function SettingsPage({
     }));
 
   return (
-    <>
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Settings</h1>
-          <p className="mt-1 text-sm text-muted">{user.email}</p>
-        </div>
-        <Link
-          href="/dashboard"
-          className="rounded-md border border-line px-3 py-1.5 text-sm text-ink transition hover:border-line-strong hover:text-ink"
-        >
-          Back to dashboard
-        </Link>
-      </header>
+    <Page width="max-w-[720px]">
+      <PageHeader title="Settings" subtitle={user.email ?? undefined} />
 
       {params.checkout === "success" ? (
-        <p className="rounded-lg border border-ok bg-ok-soft px-4 py-3 text-sm text-ok">
+        <Notice tone="ok">
           Payment received. Your plan updates within a few seconds of
           Stripe&rsquo;s confirmation — reload if it has not yet.
-        </p>
+        </Notice>
       ) : params.checkout === "canceled" ? (
-        <p className="rounded-lg border border-line bg-panel px-4 py-3 text-sm text-muted">
-          Checkout canceled — nothing was charged.
-        </p>
+        <Notice>Checkout canceled — nothing was charged.</Notice>
       ) : null}
 
-      <section className="rounded-lg border border-line p-4">
-        <h2 className="text-sm font-medium text-ink">Plan</h2>
-        <p className="mt-2 text-lg font-semibold capitalize">
+      <Card>
+        <CardTitle
+          action={
+            <ButtonLink href="/pricing" tone="primary" size="sm">
+              Compare plans
+            </ButtonLink>
+          }
+        >
+          Plan
+        </CardTitle>
+        <p className="font-display mt-2 text-[22px] font-bold capitalize">
           {snapshot?.planId ?? "free"}
         </p>
         <p className="mt-1 text-xs text-faint">
-          Workspaces: {snapshot?.usage.workspaceCount ?? 0}
+          Workspaces {snapshot?.usage.workspaceCount ?? 0}
           {snapshot?.limits.maxWorkspaces === null
             ? " / unlimited"
-            : ` / ${snapshot?.limits.maxWorkspaces ?? "—"}`}
-          . Posts, DM sends, and credits are pooled across all of them.
+            : ` / ${snapshot?.limits.maxWorkspaces ?? "—"}`}{" "}
+          · posts, DM sends, and credits pooled across all of them.
         </p>
-        <Link
-          href="/pricing"
-          className="mt-3 inline-block text-sm text-ink underline hover:text-white"
-        >
-          Compare plans
-        </Link>
-      </section>
+      </Card>
+
+      <Card>
+        <CardTitle hint="theme also switches from the toggle at the bottom of the sidebar">
+          Appearance
+        </CardTitle>
+        <div className="mt-3">
+          <ThemeSegmented initial={theme} />
+        </div>
+      </Card>
 
       <BillingPanel
         planId={snapshot?.planId ?? "free"}
@@ -109,9 +120,9 @@ export default async function SettingsPage({
         plans={checkoutPlans}
       />
 
-      <section className="rounded-lg border border-line p-4">
-        <h2 className="text-sm font-medium text-ink">Your data</h2>
-        <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5 text-sm text-muted">
+      <Card>
+        <CardTitle>Your data</CardTitle>
+        <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5 text-[13px]/[19px] text-muted">
           <li>
             Connected accounts and their tokens: disconnect any of them from the
             dashboard with the × next to its name.
@@ -123,17 +134,17 @@ export default async function SettingsPage({
           <li>
             Everything else — workspaces, posts, rules, usage records — goes when
             you delete the account below. See the{" "}
-            <Link href="/privacy" className="underline">
+            <Link href="/privacy" className="text-accent underline">
               privacy policy
             </Link>
             .
           </li>
         </ul>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border border-danger bg-danger-soft p-4">
-        <h2 className="text-sm font-medium text-danger">Delete account</h2>
-        <p className="mt-2 text-sm text-muted">
+      <section className="rounded-[14px] border border-danger-soft bg-danger-soft p-[18px]">
+        <h2 className="text-sm font-semibold text-danger">Delete account</h2>
+        <p className="mt-2 text-[13px]/[19px] text-muted">
           Permanently deletes your MarkedFox account and everything in it:
           workspaces, connected accounts and their tokens, posts (scheduled ones
           will not go out), automation rules, and uploaded media. Where a
@@ -142,6 +153,6 @@ export default async function SettingsPage({
         </p>
         <DeleteAccountForm />
       </section>
-    </>
+    </Page>
   );
 }

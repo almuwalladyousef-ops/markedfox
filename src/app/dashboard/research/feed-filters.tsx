@@ -51,10 +51,10 @@ export function FeedFilters({
   return (
     <form
       method="get"
-      className="flex flex-col gap-4 rounded-xl border border-line bg-panel p-4"
+      className="flex flex-col gap-3.5 rounded-xl border border-line bg-panel p-3.5"
     >
       <div className="flex items-center justify-between">
-        <p className="text-[10px] font-semibold tracking-widest text-faint uppercase">
+        <p className="text-[9.5px] font-bold tracking-[0.12em] text-faint uppercase">
           Filters
         </p>
         {parsed.active ? (
@@ -71,7 +71,7 @@ export function FeedFilters({
       </div>
 
       <label className="block">
-        <span className="text-xs font-medium text-muted">Channels</span>
+        <span className="text-xs font-semibold text-muted">Channels</span>
         <button
           type="button"
           onClick={() => setChannelsOpen((v) => !v)}
@@ -94,7 +94,7 @@ export function FeedFilters({
                 const checked = selected.includes(channel.id);
                 return (
                   <li key={channel.id}>
-                    <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition hover:bg-chip">
+                    <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-[12.5px] text-ink transition hover:bg-chip">
                       <input
                         type="checkbox"
                         name="source"
@@ -107,7 +107,7 @@ export function FeedFilters({
                               : current.filter((id) => id !== channel.id),
                           )
                         }
-                        className="accent-neutral-200"
+                        className="accent-accent"
                       />
                       <span className="min-w-0 flex-1 truncate">
                         {channel.handle ? `@${channel.handle}` : channel.title}
@@ -129,7 +129,7 @@ export function FeedFilters({
       )}
 
       <label className="block">
-        <span className="text-xs font-medium text-muted">Keywords</span>
+        <span className="text-xs font-semibold text-muted">Keywords</span>
         <input
           name="q"
           defaultValue={form.keywords}
@@ -174,7 +174,7 @@ export function FeedFilters({
       />
 
       <label className="block">
-        <span className="text-xs font-medium text-muted">
+        <span className="text-xs font-semibold text-muted">
           Posted in last
         </span>
         <div className="mt-1.5 flex gap-2">
@@ -197,7 +197,7 @@ export function FeedFilters({
       </label>
 
       <label className="block">
-        <span className="text-xs font-medium text-muted">Platform</span>
+        <span className="text-xs font-semibold text-muted">Platform</span>
         <select
           name="platform"
           defaultValue={form.platform}
@@ -212,7 +212,7 @@ export function FeedFilters({
       </label>
 
       <fieldset>
-        <legend className="text-xs font-medium text-muted">Status</legend>
+        <legend className="text-xs font-semibold text-muted">Status</legend>
         <div className="mt-1.5 flex flex-col gap-1.5 text-sm">
           <label className="flex items-center gap-2">
             <input
@@ -220,7 +220,7 @@ export function FeedFilters({
               name="status"
               value="analyzed"
               defaultChecked={form.analyzed}
-              className="accent-neutral-200"
+              className="accent-accent"
             />
             Analyzed
           </label>
@@ -230,7 +230,7 @@ export function FeedFilters({
               name="status"
               value="unanalyzed"
               defaultChecked={form.unanalyzed}
-              className="accent-neutral-200"
+              className="accent-accent"
             />
             Unanalyzed
           </label>
@@ -238,7 +238,7 @@ export function FeedFilters({
       </fieldset>
 
       <label className="block">
-        <span className="text-xs font-medium text-muted">Sort by</span>
+        <span className="text-xs font-semibold text-muted">Sort by</span>
         <select
           name="sort"
           defaultValue={form.sort}
@@ -285,7 +285,7 @@ function Range({
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-muted">{label}</span>
+      <span className="text-xs font-semibold text-muted">{label}</span>
       <div className="mt-1.5 flex items-center gap-2">
         <input
           type="number"

@@ -3,7 +3,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { PageHeader } from "@/components/ui";
+import {
+  Page,
+  PageHeader,
+} from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -33,7 +36,7 @@ export default async function ResearchProjectsPage() {
   const projects = await listProjects(supabase, active.id);
 
   return (
-    <>
+    <Page width="max-w-[720px]">
       <PageHeader
         title="Projects"
         subtitle="Collect the ideas worth acting on, and track which ones you actually made."
@@ -78,6 +81,6 @@ export default async function ResearchProjectsPage() {
           ))}
         </ul>
       )}
-    </>
+    </Page>
   );
 }

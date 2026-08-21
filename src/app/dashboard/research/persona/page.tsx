@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 
-import { Notice, PageHeader, UpgradeCard } from "@/components/ui";
+import {
+  Notice,
+  Page,
+  PageHeader,
+  UpgradeCard,
+} from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -28,25 +33,25 @@ export default async function PersonaPage() {
   const allowed = canUserDo(snapshot, { type: "use_research" });
   if (!allowed.allowed) {
     return (
-      <>
+      <Page width="max-w-[680px]">
         <PageHeader title="Persona" />
         <UpgradeCard title="Studio" reason={allowed.reason}>
           Tell MarkedFox who you make videos for and how you sound, once. Every
           hook, outline and script it writes afterwards is shaped by it.
         </UpgradeCard>
-      </>
+      </Page>
     );
   }
 
   const persona = await getPersona(supabase, active.id);
 
   return (
-    <>
+    <Page width="max-w-[680px]">
       <PageHeader
         title="Persona"
         subtitle={`Who ${active.name} makes videos for, and how it sounds. Written once, used by every generation afterwards.`}
       />
       <PersonaForm persona={persona} />
-    </>
+    </Page>
   );
 }

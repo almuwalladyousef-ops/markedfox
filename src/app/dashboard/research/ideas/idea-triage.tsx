@@ -111,7 +111,7 @@ export function IdeaTriage({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[22rem_1fr]">
+    <div className="grid items-start gap-4 wide:grid-cols-[330px_1fr]">
       <ul className="flex max-h-[70vh] flex-col gap-2 overflow-y-auto pr-1">
         {ideas.map((idea, position) => {
           const active = idea.id === selected?.id;
@@ -120,15 +120,15 @@ export function IdeaTriage({
               <button
                 type="button"
                 onClick={() => setIndex(position)}
-                className={`flex w-full gap-3 rounded-xl border p-2.5 text-left transition ${
+                className={`flex w-full gap-2.5 rounded-xl border p-2.5 text-left transition ${
                   active
-                    ? "border-line-strong bg-chip"
-                    : "border-line hover:border-line-strong"
+                    ? "border-accent bg-accent-soft"
+                    : "border-line bg-panel hover:border-line-strong"
                 }`}
               >
                 <Thumb url={idea.video.thumbnail_url} />
                 <span className="min-w-0 flex-1">
-                  <span className="line-clamp-2 text-sm leading-snug font-medium">
+                  <span className="line-clamp-2 text-[12.5px]/[17px] font-semibold text-ink">
                     {idea.title}
                   </span>
                   <span className="mt-1.5 block">
@@ -146,7 +146,7 @@ export function IdeaTriage({
                       }
                     />
                   </span>
-                  <span className="mt-1 block truncate text-xs text-faint">
+                  <span className="mt-1 block truncate text-[10.5px] text-faint">
                     {idea.video.source.handle
                       ? `@${idea.video.source.handle}`
                       : idea.video.source.title}
@@ -172,7 +172,7 @@ export function IdeaTriage({
               <button
                 ref={shortlistRef}
                 type="submit"
-                className="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:border-line-strong hover:text-ink"
+                className={"flex items-center gap-2 rounded-[10px] border border-line px-[13px] py-2 text-[12.5px] font-medium text-muted transition hover:border-line-strong hover:text-ink"}
               >
                 {status === "inbox" ? "Shortlist" : "Back to inbox"}
                 <Kbd>S</Kbd>
@@ -185,7 +185,7 @@ export function IdeaTriage({
               <button
                 ref={discardRef}
                 type="submit"
-                className="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:border-danger hover:text-danger"
+                className="flex items-center gap-2 rounded-[10px] border border-line px-[13px] py-2 text-[12.5px] font-medium text-muted transition hover:border-danger hover:text-danger"
               >
                 Discard
                 <Kbd>D</Kbd>
@@ -195,7 +195,7 @@ export function IdeaTriage({
             <Link
               ref={analysisRef}
               href={`/dashboard/research/${selected.video_id}`}
-              className="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-sm text-ink transition hover:border-line-strong hover:text-ink"
+              className={"flex items-center gap-2 rounded-[10px] border border-line px-[13px] py-2 text-[12.5px] font-medium text-muted transition hover:border-line-strong hover:text-ink"}
             >
               Go to analysis
               <Kbd>A</Kbd>
@@ -208,30 +208,32 @@ export function IdeaTriage({
               <button
                 ref={scriptRef}
                 type="submit"
-                className="flex items-center gap-2 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink transition hover:brightness-[1.08]"
+                className="flex items-center gap-2 rounded-[10px] bg-accent px-[13px] py-2 text-[12.5px] font-semibold text-accent-ink transition hover:brightness-[1.08]"
               >
                 Create script
-                <Kbd>C</Kbd>
+                <Kbd className="border-accent-ink/40 bg-transparent text-accent-ink">
+                  C
+                </Kbd>
               </button>
             </form>
           </div>
 
           <Card>
             <div className="flex items-start justify-between gap-4">
-              <h2 className="text-lg leading-snug font-semibold">
+              <h2 className="font-display text-[17px]/[23px] font-semibold text-ink">
                 {selected.title}
               </h2>
               <a
                 href={selected.video.url}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="shrink-0 text-xs text-faint underline hover:text-ink"
+                className="shrink-0 text-xs text-accent transition hover:brightness-[1.08]"
               >
                 Watch ↗
               </a>
             </div>
             {selected.summary ? (
-              <p className="mt-3 text-sm leading-relaxed text-ink">
+              <p className="mt-3 text-[13px]/[20px] text-muted">
                 {selected.summary}
               </p>
             ) : (
@@ -269,12 +271,12 @@ function NoteCard({ ideaId, note }: { ideaId: string; note: string | null }) {
 
   return (
     <Card>
-      <CardTitle hint="The one field a model never writes.">Your notes</CardTitle>
+      <CardTitle hint="the one field a model never writes">Your notes</CardTitle>
       <form action={action} className="mt-3 flex flex-col gap-2">
         <input type="hidden" name="idea_id" value={ideaId} />
         <textarea
           name="note"
-          rows={4}
+          rows={3}
           key={ideaId}
           defaultValue={note ?? ""}
           placeholder="Add your notes about this idea"
@@ -308,7 +310,7 @@ function Thumb({ url }: { url: string | null }) {
       src={url}
       alt=""
       loading="lazy"
-      className="h-16 w-11 shrink-0 rounded-md object-cover"
+      className="h-[42px] w-[60px] shrink-0 rounded-lg object-cover"
     />
   );
 }

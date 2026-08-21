@@ -7,6 +7,7 @@ import {
   Card,
   EmptyState,
   Notice,
+  Page,
   PageHeader,
   Pill,
   UpgradeCard,
@@ -34,20 +35,20 @@ export default async function ScriptsPage() {
   const allowed = canUserDo(snapshot, { type: "use_research" });
   if (!allowed.allowed) {
     return (
-      <>
+      <Page width="max-w-[780px]">
         <PageHeader title="Scripts" />
         <UpgradeCard title="Studio" reason={allowed.reason}>
           Topic, research, hook, style, script — five stages you can walk back
           into, rather than one prompt and whatever it returns.
         </UpgradeCard>
-      </>
+      </Page>
     );
   }
 
   const drafts = await listScriptDrafts(supabase, active.id);
 
   return (
-    <>
+    <Page width="max-w-[780px]">
       <PageHeader
         title="Scripts"
         subtitle="Every script is five stages you can walk back into: topic, research, hook, style, script."
@@ -103,6 +104,6 @@ export default async function ScriptsPage() {
           ))}
         </ul>
       )}
-    </>
+    </Page>
   );
 }

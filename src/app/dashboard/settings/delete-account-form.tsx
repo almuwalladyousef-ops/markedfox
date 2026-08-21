@@ -25,7 +25,7 @@ export function DeleteAccountForm() {
         type="text"
         autoComplete="off"
         required
-        className="max-w-xs rounded-md border border-line bg-chip px-3 py-2 text-ink outline-none transition focus:border-danger focus:ring-1 focus:ring-danger"
+        className="max-w-xs rounded-[10px] border border-line bg-chip px-3 py-2 text-[13.5px] text-ink outline-none transition focus:border-danger"
       />
       {state.message ? (
         <p aria-live="polite" className="text-sm text-danger">
@@ -35,9 +35,9 @@ export function DeleteAccountForm() {
       <button
         type="submit"
         disabled={pending}
-        className="w-fit rounded-md bg-danger px-3 py-2 text-sm font-semibold text-white transition hover:bg-danger disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-fit rounded-[10px] border border-danger px-4 py-2 text-[13px] font-semibold text-danger transition hover:bg-danger hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
       >
-        {pending ? "Deleting…" : "Delete my account"}
+        {pending ? "Deleting…" : "Delete my account…"}
       </button>
     </form>
   );

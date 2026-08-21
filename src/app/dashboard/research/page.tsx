@@ -6,6 +6,7 @@ import {
   ButtonLink,
   EmptyState,
   Notice,
+  Page,
   PageHeader,
   Pill,
   UpgradeCard,
@@ -50,7 +51,7 @@ export default async function ResearchPage({
 
   if (!allowed.allowed) {
     return (
-      <>
+      <Page width="max-w-[1160px]">
         <PageHeader title="Videos" />
         <UpgradeCard title="Studio" reason={allowed.reason}>
           Watch any creator&rsquo;s channel and MarkedFox flags the videos that
@@ -58,7 +59,7 @@ export default async function ResearchPage({
           Pull the transcript, break down why it worked, then generate hooks, an
           outline, or a full script from the mechanism rather than the wording.
         </UpgradeCard>
-      </>
+      </Page>
     );
   }
 
@@ -99,13 +100,17 @@ export default async function ResearchPage({
   }
 
   return (
-    <>
+    <Page width="max-w-[1160px]">
       <PageHeader
         title="Videos"
-        subtitle="Analyze videos from your channels to unlock deep insights and find your next idea."
+        subtitle="Every video from every watched channel, ranked by how far it beat its own channel's average."
         actions={
           <>
-            <Pill tone="neutral" title="Research credits left this month">
+            <Pill
+              tone="neutral"
+              className="text-xs"
+              title="Research credits left this month"
+            >
               {creditsLeft} / {snapshot.limits.researchCreditsPerMonth} credits
             </Pill>
             <ButtonLink href="/dashboard/research/channels" size="sm">
@@ -139,11 +144,11 @@ export default async function ResearchPage({
           average rather than against everyone else&rsquo;s.
         </EmptyState>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[16rem_1fr]">
+        <div className="grid items-start gap-4 wide:grid-cols-[230px_1fr]">
           <div className="flex flex-col gap-3">
             {savedFilters.length > 0 ? (
               <div className="rounded-xl border border-line bg-panel p-3">
-                <p className="text-[10px] font-semibold tracking-widest text-faint uppercase">
+                <p className="text-[9.5px] font-bold tracking-[0.12em] text-faint uppercase">
                   Saved
                 </p>
                 <ul className="mt-2 flex flex-col gap-1">
@@ -156,7 +161,7 @@ export default async function ResearchPage({
                       >
                         <a
                           href={`/dashboard/research?${params.toString()}`}
-                          className="min-w-0 flex-1 truncate text-sm text-ink hover:text-ink"
+                          className="min-w-0 flex-1 truncate text-[12.5px] text-muted transition hover:text-ink"
                         >
                           {filter.name}
                         </a>
@@ -203,7 +208,7 @@ export default async function ResearchPage({
                   required
                   maxLength={60}
                   placeholder="Save this filter as…"
-                  className="w-full rounded-lg border border-line bg-chip px-2 py-1.5 text-xs outline-none focus:border-line-strong"
+                  className="w-full rounded-[10px] border border-line bg-chip px-2.5 py-2 text-xs text-ink outline-none focus:border-accent"
                 />
                 <Button type="submit" size="sm">
                   Save
@@ -226,7 +231,7 @@ export default async function ResearchPage({
                   : "These channels have not been synced yet. Sync one from Channels, or wait for the next automatic refresh."}
               </EmptyState>
             ) : (
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3.5 wide:grid-cols-4">
                 {feed.map((video) => (
                   <VideoCard
                     key={video.id}
@@ -240,6 +245,6 @@ export default async function ResearchPage({
           </div>
         </div>
       )}
-    </>
+    </Page>
   );
 }

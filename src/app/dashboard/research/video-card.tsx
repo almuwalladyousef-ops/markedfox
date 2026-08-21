@@ -45,15 +45,15 @@ export function VideoCard({
 
   return (
     <article
-      className={`group relative flex flex-col overflow-hidden rounded-xl border bg-panel transition hover:border-line-strong ${
+      className={`group relative flex flex-col overflow-hidden rounded-[14px] border bg-panel transition hover:border-accent ${
         tier === "validated"
           ? "border-ok"
           : tier === "outlier"
-            ? "border-ok"
+            ? "border-[rgba(22,163,74,0.4)]"
             : "border-line"
       }`}
     >
-      <div className="relative aspect-[9/16] w-full overflow-hidden bg-chip">
+      <div className="relative aspect-[9/16] max-h-[230px] w-full overflow-hidden bg-chip">
         {video.thumbnail_url ? (
           /* A plain <img>: these thumbnails come from four platforms' CDNs on
              hosts that change, and next/image would need every one whitelisted
@@ -67,17 +67,19 @@ export function VideoCard({
           />
         ) : null}
 
-        <span className="absolute top-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-ink">
+        <span className="absolute top-2 right-2 rounded-md bg-black/65 px-1.5 py-0.5 text-[9.5px] font-bold text-[#ececf0]">
           {PLATFORM_MARK[video.source.platform] ?? video.source.platform}
         </span>
 
         {analyzed ? (
           <span className="absolute top-2 left-2">
-            <Pill tone="ok">✓ Analyzed</Pill>
+            <Pill tone="ok" className="text-[9.5px] font-bold">
+              ✓ Analyzed
+            </Pill>
           </span>
         ) : null}
 
-        <span className="absolute bottom-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-ink">
+        <span className="absolute bottom-2 left-2 rounded-md bg-black/65 px-1.5 py-0.5 text-[9.5px] font-semibold text-[#ececf0]">
           ◎ {formatCount(video.view_count)}
         </span>
 
@@ -87,7 +89,7 @@ export function VideoCard({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-2 gap-1.5 bg-gradient-to-t from-black/90 to-transparent p-2 opacity-0 transition group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
           <Link
             href={href}
-            className="flex-1 rounded-md bg-accent px-2 py-1.5 text-center text-xs font-medium text-accent-ink"
+            className="flex-1 rounded-lg bg-accent px-2 py-1.5 text-center text-xs font-semibold text-accent-ink"
           >
             {analyzed ? "Open analysis" : "Analyze video"}
           </Link>
@@ -96,21 +98,21 @@ export function VideoCard({
             target="_blank"
             rel="noreferrer"
             title="Play in new tab"
-            className="rounded-md border border-line-strong bg-black/60 px-2 py-1.5 text-xs text-ink"
+            className="rounded-lg border border-white/30 bg-black/60 px-2 py-1.5 text-xs text-white"
           >
             ↗
           </a>
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-1.5 p-3">
+      <div className="flex flex-1 flex-col gap-1.5 px-3 py-[11px]">
         <Link
           href={href}
-          className="line-clamp-2 text-sm leading-snug font-medium hover:underline"
+          className="line-clamp-2 text-[12.5px]/[17px] font-semibold text-ink hover:underline"
         >
           {video.title}
         </Link>
-        <p className="truncate text-xs text-faint">
+        <p className="truncate text-[11px] text-faint">
           {video.source.handle ? `@${video.source.handle}` : video.source.title}
           {video.published_at ? ` · ${relativeAge(video.published_at)}` : ""}
         </p>

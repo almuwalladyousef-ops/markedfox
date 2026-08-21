@@ -2,7 +2,14 @@ import type { Metadata } from "next";
 
 import Link from "next/link";
 
-import { Notice, PageHeader, UpgradeCard } from "@/components/ui";
+import {
+  Notice,
+  Page,
+  PageHeader,
+  UpgradeCard,
+  segmentedItem,
+  segmentedTrack,
+} from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -32,30 +39,30 @@ export default async function IdeasPage({
   const allowed = canUserDo(snapshot, { type: "use_research" });
   if (!allowed.allowed) {
     return (
-      <>
+      <Page width="max-w-[1060px]">
         <PageHeader title="Ideas" />
         <UpgradeCard title="Studio" reason={allowed.reason}>
           Every video you break down leaves an idea here — the angle, not the
           other creator&rsquo;s headline — ready to shortlist, discard, or turn
           straight into a script.
         </UpgradeCard>
-      </>
+      </Page>
     );
   }
 
   const ideas = await listIdeas(supabase, active.id, status);
 
   return (
-    <>
+    <Page width="max-w-[1060px]">
       <PageHeader
         title="Ideas"
-        subtitle="Review ideas generated from the videos you analyzed."
+        subtitle="Review ideas generated from the videos you analyzed. Read, decide, next."
         actions={
           status === "inbox" && ideas.length > 0 ? (
             <form action={discardAllInboxAction}>
               <button
                 type="submit"
-                className="text-sm text-faint transition hover:text-danger"
+                className="text-[11.5px] text-faint transition hover:text-danger"
               >
                 Discard all
               </button>
@@ -64,7 +71,7 @@ export default async function IdeasPage({
         }
       />
 
-      <div className="flex gap-1 rounded-lg bg-chip p-1 sm:w-fit">
+      <div className={`${segmentedTrack} w-fit`}>
         <Tab href="/dashboard/research/ideas" label="Inbox" active={status === "inbox"} />
         <Tab
           href="/dashboard/research/ideas?tab=shortlist"
@@ -74,7 +81,7 @@ export default async function IdeasPage({
       </div>
 
       <IdeaTriage ideas={ideas} status={status} />
-    </>
+    </Page>
   );
 }
 
@@ -88,14 +95,7 @@ function Tab({
   active: boolean;
 }) {
   return (
-    <Link
-      href={href}
-      className={`rounded-md px-3 py-1.5 text-sm transition ${
-        active
-          ? "bg-chip font-medium text-ink"
-          : "text-muted hover:text-ink"
-      }`}
-    >
+    <Link href={href} className={segmentedItem(active)}>
       {label}
     </Link>
   );

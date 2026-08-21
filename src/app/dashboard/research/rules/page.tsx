@@ -4,6 +4,7 @@ import {
   Card,
   EmptyState,
   Notice,
+  Page,
   PageHeader,
   Pill,
   UpgradeCard,
@@ -41,14 +42,14 @@ export default async function RulesPage() {
   const allowed = canUserDo(snapshot, { type: "use_research" });
   if (!allowed.allowed) {
     return (
-      <>
+      <Page width="max-w-[780px]">
         <PageHeader title="Auto-analyze" />
         <UpgradeCard title="Studio" reason={allowed.reason}>
           Set the bar once — say, anything that tripled its channel&rsquo;s
           average with at least 25,000 views — and MarkedFox breaks those videos
           down as they appear, dropping the ideas in your inbox.
         </UpgradeCard>
-      </>
+      </Page>
     );
   }
 
@@ -76,7 +77,7 @@ export default async function RulesPage() {
     .reduce((total, rule) => total + rule.daily_limit, 0);
 
   return (
-    <>
+    <Page width="max-w-[780px]">
       <PageHeader
         title="Auto-analyze"
         subtitle="Automatically break down videos that clear a bar you set, and drop the ideas in your inbox."
@@ -155,6 +156,6 @@ export default async function RulesPage() {
           ))}
         </ul>
       )}
-    </>
+    </Page>
   );
 }
