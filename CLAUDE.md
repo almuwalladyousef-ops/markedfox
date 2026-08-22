@@ -1186,3 +1186,74 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   542 tests; build, lint and typecheck green; clicked through at 1280px and
   375px in light and dark, including the collapsed rail, platform selection,
   the TikTok settings section, and Next landing on review.
+
+- **2026-08-22 — the second design handoff, implemented.** See
+  `sessions/2026-08-22-dashboard-redesign.md`. Branch
+  `claude/handoff-completion-2d2d54`, eight commits, **not merged and not
+  deployed.**
+
+  A README with every measurement in it, one interactive HTML prototype, and a
+  screen-to-file map. The brief was "easier to read, easier to understand,
+  less bulky", with a restructure rather than a polish pass.
+
+  *Three things underneath every screen.* An **icon set** —
+  `src/components/icons.tsx`, 45 paths on one 24×24 grid, replacing the text
+  glyphs (`✎ ▤ ⚡ ◇ ⊕`) and the 💎, which were a font's opinion of a symbol
+  rather than ours and fell back to a box on Android. **Density**, which
+  turned out to be the largest part of "easier to read" and is not layout at
+  all: body from a 13.5px floor to 15px, metadata 11→13px, nav labels
+  13→14.5px, card padding 18→22–28px, section gaps 14→22px. And
+  **`TwoPane`/`StickyPane`** — a wrapping flex row with a floor per pane, never
+  a grid, because a `328px minmax(0,1fr)` track lets the content column shrink
+  under its own minimum.
+
+  > Recorded because the handoff's own numbers get it wrong: a wrapping flex
+  > line breaks on **base** sizes and only then shrinks, so the bases decide
+  > whether it wraps, not the floors. Every two-pane here is sized to the
+  > ~920px a 1280px window leaves beside the rail.
+
+  *The shell.* 262/92px, with the collapse toggle still visible at 92px.
+  Settings moved to the rail's footer and **Connected accounts moved inside
+  it** — setup somebody visits twice and then never, which was pushing the
+  daily pages down.
+
+  *Screens.* **Home's grid changes shape with the account** (Instagram a square
+  grid, TikTok/YouTube 9:16 with views, Threads/X a timeline, combined the
+  masonry) because one layout makes neither look like the thing it copies.
+  **Calendar** gained the centred platform filter and defaults to month, whose
+  cells take their height from the viewport. **New post is five steps** — kind,
+  file, caption and platforms, per-platform settings, review — since the old
+  single column put the publish button under a screenful of YouTube settings.
+  **"+ New automation" is two stages**, template picker then builder, and the
+  builder's keywords are chips. **Research** put its filter panel behind a
+  toolbar toggle and gave Ideas the four analysis blocks from the breakdown.
+  **Settings is a menu and thirteen panes.**
+
+  *New behaviour, not restyling:* a real `/api/account/export` (RLS-scoped,
+  tokens and caches deliberately excluded), profile picture upload to R2,
+  email/name and password changes, "Remove all" channels, and **platform /
+  post-type priority** — migration `20260822000000_user_profile_and_
+  preferences.sql` adds `avatar_url` and a `preferences` jsonb to `users`, and
+  Home reads both. The reconciler drops preferences naming something removed
+  and appends anything added since, so a new platform is never invisible to
+  existing users.
+
+  *One handoff row deliberately absent:* "Join the community". There is no
+  community yet, and a row pointing at nothing is the dead control this
+  redesign spent its time removing.
+
+  *Bugs found.* `buttonClass(tone, size, "border-accent …")` silently lost —
+  two border-colour utilities in one class string are resolved by CSS source
+  order, not by writing order — so two accent states rendered plain. A
+  `render(id)` callback was crossing a Server/Client boundary. The composer's
+  action bar sat under the mobile tab bar, making Publish unreachable on a
+  phone. The home avatar stack overflowed 375px. The mobile tab bar lit Videos
+  while on Ideas. And the data export silently omitted `usage` because its
+  column list named two columns that do not exist — a skip now logs why.
+
+  551 tests (542 + 9 for the preferences reconciler); build, lint and typecheck
+  green; migration pushed. Signed in with seeded rows and clicked through in
+  light and dark at 1280px and 375px: every screen above, plus the export
+  endpoint's actual output. **Not verified:** anything needing a real platform
+  connection or an AI key, neither of which is configured here and neither of
+  which changed.
