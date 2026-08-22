@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { Icon, type IconName } from "@/components/icons";
 import { LocalTime } from "@/components/local-time";
-import { PlatformBadge, PlatformIcon } from "@/components/platform-icon";
+import { PlatformIcon, PlatformTile } from "@/components/platform-icon";
 import {
   Button,
   ButtonLink,
   EmptyState,
   Notice,
   Page,
+  buttonClass,
   cx,
   formatCount,
 } from "@/components/ui";
@@ -42,17 +44,40 @@ export const metadata: Metadata = { title: "Home · MarkedFox" };
 // of what we published: somebody who posted from their phone this morning
 // should see it here, or the screen is lying about being their account.
 //
+// The grid changes shape with the account, because a person's mental picture
+// of their own Instagram is a square grid and their picture of their own X is
+// a column of text. Rendering both as the same masonry means neither looks
+// like the thing it is a copy of.
+//
 // Nothing here calls a platform. Everything is read from the cache that
 // lib/accounts/sync.ts fills, because these reads are rate-limited per app and,
 // on X, billed per request — a page that refreshed on every load would spend
 // every user's share of one shared budget on people idly reloading.
 
-const KINDS: { id: AccountMediaKind | null; label: string; icon: string }[] = [
-  { id: null, label: "All", icon: "▦" },
-  { id: "video", label: "Short videos", icon: "▶" },
-  { id: "photo", label: "Photos", icon: "◲" },
-  { id: "text", label: "Text posts", icon: "☰" },
+const KINDS: { id: AccountMediaKind | null; label: string; icon: IconName }[] = [
+  { id: null, label: "All", icon: "grid" },
+  { id: "video", label: "Short videos", icon: "play" },
+  { id: "photo", label: "Photos", icon: "image" },
+  { id: "text", label: "Text posts", icon: "drafts" },
 ];
+
+/** Which of the four shapes a single account's posts are laid out in. */
+type GridShape = "masonry" | "square" | "vertical" | "timeline";
+
+function shapeFor(platform: Platform | null): GridShape {
+  switch (platform) {
+    case "instagram":
+      return "square";
+    case "tiktok":
+    case "youtube":
+      return "vertical";
+    case "threads":
+    case "x":
+      return "timeline";
+    default:
+      return "masonry";
+  }
+}
 
 function parseKind(value: string | undefined): AccountMediaKind | null {
   return value === "video" || value === "photo" || value === "text" ? value : null;
@@ -92,10 +117,10 @@ export default async function HomePage({
       .maybeSingle();
     return (
       <Page width="max-w-2xl">
-        <h1 className="font-display text-[26px] font-bold tracking-[-0.02em]">
+        <h1 className="font-display text-[30px]/[36px] font-bold tracking-[-0.025em]">
           {userRow ? "Account setup incomplete" : "This account no longer exists"}
         </h1>
-        <p className="text-[13.5px]/[20px] text-muted">
+        <p className="text-[15px]/[24px] text-muted">
           {userRow
             ? "No workspace exists for this account. Contact support@markedfox.com."
             : "It was deleted. Sign out to clear this browser's session."}
@@ -165,7 +190,7 @@ export default async function HomePage({
 
   if (connections.length === 0) {
     return (
-      <Page width="max-w-[1080px]">
+      <Page>
         <EmptyState
           title="Nothing connected yet"
           action={
@@ -187,9 +212,15 @@ export default async function HomePage({
       current.connection.platform_account_name ??
       PLATFORM_LABELS[current.connection.platform])
     : active.name;
+  const handle =
+    current?.profile?.handle ??
+    current?.connection.platform_account_name ??
+    current?.connection.platform_account_id ??
+    null;
+  const shape = shapeFor(current?.connection.platform ?? null);
 
   return (
-    <Page width="max-w-[1080px]">
+    <Page>
       {unread > 0 ? <AutoFill /> : null}
 
       {failed.length > 0 ? (
@@ -202,72 +233,84 @@ export default async function HomePage({
       ) : null}
 
       {/* ── the profile header ───────────────────────────────────────────── */}
-      <header className="flex flex-col items-center gap-5 pt-2 wide:flex-row wide:items-start wide:gap-8">
-        <div className="flex items-center gap-1.5">
+      <header className="flex flex-col items-center gap-6 pt-1 wide:flex-row wide:items-start wide:gap-9">
+        <div className="flex items-center gap-2">
           <ArrowLink href={href({ account: previous, kind })} direction="prev" />
-          <AvatarStack accounts={shown} />
+          {current ? (
+            <SingleAvatar entry={current} />
+          ) : (
+            <AvatarStack accounts={accounts} />
+          )}
           <ArrowLink href={href({ account: next, kind })} direction="next" />
         </div>
 
         <div className="min-w-0 flex-1 text-center wide:text-left">
           <div className="flex flex-wrap items-center justify-center gap-2.5 wide:justify-start">
-            <h1 className="font-display text-[26px]/[32px] font-bold tracking-[-0.02em] text-ink">
+            <h1 className="font-display text-[30px]/[36px] font-bold tracking-[-0.025em] text-ink">
               {title}
             </h1>
-            <ButtonLink href="/dashboard/drafts" tone="secondary" size="sm">
+            <ButtonLink href="/dashboard/drafts" tone="secondary" size="xs">
               Drafts
             </ButtonLink>
             <form action={refreshAccountsAction}>
-              <Button type="submit" tone="secondary" size="sm">
+              <Button type="submit" tone="secondary" size="xs">
+                <Icon name="refresh" className="h-3.5 w-3.5" />
                 Refresh
               </Button>
             </form>
             {/* X bills per request, so its refresh is a separate press with the
-                cost said out loud rather than a surprise on an invoice. */}
+                cost said out loud rather than a surprise on an invoice. It is
+                styled as an opt-in pill rather than another grey button, because
+                it is the only control on this screen that spends money. */}
             {hasMetered ? (
               <form action={refreshAccountsAction}>
                 <input type="hidden" name="include_metered" value="1" />
-                <Button
+                <button
                   type="submit"
-                  tone="ghost"
-                  size="sm"
                   title="X charges per read, so it refreshes only when you ask"
+                  className={buttonClass(
+                    "secondary",
+                    "xs",
+                    "rounded-full border-accent bg-accent-soft text-accent hover:brightness-[1.05]",
+                  )}
                 >
                   Include X
-                </Button>
+                </button>
               </form>
             ) : null}
           </div>
 
-          <dl className="mt-3 flex flex-wrap items-baseline justify-center gap-x-6 gap-y-1 text-[13.5px] text-muted wide:justify-start">
+          <dl className="mt-3.5 flex flex-wrap items-baseline justify-center gap-x-[26px] gap-y-2 text-[13.5px] text-muted wide:justify-start">
             <Total label="total posts" value={totals.posts} />
             <Total label="total followers" value={totals.followers} />
             <Total label="total following" value={totals.following} />
           </dl>
 
           {current ? (
-            <div className="mt-3 text-[13.5px]/[20px]">
-              <p className="font-semibold text-ink">
-                {current.profile?.handle ??
-                  current.connection.platform_account_name ??
-                  current.connection.platform_account_id}
-              </p>
+            <div className="mt-4">
+              {handle ? (
+                <span className="inline-flex items-center rounded-full bg-chip px-3 py-1 text-[13px] font-semibold text-muted">
+                  {handle}
+                </span>
+              ) : null}
               {current.profile?.bio ? (
-                <p className="mt-1 max-w-md text-muted">{current.profile.bio}</p>
+                <p className="mt-2.5 max-w-md text-[15px]/[24px] text-pretty text-muted">
+                  {current.profile.bio}
+                </p>
               ) : null}
               {current.profile?.profileUrl ? (
                 <a
                   href={current.profile.profileUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-1 inline-block text-faint underline-offset-2 hover:text-ink hover:underline"
+                  className="mt-2 inline-block text-[14px] font-semibold text-accent underline-offset-2 hover:underline"
                 >
                   {current.profile.profileUrl.replace(/^https?:\/\//, "")}
                 </a>
               ) : null}
             </div>
           ) : (
-            <p className="mt-3 text-[12.5px] text-faint">
+            <p className="mt-4 text-[13px] text-faint">
               Every connected account together.{" "}
               {lastSynced ? (
                 <>
@@ -280,7 +323,7 @@ export default async function HomePage({
       </header>
 
       {/* ── what kind of post ────────────────────────────────────────────── */}
-      <nav className="flex justify-center gap-1 pt-1">
+      <nav className="flex flex-wrap justify-center gap-1.5">
         {KINDS.map((option) => {
           const on = kind === option.id;
           return (
@@ -289,13 +332,14 @@ export default async function HomePage({
               href={href({ account: selectedId, kind: option.id })}
               aria-current={on ? "page" : undefined}
               className={cx(
-                "inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold transition",
+                "inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13.5px] font-semibold transition-[background,color] duration-150",
                 on ? "bg-ink text-panel" : "text-muted hover:bg-chip hover:text-ink",
               )}
             >
-              <span aria-hidden className="text-[12px]">
-                {option.icon}
-              </span>
+              <Icon
+                name={option.icon}
+                className={cx("h-4 w-4", on ? "" : "opacity-75")}
+              />
               {option.label}
             </Link>
           );
@@ -319,7 +363,12 @@ export default async function HomePage({
         </EmptyState>
       ) : (
         <>
-          <MediaGrid items={media.items} accounts={accounts} />
+          <MediaGrid
+            items={media.items}
+            accounts={accounts}
+            shape={shape}
+            current={current}
+          />
           {media.hasMore ? (
             <div className="flex justify-center">
               <ButtonLink
@@ -371,7 +420,9 @@ function readable(platform: Platform): "yes" | "metered" | "none" {
 
 function Total({ label, value }: { label: string; value: number | null }) {
   return (
-    <div className="flex items-baseline gap-1.5">
+    // `order` reverses the pair on screen while the markup keeps the definition
+    // list's own label-then-value order, which is what a screen reader follows.
+    <div className="flex items-baseline gap-2">
       <dd className="font-display order-1 text-[19px] font-bold text-ink">
         {formatCount(value)}
       </dd>
@@ -391,49 +442,117 @@ function ArrowLink({
     <Link
       href={to}
       aria-label={direction === "prev" ? "Previous account" : "Next account"}
-      className="flex h-8 w-8 items-center justify-center rounded-full text-[15px] text-faint transition hover:bg-chip hover:text-ink"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-faint transition-[background,color] duration-150 hover:bg-chip hover:text-ink"
     >
-      {direction === "prev" ? "‹" : "›"}
+      <Icon
+        name={direction === "prev" ? "chevronLeft" : "chevronRight"}
+        className="h-[18px] w-[18px]"
+      />
     </Link>
   );
 }
 
-/** The overlapping avatars. One account when the carousel is on it, the whole
- *  set when it is on "everything". */
-function AvatarStack({ accounts }: { accounts: AccountEntry[] }) {
-  const shown = accounts.slice(0, 3);
+function Avatar({
+  entry,
+  size,
+  className,
+}: {
+  entry: AccountEntry;
+  size: number;
+  className?: string;
+}) {
+  const { connection, profile } = entry;
   return (
-    <div className="flex items-center -space-x-6">
-      {shown.map(({ connection, profile }, index) => (
+    <span
+      style={{ width: size, height: size }}
+      className={cx(
+        "relative inline-flex items-center justify-center overflow-hidden rounded-full border-[3px] border-panel bg-chip",
+        className,
+      )}
+    >
+      {profile?.avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={profile.avatarUrl}
+          alt=""
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <PlatformIcon
+          platform={connection.platform}
+          className="h-1/4 w-1/4 text-muted"
+        />
+      )}
+    </span>
+  );
+}
+
+/** The overlapping avatars, shown when the carousel is on "everything". Four
+ *  faces and a counter: past four the circles stop being recognisable and the
+ *  stack is only saying "several". */
+function AvatarStack({ accounts }: { accounts: AccountEntry[] }) {
+  const shown = accounts.slice(0, 4);
+  const rest = accounts.length - shown.length;
+  return (
+    <div className="flex items-center">
+      {shown.map((entry, index) => (
         <span
-          key={connection.id}
-          title={profile?.displayName ?? connection.platform_account_name ?? undefined}
-          style={{ zIndex: shown.length - index }}
-          className="relative inline-flex h-[86px] w-[86px] items-center justify-center overflow-hidden rounded-full border-[3px] border-panel bg-chip"
+          key={entry.connection.id}
+          title={
+            entry.profile?.displayName ??
+            entry.connection.platform_account_name ??
+            undefined
+          }
+          style={{
+            zIndex: shown.length - index,
+            marginLeft: index === 0 ? 0 : -24,
+          }}
+          className="relative"
         >
-          {profile?.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <PlatformIcon platform={connection.platform} className="h-6 w-6 text-muted" />
-          )}
+          <Avatar entry={entry} size={86} />
         </span>
       ))}
-      {accounts.length > shown.length ? (
-        <span className="relative inline-flex h-[86px] w-[86px] items-center justify-center rounded-full border-[3px] border-panel bg-chip text-[15px] font-semibold text-muted">
-          +{accounts.length - shown.length}
+      {rest > 0 ? (
+        <span
+          style={{ marginLeft: -24 }}
+          className="font-display relative inline-flex h-[86px] w-[86px] items-center justify-center rounded-full border-[3px] border-panel bg-chip text-[17px] font-bold text-muted"
+        >
+          +{rest}
         </span>
       ) : null}
     </div>
   );
 }
 
+/** One account: a bigger avatar with its platform badged on the corner, so a
+ *  screen showing a single face still says which network it belongs to. */
+function SingleAvatar({ entry }: { entry: AccountEntry }) {
+  return (
+    <span className="relative inline-block">
+      <Avatar entry={entry} size={104} />
+      <span className="absolute right-0 bottom-0">
+        <PlatformTile
+          platform={entry.connection.platform}
+          size={30}
+          radius={999}
+          className="ring-[3px] ring-panel"
+          title={PLATFORM_LABELS[entry.connection.platform]}
+        />
+      </span>
+    </span>
+  );
+}
+
 function MediaGrid({
   items,
   accounts,
+  shape,
+  current,
 }: {
   items: AccountMediaRow[];
   accounts: AccountEntry[];
+  shape: GridShape;
+  current: AccountEntry | null;
 }) {
   const metricFor = new Map(
     accounts
@@ -441,10 +560,64 @@ function MediaGrid({
       .map((entry) => [entry.connection.id, entry.profile!.primaryMetric]),
   );
 
-  // Columns rather than a grid: posts are portrait, square and text, and a
-  // fixed row height would either crop the tall ones or pad the short ones.
+  if (shape === "timeline") {
+    return <Timeline items={items} account={current} />;
+  }
+
+  if (shape === "square" || shape === "vertical") {
+    // The platform's own grid, at its own aspect ratio and its own 3px gutter.
+    // Anyone who has looked at their profile on the phone recognises this
+    // instantly, which is the entire argument for not using one layout.
+    return (
+      <div className="grid grid-cols-3 gap-[3px]">
+        {items.map((item) => (
+          <a
+            key={item.id}
+            href={item.permalink ?? "#"}
+            target={item.permalink ? "_blank" : undefined}
+            rel="noreferrer"
+            className={cx(
+              "group relative block overflow-hidden bg-chip",
+              shape === "square" ? "aspect-square" : "aspect-[9/16]",
+            )}
+          >
+            {item.thumbnailUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={item.thumbnailUrl}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover transition-[filter] duration-300 group-hover:brightness-[1.06]"
+              />
+            ) : (
+              <p className="p-3 text-[13px]/[19px] text-ink">
+                {item.caption?.trim() || "No text"}
+              </p>
+            )}
+            {shape === "vertical" && item.views !== null ? (
+              <>
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/55 to-transparent"
+                />
+                <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 text-[12.5px] font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]">
+                  <Icon name="play" className="h-3.5 w-3.5" />
+                  {formatCount(item.views)}
+                  <span className="sr-only">views</span>
+                </span>
+              </>
+            ) : null}
+          </a>
+        ))}
+      </div>
+    );
+  }
+
+  // Columns rather than a grid: across every account at once the posts are
+  // portrait, square and text, and a fixed row height would either crop the
+  // tall ones or pad the short ones.
   return (
-    <div className="columns-2 gap-2 shell:columns-3 wide:columns-4 [&>*]:mb-2">
+    <div className="columns-2 gap-2.5 shell:columns-3 wide:columns-4 [&>*]:mb-2.5">
       {items.map((item) => {
         const metric = metricFor.get(item.connectionId) ?? "views";
         const headline = metric === "views" ? item.views : item.likes;
@@ -454,7 +627,7 @@ function MediaGrid({
             href={item.permalink ?? "#"}
             target={item.permalink ? "_blank" : undefined}
             rel="noreferrer"
-            className="group relative block break-inside-avoid overflow-hidden rounded-[10px] bg-chip"
+            className="group relative block break-inside-avoid overflow-hidden rounded-xl bg-chip"
           >
             {item.thumbnailUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -463,14 +636,14 @@ function MediaGrid({
                 alt=""
                 loading="lazy"
                 className={cx(
-                  "w-full object-cover transition duration-300 group-hover:brightness-[1.06]",
+                  "w-full object-cover transition-[filter] duration-300 group-hover:brightness-[1.06]",
                   item.kind === "video" ? "aspect-[9/16]" : "aspect-[4/5]",
                 )}
               />
             ) : (
               // A text post has no picture, so it shows its own words — an
               // empty grey tile would read as a broken image.
-              <p className="px-3.5 pt-6 pr-10 pb-9 text-[13px]/[19px] text-ink">
+              <p className="px-4 pt-6 pr-10 pb-10 text-[14px]/[21px] text-pretty text-ink">
                 {item.caption?.trim() || "No text"}
               </p>
             )}
@@ -485,9 +658,9 @@ function MediaGrid({
             ) : null}
 
             <span className="absolute top-2 right-2">
-              <PlatformBadge
+              <PlatformTile
                 platform={item.platform}
-                className="h-6 w-6 rounded-full"
+                size={24}
                 title={PLATFORM_LABELS[item.platform]}
               />
             </span>
@@ -495,13 +668,16 @@ function MediaGrid({
             {headline !== null ? (
               <span
                 className={cx(
-                  "absolute bottom-2 left-2 inline-flex items-center gap-1 text-[12px] font-semibold",
+                  "absolute bottom-2 left-2 inline-flex items-center gap-1 text-[12.5px] font-bold",
                   item.thumbnailUrl
                     ? "text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
                     : "text-muted",
                 )}
               >
-                <span aria-hidden>{metric === "views" ? "▶" : "♥"}</span>
+                <Icon
+                  name={metric === "views" ? "play" : "spark"}
+                  className="h-3.5 w-3.5"
+                />
                 {formatCount(headline)}
                 <span className="sr-only">{metric}</span>
               </span>
@@ -509,6 +685,85 @@ function MediaGrid({
           </a>
         );
       })}
+    </div>
+  );
+}
+
+/** Threads and X: a column of posts rather than a grid of pictures, because
+ *  that is what a post on either of them is. */
+function Timeline({
+  items,
+  account,
+}: {
+  items: AccountMediaRow[];
+  account: AccountEntry | null;
+}) {
+  const name =
+    account?.profile?.displayName ??
+    account?.connection.platform_account_name ??
+    "";
+  const handle = account?.profile?.handle ?? "";
+
+  return (
+    <div className="mx-auto flex w-full max-w-[36rem] flex-col">
+      {items.map((item) => (
+        <article
+          key={item.id}
+          className="flex gap-3 border-b border-line py-4 last:border-b-0"
+        >
+          {account ? (
+            <Avatar entry={account} size={40} className="border-0" />
+          ) : null}
+          <div className="min-w-0 flex-1">
+            <p className="flex flex-wrap items-baseline gap-x-1.5 text-[14px]">
+              <span className="font-semibold text-ink">{name}</span>
+              <span className="text-[13px] text-faint">{handle}</span>
+              {item.postedAt ? (
+                <span className="text-[13px] text-faint">
+                  · <LocalTime value={item.postedAt} fallback="" />
+                </span>
+              ) : null}
+            </p>
+            {item.caption ? (
+              <p className="mt-1.5 text-[14.5px]/[22px] text-pretty whitespace-pre-wrap text-ink">
+                {item.caption}
+              </p>
+            ) : null}
+            {item.thumbnailUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={item.thumbnailUrl}
+                alt=""
+                loading="lazy"
+                className="mt-3 w-full rounded-xl border border-line object-cover"
+              />
+            ) : null}
+            <p className="mt-2.5 flex items-center gap-5 text-[13px] text-faint">
+              <span className="inline-flex items-center gap-1.5">
+                <Icon name="chat" className="h-4 w-4" />
+                {formatCount(item.comments ?? 0)}
+                <span className="sr-only">replies</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Icon name="spark" className="h-4 w-4" />
+                {formatCount(item.likes ?? 0)}
+                <span className="sr-only">likes</span>
+              </span>
+              {item.permalink ? (
+                <a
+                  href={item.permalink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-auto inline-flex items-center gap-1.5 hover:text-ink"
+                >
+                  <Icon name="external" className="h-4 w-4" />
+                  <span className="sr-only">Open the post</span>
+                </a>
+              ) : null}
+            </p>
+          </div>
+        </article>
+      ))}
     </div>
   );
 }

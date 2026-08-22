@@ -8,8 +8,11 @@
 
 export type CalendarView = "month" | "week" | "day";
 
+// Month is the default because it is the view that answers the question people
+// open a calendar with — "what is my next two weeks like" — and the one the
+// design is drawn around. Week and day are for working inside a busy day.
 export function parseView(raw: string | undefined): CalendarView {
-  return raw === "month" || raw === "day" ? raw : "week";
+  return raw === "week" || raw === "day" ? raw : "month";
 }
 
 /** Midnight at the start of this date, locally. */

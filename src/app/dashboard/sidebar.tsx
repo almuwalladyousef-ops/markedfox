@@ -93,9 +93,13 @@ export function Sidebar({
           </div>
         ) : (
           <div className="flex items-center gap-2.5 px-2">
-            <Link href="/dashboard" className="flex min-w-0 items-center gap-2.5">
+            <Link href="/dashboard" className="flex items-center gap-2.5">
               <FoxMark className="h-[30px] shrink-0" />
-              <span className="font-display truncate text-[18px] font-bold tracking-[-0.02em] text-ink">
+              {/* No truncation on the wordmark: the rail is a fixed 262px and
+                  the name fits, so a `truncate` here only ever fires when
+                  something else is mis-sized — and it hides that fact by
+                  quietly rendering "Marke…". */}
+              <span className="font-display text-[18px] font-bold tracking-[-0.02em] whitespace-nowrap text-ink">
                 MarkedFox
               </span>
             </Link>
