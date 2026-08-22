@@ -88,6 +88,7 @@ export async function listAccountMedia(
     .range(0, size);
 
   if (filter.platform) query = query.eq("platform", filter.platform);
+  if (filter.connectionId) query = query.eq("connection_id", filter.connectionId);
   if (filter.kind) query = query.eq("kind", filter.kind);
 
   const { data, error } = await query;

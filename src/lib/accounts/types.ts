@@ -47,6 +47,8 @@ export interface AccountTotals {
 
 export type MediaFilter = {
   platform: Platform | null;
+  /** One connected account, when the home screen's carousel is on it. */
+  connectionId?: string | null;
   kind: AccountMediaKind | null;
   /** 0-based. The grid pages rather than loading a whole account's history. */
   page: number;

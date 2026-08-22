@@ -2,17 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { LocalTime } from "@/components/local-time";
-import { PlatformIcon } from "@/components/platform-icon";
+import { PlatformBadge, PlatformIcon } from "@/components/platform-icon";
 import {
   Button,
   ButtonLink,
   EmptyState,
   Notice,
   Page,
-  chipToggle,
+  cx,
   formatCount,
-  segmentedItem,
-  segmentedTrack,
 } from "@/components/ui";
 import { refreshAccountsAction } from "@/lib/accounts/actions";
 import {
@@ -26,7 +24,7 @@ import { requireUser } from "@/lib/auth/session";
 import { listConnections, type ConnectionRow } from "@/lib/connections/store";
 import { PLATFORM_LABELS } from "@/lib/platforms/labels";
 import { getPlatform } from "@/lib/platforms/registry";
-import { PLATFORMS, type AccountMediaKind, type Platform } from "@/lib/platforms/types";
+import type { AccountMediaKind, Platform } from "@/lib/platforms/types";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
@@ -38,38 +36,35 @@ export const metadata: Metadata = { title: "Home · MarkedFox" };
 // product wants them to do.
 //
 // It opens on the total — posts, followers, following across every connected
-// account at once — and then the same grid narrowed to one platform. The posts
-// are the real ones from each platform, not our record of what we published:
-// somebody who posted from their phone this morning should see it here, or the
-// screen is lying about being their account.
+// account at once — and the ‹ › arrows walk through the accounts one at a
+// time, so the same screen answers "how am I doing overall" and "how is this
+// account doing". The grid is the real posts on those accounts, not our record
+// of what we published: somebody who posted from their phone this morning
+// should see it here, or the screen is lying about being their account.
 //
 // Nothing here calls a platform. Everything is read from the cache that
 // lib/accounts/sync.ts fills, because these reads are rate-limited per app and,
 // on X, billed per request — a page that refreshed on every load would spend
 // every user's share of one shared budget on people idly reloading.
 
-const KINDS: { id: AccountMediaKind | null; label: string }[] = [
-  { id: null, label: "All" },
-  { id: "video", label: "Short videos" },
-  { id: "photo", label: "Photos" },
-  { id: "text", label: "Text posts" },
+const KINDS: { id: AccountMediaKind | null; label: string; icon: string }[] = [
+  { id: null, label: "All", icon: "▦" },
+  { id: "video", label: "Short videos", icon: "▶" },
+  { id: "photo", label: "Photos", icon: "◲" },
+  { id: "text", label: "Text posts", icon: "☰" },
 ];
-
-function parsePlatform(value: string | undefined): Platform | null {
-  return PLATFORMS.includes(value as Platform) ? (value as Platform) : null;
-}
 
 function parseKind(value: string | undefined): AccountMediaKind | null {
   return value === "video" || value === "photo" || value === "text" ? value : null;
 }
 
 function href(params: {
-  platform?: Platform | null;
+  account?: string | null;
   kind?: AccountMediaKind | null;
   page?: number;
 }): string {
   const search = new URLSearchParams();
-  if (params.platform) search.set("platform", params.platform);
+  if (params.account) search.set("account", params.account);
   if (params.kind) search.set("kind", params.kind);
   if (params.page) search.set("page", String(params.page));
   const query = search.toString();
@@ -79,7 +74,7 @@ function href(params: {
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ platform?: string; kind?: string; page?: string }>;
+  searchParams: Promise<{ account?: string; kind?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const user = await requireUser();
@@ -112,23 +107,44 @@ export default async function HomePage({
     );
   }
 
-  const platform = parsePlatform(params.platform);
   const kind = parseKind(params.kind);
   const page = Math.max(0, Math.min(20, Number(params.page ?? 0) || 0));
 
   const supabase = await createClient();
-  const [connections, profiles, media] = await Promise.all([
+  const [connections, profiles] = await Promise.all([
     listConnections(supabase, active.id),
     listAccountProfiles(supabase, active.id),
-    listAccountMedia(supabase, active.id, { platform, kind, page }),
   ]);
 
-  const totals = totalsFrom(profiles);
   const byConnection = new Map(profiles.map((row) => [row.connectionId, row]));
-  const accounts = connections.map((connection) => ({
+  const accounts: AccountEntry[] = connections.map((connection) => ({
     connection,
     profile: byConnection.get(connection.id) ?? null,
   }));
+
+  // The carousel: "all" plus one stop per connected account, in the order they
+  // were connected, so ‹ › always walks the same ring.
+  const selectedId =
+    params.account && accounts.some((a) => a.connection.id === params.account)
+      ? params.account
+      : null;
+  const ring: (string | null)[] = [null, ...accounts.map((a) => a.connection.id)];
+  const at = ring.indexOf(selectedId);
+  const previous = ring[(at - 1 + ring.length) % ring.length];
+  const next = ring[(at + 1) % ring.length];
+  const current = accounts.find((a) => a.connection.id === selectedId) ?? null;
+
+  const media = await listAccountMedia(supabase, active.id, {
+    platform: null,
+    connectionId: selectedId,
+    kind,
+    page,
+  });
+
+  const shown = current ? [current] : accounts;
+  const totals = totalsFrom(
+    shown.map((entry) => entry.profile).filter(Boolean) as AccountProfileRow[],
+  );
 
   // Connected accounts we have never managed to read. The sweep reaches them
   // within the hour, but somebody who connected an account thirty seconds ago
@@ -137,17 +153,9 @@ export default async function HomePage({
     ({ connection, profile }) =>
       profile === null && readable(connection.platform) !== "none",
   ).length;
-
-  // A read that failed is worth a sentence at the top rather than a quiet dash
-  // in a chip: the fix — reconnect the account — is not something anybody
-  // guesses from a missing number.
   const failed = accounts.filter(({ profile }) => profile?.lastError);
-
-  const connectedPlatforms = [
-    ...new Set(connections.map((connection) => connection.platform)),
-  ];
-  const hasMetered = connectedPlatforms.some(
-    (id) => readable(id) === "metered",
+  const hasMetered = accounts.some(
+    ({ connection }) => readable(connection.platform) === "metered",
   );
   const lastSynced = profiles
     .map((row) => row.lastSyncedAt)
@@ -157,14 +165,7 @@ export default async function HomePage({
 
   if (connections.length === 0) {
     return (
-      <Page width="max-w-[1120px]">
-        <Header
-          name={active.name}
-          totals={totals}
-          accounts={accounts}
-          lastSynced={undefined}
-          hasMetered={false}
-        />
+      <Page width="max-w-[1080px]">
         <EmptyState
           title="Nothing connected yet"
           action={
@@ -181,17 +182,15 @@ export default async function HomePage({
     );
   }
 
-  return (
-    <Page width="max-w-[1120px]">
-      {unread > 0 ? <AutoFill /> : null}
+  const title = current
+    ? (current.profile?.displayName ??
+      current.connection.platform_account_name ??
+      PLATFORM_LABELS[current.connection.platform])
+    : active.name;
 
-      <Header
-        name={active.name}
-        totals={totals}
-        accounts={accounts}
-        lastSynced={lastSynced}
-        hasMetered={hasMetered}
-      />
+  return (
+    <Page width="max-w-[1080px]">
+      {unread > 0 ? <AutoFill /> : null}
 
       {failed.length > 0 ? (
         <Notice tone="warn">
@@ -202,57 +201,120 @@ export default async function HomePage({
         </Notice>
       ) : null}
 
-      <AccountStrip accounts={accounts} />
+      {/* ── the profile header ───────────────────────────────────────────── */}
+      <header className="flex flex-col items-center gap-5 pt-2 wide:flex-row wide:items-start wide:gap-8">
+        <div className="flex items-center gap-1.5">
+          <ArrowLink href={href({ account: previous, kind })} direction="prev" />
+          <AvatarStack accounts={shown} />
+          <ArrowLink href={href({ account: next, kind })} direction="next" />
+        </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <nav className="flex flex-wrap gap-1.5">
-          <Link
-            href={href({ kind })}
-            aria-current={platform === null ? "page" : undefined}
-            className={chipToggle(platform === null)}
-          >
-            All platforms
-          </Link>
-          {connectedPlatforms.map((id) => (
-            <Link
-              key={id}
-              href={href({ platform: id, kind })}
-              aria-current={platform === id ? "page" : undefined}
-              className={chipToggle(platform === id, "inline-flex items-center gap-1.5")}
-            >
-              <PlatformIcon platform={id} />
-              {PLATFORM_LABELS[id]}
-            </Link>
-          ))}
-        </nav>
+        <div className="min-w-0 flex-1 text-center wide:text-left">
+          <div className="flex flex-wrap items-center justify-center gap-2.5 wide:justify-start">
+            <h1 className="font-display text-[26px]/[32px] font-bold tracking-[-0.02em] text-ink">
+              {title}
+            </h1>
+            <ButtonLink href="/dashboard/drafts" tone="secondary" size="sm">
+              Drafts
+            </ButtonLink>
+            <form action={refreshAccountsAction}>
+              <Button type="submit" tone="secondary" size="sm">
+                Refresh
+              </Button>
+            </form>
+            {/* X bills per request, so its refresh is a separate press with the
+                cost said out loud rather than a surprise on an invoice. */}
+            {hasMetered ? (
+              <form action={refreshAccountsAction}>
+                <input type="hidden" name="include_metered" value="1" />
+                <Button
+                  type="submit"
+                  tone="ghost"
+                  size="sm"
+                  title="X charges per read, so it refreshes only when you ask"
+                >
+                  Include X
+                </Button>
+              </form>
+            ) : null}
+          </div>
 
-        <div className={`ml-auto ${segmentedTrack}`}>
-          {KINDS.map((option) => (
+          <dl className="mt-3 flex flex-wrap items-baseline justify-center gap-x-6 gap-y-1 text-[13.5px] text-muted wide:justify-start">
+            <Total label="total posts" value={totals.posts} />
+            <Total label="total followers" value={totals.followers} />
+            <Total label="total following" value={totals.following} />
+          </dl>
+
+          {current ? (
+            <div className="mt-3 text-[13.5px]/[20px]">
+              <p className="font-semibold text-ink">
+                {current.profile?.handle ??
+                  current.connection.platform_account_name ??
+                  current.connection.platform_account_id}
+              </p>
+              {current.profile?.bio ? (
+                <p className="mt-1 max-w-md text-muted">{current.profile.bio}</p>
+              ) : null}
+              {current.profile?.profileUrl ? (
+                <a
+                  href={current.profile.profileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-block text-faint underline-offset-2 hover:text-ink hover:underline"
+                >
+                  {current.profile.profileUrl.replace(/^https?:\/\//, "")}
+                </a>
+              ) : null}
+            </div>
+          ) : (
+            <p className="mt-3 text-[12.5px] text-faint">
+              Every connected account together.{" "}
+              {lastSynced ? (
+                <>
+                  Last read <LocalTime value={lastSynced} fallback="recently" />.
+                </>
+              ) : null}
+            </p>
+          )}
+        </div>
+      </header>
+
+      {/* ── what kind of post ────────────────────────────────────────────── */}
+      <nav className="flex justify-center gap-1 pt-1">
+        {KINDS.map((option) => {
+          const on = kind === option.id;
+          return (
             <Link
               key={option.label}
-              href={href({ platform, kind: option.id })}
-              aria-current={kind === option.id ? "page" : undefined}
-              className={segmentedItem(kind === option.id)}
+              href={href({ account: selectedId, kind: option.id })}
+              aria-current={on ? "page" : undefined}
+              className={cx(
+                "inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold transition",
+                on ? "bg-ink text-panel" : "text-muted hover:bg-chip hover:text-ink",
+              )}
             >
+              <span aria-hidden className="text-[12px]">
+                {option.icon}
+              </span>
               {option.label}
             </Link>
-          ))}
-        </div>
-      </div>
+          );
+        })}
+      </nav>
 
       {media.items.length === 0 ? (
         <EmptyState
           title={unread > 0 ? "Reading your accounts…" : "Nothing to show yet"}
           action={
-            <ButtonLink href="/dashboard/compose" tone="primary">
-              Compose a post
+            <ButtonLink href="/dashboard/new-post" tone="primary">
+              New post
             </ButtonLink>
           }
         >
           {unread > 0
             ? "This takes a few seconds the first time. The page fills itself when the accounts answer."
-            : platform || kind
-              ? "No posts match this filter. Try another platform or post type."
+            : kind || selectedId
+              ? "No posts match this filter. Try another account or post type."
               : "Once these accounts have posts, they appear here — the ones you publish from MarkedFox and the ones you do not."}
         </EmptyState>
       ) : (
@@ -260,7 +322,10 @@ export default async function HomePage({
           <MediaGrid items={media.items} accounts={accounts} />
           {media.hasMore ? (
             <div className="flex justify-center">
-              <ButtonLink href={href({ platform, kind, page: page + 1 })} tone="secondary">
+              <ButtonLink
+                href={href({ account: selectedId, kind, page: page + 1 })}
+                tone="secondary"
+              >
                 Load more
               </ButtonLink>
             </div>
@@ -292,7 +357,6 @@ function readFailureNotice(failed: AccountEntry[]): string {
     .join(" ");
 }
 
-
 /** What this deployment can read for a platform, in the three states the
  *  screen has to say something different about. */
 function readable(platform: Platform): "yes" | "metered" | "none" {
@@ -305,173 +369,62 @@ function readable(platform: Platform): "yes" | "metered" | "none" {
   }
 }
 
-function Header({
-  name,
-  totals,
-  accounts,
-  lastSynced,
-  hasMetered,
-}: {
-  name: string;
-  totals: ReturnType<typeof totalsFrom>;
-  accounts: AccountEntry[];
-  lastSynced: string | undefined;
-  hasMetered: boolean;
-}) {
+function Total({ label, value }: { label: string; value: number | null }) {
   return (
-    <header className="flex flex-wrap items-start gap-5">
-      <AvatarStack accounts={accounts} />
-
-      <div className="min-w-[240px] flex-1">
-        <h1 className="font-display text-[26px]/[32px] font-bold tracking-[-0.02em] text-ink">
-          {name}
-        </h1>
-        <dl className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[13.5px] text-muted">
-          <div className="flex items-baseline gap-1.5">
-            <dt className="order-2">total posts</dt>
-            <dd className="order-1 font-display text-[17px] font-bold text-ink">
-              {formatCount(totals.posts)}
-            </dd>
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <dt className="order-2">total followers</dt>
-            <dd className="order-1 font-display text-[17px] font-bold text-ink">
-              {formatCount(totals.followers)}
-            </dd>
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <dt className="order-2">total following</dt>
-            <dd className="order-1 font-display text-[17px] font-bold text-ink">
-              {formatCount(totals.following)}
-            </dd>
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <dt className="order-2">
-              {totals.accounts === 1 ? "account" : "accounts"}
-            </dt>
-            <dd className="order-1 font-display text-[17px] font-bold text-ink">
-              {totals.accounts}
-            </dd>
-          </div>
-        </dl>
-        {lastSynced ? (
-          <p className="mt-1.5 text-[11.5px] text-faint">
-            Last read <LocalTime value={lastSynced} fallback="recently" />
-          </p>
-        ) : null}
-      </div>
-
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <form action={refreshAccountsAction}>
-          <Button type="submit" tone="secondary" size="sm">
-            Refresh
-          </Button>
-        </form>
-        {/* X bills per request, so its refresh is a separate press with the
-            cost said out loud rather than a surprise on an invoice. */}
-        {hasMetered ? (
-          <form action={refreshAccountsAction}>
-            <input type="hidden" name="include_metered" value="1" />
-            <Button
-              type="submit"
-              tone="ghost"
-              size="sm"
-              title="X charges per read, so it refreshes only when you ask"
-            >
-              Refresh including X
-            </Button>
-          </form>
-        ) : null}
-        <ButtonLink href="/dashboard/accounts" tone="ghost" size="sm">
-          Manage accounts
-        </ButtonLink>
-        <ButtonLink href="/dashboard/compose" tone="primary" size="sm">
-          + New post
-        </ButtonLink>
-      </div>
-    </header>
-  );
-}
-
-function AvatarStack({ accounts }: { accounts: AccountEntry[] }) {
-  const shown = accounts.slice(0, 4);
-  return (
-    <div className="flex items-center -space-x-3">
-      {shown.map(({ connection, profile }) => (
-        <span
-          key={connection.id}
-          title={profile?.displayName ?? connection.platform_account_name ?? undefined}
-          className="relative inline-flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-panel bg-chip"
-        >
-          {profile?.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={profile.avatarUrl}
-              alt=""
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <PlatformIcon platform={connection.platform} className="h-5 w-5 text-muted" />
-          )}
-        </span>
-      ))}
-      {accounts.length > shown.length ? (
-        <span className="relative inline-flex h-14 w-14 items-center justify-center rounded-full border-2 border-panel bg-chip text-[13px] font-semibold text-muted">
-          +{accounts.length - shown.length}
-        </span>
-      ) : null}
+    <div className="flex items-baseline gap-1.5">
+      <dd className="font-display order-1 text-[19px] font-bold text-ink">
+        {formatCount(value)}
+      </dd>
+      <dt className="order-2">{label}</dt>
     </div>
   );
 }
 
-function AccountStrip({ accounts }: { accounts: AccountEntry[] }) {
+function ArrowLink({
+  href: to,
+  direction,
+}: {
+  href: string;
+  direction: "prev" | "next";
+}) {
   return (
-    <ul className="flex flex-wrap gap-2">
-      {accounts.map(({ connection, profile }) => {
-        const state = readable(connection.platform);
-        const name =
-          profile?.handle ??
-          profile?.displayName ??
-          connection.platform_account_name ??
-          connection.platform_account_id;
-        // Three different silences, and they mean different things: a platform
-        // with no read API at all, one that costs money to read, and one that
-        // refused us. Each says which, rather than all showing an empty number.
-        const note =
-          profile?.lastError ??
-          (state === "none"
-            ? `${PLATFORM_LABELS[connection.platform]} has no API for reading an account's own posts.`
-            : state === "metered" && !profile
-              ? "X charges per read — press Refresh including X to pull it in."
-              : null);
+    <Link
+      href={to}
+      aria-label={direction === "prev" ? "Previous account" : "Next account"}
+      className="flex h-8 w-8 items-center justify-center rounded-full text-[15px] text-faint transition hover:bg-chip hover:text-ink"
+    >
+      {direction === "prev" ? "‹" : "›"}
+    </Link>
+  );
+}
 
-        return (
-          <li key={connection.id}>
-            <span
-              className="inline-flex items-center gap-2 rounded-full bg-chip py-1 pr-3 pl-1 text-[12px] text-muted"
-              title={note ?? undefined}
-            >
-              <span className="inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-panel">
-                {profile?.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <PlatformIcon platform={connection.platform} className="h-3 w-3" />
-                )}
-              </span>
-              <PlatformIcon platform={connection.platform} className="h-3 w-3" />
-              <span className="font-medium text-ink">{name}</span>
-              <span>{formatCount(profile?.followers)}</span>
-              {note ? (
-                <span className="text-warn" title={note}>
-                  ⚠
-                </span>
-              ) : null}
-            </span>
-          </li>
-        );
-      })}
-    </ul>
+/** The overlapping avatars. One account when the carousel is on it, the whole
+ *  set when it is on "everything". */
+function AvatarStack({ accounts }: { accounts: AccountEntry[] }) {
+  const shown = accounts.slice(0, 3);
+  return (
+    <div className="flex items-center -space-x-6">
+      {shown.map(({ connection, profile }, index) => (
+        <span
+          key={connection.id}
+          title={profile?.displayName ?? connection.platform_account_name ?? undefined}
+          style={{ zIndex: shown.length - index }}
+          className="relative inline-flex h-[86px] w-[86px] items-center justify-center overflow-hidden rounded-full border-[3px] border-panel bg-chip"
+        >
+          {profile?.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <PlatformIcon platform={connection.platform} className="h-6 w-6 text-muted" />
+          )}
+        </span>
+      ))}
+      {accounts.length > shown.length ? (
+        <span className="relative inline-flex h-[86px] w-[86px] items-center justify-center rounded-full border-[3px] border-panel bg-chip text-[15px] font-semibold text-muted">
+          +{accounts.length - shown.length}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -488,69 +441,74 @@ function MediaGrid({
       .map((entry) => [entry.connection.id, entry.profile!.primaryMetric]),
   );
 
+  // Columns rather than a grid: posts are portrait, square and text, and a
+  // fixed row height would either crop the tall ones or pad the short ones.
   return (
-    <ul className="grid grid-cols-2 gap-2.5 shell:grid-cols-3 wide:grid-cols-4">
+    <div className="columns-2 gap-2 shell:columns-3 wide:columns-4 [&>*]:mb-2">
       {items.map((item) => {
         const metric = metricFor.get(item.connectionId) ?? "views";
         const headline = metric === "views" ? item.views : item.likes;
         return (
-          <li key={item.id}>
-            <a
-              href={item.permalink ?? "#"}
-              target={item.permalink ? "_blank" : undefined}
-              rel="noreferrer"
-              className="group block overflow-hidden rounded-[14px] border border-line bg-panel transition hover:border-line-strong"
-            >
-              <div className="relative aspect-[9/13] bg-chip">
-                {item.thumbnailUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.thumbnailUrl}
-                    alt=""
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  // A text post has no picture, so it shows its own words —
-                  // an empty grey tile would read as a broken image. The right
-                  // padding keeps the last line clear of the platform badge.
-                  <p className="line-clamp-[9] py-3 pr-9 pl-3.5 text-[12.5px]/[18px] text-ink">
-                    {item.caption?.trim() || "No text"}
-                  </p>
+          <a
+            key={item.id}
+            href={item.permalink ?? "#"}
+            target={item.permalink ? "_blank" : undefined}
+            rel="noreferrer"
+            className="group relative block break-inside-avoid overflow-hidden rounded-[10px] bg-chip"
+          >
+            {item.thumbnailUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={item.thumbnailUrl}
+                alt=""
+                loading="lazy"
+                className={cx(
+                  "w-full object-cover transition duration-300 group-hover:brightness-[1.06]",
+                  item.kind === "video" ? "aspect-[9/16]" : "aspect-[4/5]",
                 )}
+              />
+            ) : (
+              // A text post has no picture, so it shows its own words — an
+              // empty grey tile would read as a broken image.
+              <p className="px-3.5 pt-6 pr-10 pb-9 text-[13px]/[19px] text-ink">
+                {item.caption?.trim() || "No text"}
+              </p>
+            )}
 
-                <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-1.5 py-1 text-white backdrop-blur-[2px]">
-                  <PlatformIcon
-                    platform={item.platform}
-                    title={PLATFORM_LABELS[item.platform]}
-                  />
-                </span>
+            {/* A scrim under the number, because "1,865" in white on a bright
+                sky is a number nobody can read. */}
+            {item.thumbnailUrl && headline !== null ? (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent"
+              />
+            ) : null}
 
-                <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur-[2px]">
-                  <span aria-hidden>{metric === "views" ? "▶" : "♥"}</span>
-                  {formatCount(headline)}
-                  <span className="sr-only">{metric}</span>
-                </span>
-              </div>
+            <span className="absolute top-2 right-2">
+              <PlatformBadge
+                platform={item.platform}
+                className="h-6 w-6 rounded-full"
+                title={PLATFORM_LABELS[item.platform]}
+              />
+            </span>
 
-              <div className="px-2.5 py-2">
-                {/* A text post already shows its words in the tile above;
-                    repeating them under it is the same sentence twice. */}
-                {item.kind === "text" ? null : (
-                  <p className="line-clamp-2 text-[12px]/[17px] text-muted group-hover:text-ink">
-                    {item.caption?.trim() || "No caption"}
-                  </p>
+            {headline !== null ? (
+              <span
+                className={cx(
+                  "absolute bottom-2 left-2 inline-flex items-center gap-1 text-[12px] font-semibold",
+                  item.thumbnailUrl
+                    ? "text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
+                    : "text-muted",
                 )}
-                {item.postedAt ? (
-                  <p className="mt-1 text-[10.5px] text-faint">
-                    <LocalTime value={item.postedAt} mode="date" />
-                  </p>
-                ) : null}
-              </div>
-            </a>
-          </li>
+              >
+                <span aria-hidden>{metric === "views" ? "▶" : "♥"}</span>
+                {formatCount(headline)}
+                <span className="sr-only">{metric}</span>
+              </span>
+            ) : null}
+          </a>
         );
       })}
-    </ul>
+    </div>
   );
 }

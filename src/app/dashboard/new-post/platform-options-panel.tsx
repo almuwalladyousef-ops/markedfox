@@ -1,5 +1,6 @@
 "use client";
 
+import { PlatformBadge } from "@/components/platform-icon";
 import { Card, CardTitle } from "@/components/ui";
 import type { PlatformOptionSpec } from "@/lib/platforms/publish-options";
 import type { Platform, PlatformPublishOptions } from "@/lib/platforms/types";
@@ -19,12 +20,16 @@ export function PlatformOptionsPanel({
   values,
   onChange,
   hasVideo,
+  variant = "card",
 }: {
   platform: Platform;
   spec: PlatformOptionSpec;
   values: PlatformPublishOptions;
   onChange: (next: PlatformPublishOptions) => void;
   hasVideo: boolean;
+  /** "split" is the composer's own layout: the platform and what these
+   *  settings are on the left, the controls themselves on the right. */
+  variant?: "card" | "split";
 }) {
   // A settings section for something the post cannot be is noise: Instagram's
   // reel options mean nothing on a photo.
@@ -34,12 +39,9 @@ export function PlatformOptionsPanel({
     onChange({ ...values, [key]: value });
   };
 
-  return (
-    <Card className="p-4">
-      <CardTitle hint={spec.note}>{spec.title}</CardTitle>
-
-      <div className="mt-4 flex flex-col gap-4">
-        {spec.fields.map((field) => {
+  const fields = (
+    <div className="flex flex-col gap-4">
+      {spec.fields.map((field) => {
           const id = `${platform}-${field.key}`;
           if (field.kind === "toggle") {
             const checked =
@@ -143,8 +145,29 @@ export function PlatformOptionsPanel({
               </p>
             </div>
           );
-        })}
-      </div>
+      })}
+    </div>
+  );
+
+  if (variant === "split") {
+    return (
+      <section className="grid gap-x-8 gap-y-4 border-t border-line py-6 wide:grid-cols-[minmax(0,270px)_minmax(0,1fr)]">
+        <div>
+          <h3 className="font-display flex items-center gap-2 text-[17px] font-bold tracking-[-0.01em] text-ink">
+            <PlatformBadge platform={platform} className="h-6 w-6" />
+            {spec.title}
+          </h3>
+          <p className="mt-1.5 text-[12.5px]/[18px] text-muted">{spec.note}</p>
+        </div>
+        {fields}
+      </section>
+    );
+  }
+
+  return (
+    <Card className="p-4">
+      <CardTitle hint={spec.note}>{spec.title}</CardTitle>
+      <div className="mt-4">{fields}</div>
     </Card>
   );
 }

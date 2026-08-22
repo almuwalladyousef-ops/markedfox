@@ -79,3 +79,47 @@ export function PlatformIcon({
     </svg>
   );
 }
+
+// Each platform's own colour, for the round badges that sit on a thumbnail.
+// Brand colours rather than our accent: a person scanning a grid of their own
+// posts recognises the app by its colour long before they read a label.
+export const PLATFORM_BRAND: Record<Platform, { bg: string; fg: string }> = {
+  instagram: { bg: "bg-[#E1306C]", fg: "text-white" },
+  // The three black marks carry a hairline, or they vanish into a dark page.
+  x: { bg: "bg-black ring-1 ring-white/20", fg: "text-white" },
+  threads: { bg: "bg-black ring-1 ring-white/20", fg: "text-white" },
+  facebook: { bg: "bg-[#1877F2]", fg: "text-white" },
+  tiktok: { bg: "bg-black ring-1 ring-white/20", fg: "text-white" },
+  youtube: { bg: "bg-[#FF0000]", fg: "text-white" },
+  snapchat: { bg: "bg-[#FFFC00]", fg: "text-black" },
+  linkedin: { bg: "bg-[#0A66C2]", fg: "text-white" },
+  pinterest: { bg: "bg-[#E60023]", fg: "text-white" },
+};
+
+/** The round brand badge used on grid tiles and in the composer's platform
+ *  picker. `size` is a Tailwind size pair, because the two callers want
+ *  different ones and everything else about the badge is identical. */
+export function PlatformBadge({
+  platform,
+  // Shape lives in the caller's className, not baked in: the grid wants a
+  // circle and the composer's picker wants an app-icon square, and a hardcoded
+  // rounded-full here would win over either depending on stylesheet order.
+  className = "h-6 w-6 rounded-full",
+  iconClassName = "h-3.5 w-3.5",
+  title,
+}: {
+  platform: Platform;
+  className?: string;
+  iconClassName?: string;
+  title?: string;
+}) {
+  const brand = PLATFORM_BRAND[platform];
+  return (
+    <span
+      title={title}
+      className={`inline-flex items-center justify-center ${brand.bg} ${brand.fg} ${className}`}
+    >
+      <PlatformIcon platform={platform} className={iconClassName} />
+    </span>
+  );
+}

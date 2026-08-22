@@ -46,7 +46,7 @@ export function buildSteps(facts: OnboardingFacts): OnboardingStep[] {
       title: "Publish or schedule a post",
       detail:
         "One caption, every account you picked, with each platform's own settings on the same screen.",
-      href: "/dashboard/compose",
+      href: "/dashboard/new-post",
       cta: "Compose",
       done: facts.postCount > 0,
     },

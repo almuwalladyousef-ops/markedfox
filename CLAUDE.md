@@ -1158,3 +1158,31 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   542 tests; build, lint and typecheck green; both screens signed into and
   clicked through at 1280px and 375px in light and dark, with Cancel proven
   round-trip on live rows and the read-failure path proven not to crash.
+
+- **2026-08-21 (later still) — the reference layout, exactly.** The owner
+  supplied Crosspost screenshots of the home screen, the sidebar and the
+  new-post flow and asked the app to match them.
+
+  *Sidebar:* a floating rounded panel, and **collapsible** — client state for
+  an instant toggle plus an `mf-sidebar` cookie the server reads, so the first
+  paint is already the chosen width. Collapsed is a 76px icon rail. **New post
+  left the nav and became the one solid button at the top**; `/dashboard/
+  compose` is now `/dashboard/new-post`, with the old URL redirecting.
+
+  *Home:* overlapping avatars with ‹ › walking the accounts (the carousel IS
+  the platform filter, `?account=<id>`), the name with Drafts and Refresh, the
+  three totals, the handle/bio/link on a single account, centred All / Short
+  videos / Photos / Text posts, and a masonry grid whose tiles carry the
+  platform's brand badge and its view or like count.
+
+  *New post is two steps:* the post in a 9:16 frame on the left; on the right
+  the accounts, a borderless caption field, and **Choose platforms** as
+  brand-coloured app tiles labelled Reel / Short / TikTok / Thread when the
+  post carries video, followed by each platform's "Share on …" settings in the
+  reference's two-column shape. A sticky Save draft / Next bar; Next is the
+  review step — preview, when, publish — because a publish button under a page
+  of platform settings is a button nobody has read.
+
+  542 tests; build, lint and typecheck green; clicked through at 1280px and
+  375px in light and dark, including the collapsed rail, platform selection,
+  the TikTok settings section, and Next landing on review.

@@ -62,7 +62,7 @@ export function MobileTabs() {
     <nav className="fixed right-0 bottom-0 left-0 z-[45] flex items-stretch justify-around border-t border-line bg-panel px-2 pt-2 pb-[calc(8px+env(safe-area-inset-bottom))] shell:hidden">
       {TABS.slice(0, 2).map(tab)}
       <Link
-        href="/dashboard/compose"
+        href="/dashboard/new-post"
         aria-label="Compose"
         className="-mt-[22px] flex h-[52px] w-[52px] items-center justify-center rounded-full bg-accent text-accent-ink shadow-panel"
       >

@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/dashboard/posts", destination: "/dashboard/calendar", permanent: false },
+      // Compose became New Post, reached from the button rather than a nav row.
+      { source: "/dashboard/compose", destination: "/dashboard/new-post", permanent: false },
     ];
   },
 };

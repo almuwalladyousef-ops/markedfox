@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { Card, Page, PageHeader } from "@/components/ui";
+import { Card, Page } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { listConnections } from "@/lib/connections/store";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
@@ -17,7 +17,7 @@ import { getActiveWorkspace } from "@/lib/workspaces/store";
 
 import { Composer, type ComposerAccount, type PlatformGate } from "./composer";
 
-export const metadata: Metadata = { title: "Compose · MarkedFox" };
+export const metadata: Metadata = { title: "New post · MarkedFox" };
 
 // Server half of the composer: reads what the client needs through the user's
 // own client (RLS) and hands it over as plain props. The rules the client
@@ -112,28 +112,9 @@ export default async function ComposePage({
   }));
 
   return (
+    // The composer draws its own "‹ New post" header, because the back arrow
+    // belongs beside the title rather than above a page frame.
     <Page width="max-w-[1120px]">
-      <PageHeader
-        title={draft ? "Edit draft" : "Compose"}
-        subtitle={
-          <>
-            One post, every platform. Posting from{" "}
-            <span className="text-ink">{active.name}</span>.
-          </>
-        }
-        actions={
-          <span className="text-xs text-faint">
-            Posts today{" "}
-            <span className="font-display font-semibold text-ink">
-              {snapshot.usage.postsToday}
-              {snapshot.limits.postsPerDay === null
-                ? ""
-                : ` / ${snapshot.limits.postsPerDay}`}
-            </span>
-          </span>
-        }
-      />
-
       {accounts.length === 0 ? (
         <Card className="p-6">
           <p className="text-[13.5px] text-muted">

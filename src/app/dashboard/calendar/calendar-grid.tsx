@@ -259,7 +259,7 @@ export function CalendarGrid({
               className="sr-only"
             />
           </label>
-          <ButtonLink href="/dashboard/compose" tone="ghost" size="sm" title="New post">
+          <ButtonLink href="/dashboard/new-post" tone="ghost" size="sm" title="New post">
             +
           </ButtonLink>
         </div>
@@ -879,7 +879,7 @@ function PostDetail({
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {post.status === "draft" ? (
-            <ButtonLink href={`/dashboard/compose?draft=${post.id}`} tone="primary" size="sm">
+            <ButtonLink href={`/dashboard/new-post?draft=${post.id}`} tone="primary" size="sm">
               Edit draft
             </ButtonLink>
           ) : null}
@@ -919,7 +919,7 @@ function PostDetail({
           ) : null}
 
           <Link
-            href="/dashboard/compose"
+            href="/dashboard/new-post"
             className="ml-auto text-[12px] text-muted underline-offset-2 hover:text-ink hover:underline"
           >
             New post

@@ -4,17 +4,18 @@ import type { ReactNode } from "react";
 
 import { FoxMark } from "@/components/ui";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { signOut } from "@/lib/auth/actions";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { countInboxIdeas } from "@/lib/research/studio-store";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeSidebar, SIDEBAR_COOKIE } from "@/lib/sidebar";
 import { normalizeTheme, THEME_COOKIE } from "@/lib/theme";
 import { getActiveWorkspace, listWorkspaces } from "@/lib/workspaces/store";
 
 import { MobileTabs } from "./mobile-tabs";
-import { SidebarNav, type NavSection } from "./sidebar-nav";
+import { Sidebar } from "./sidebar";
+import type { NavSection } from "./sidebar-nav";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 // One shell for the whole dashboard. Until this existed every page drew its own
@@ -59,7 +60,6 @@ export default async function DashboardLayout({
     {
       title: "Publish",
       items: [
-        { href: "/dashboard/compose", label: "Compose", icon: "✎" },
         // The calendar is the whole record of what is going out and what went
         // out, which is why there is no separate Posts list beside it.
         { href: "/dashboard/calendar", label: "Calendar", icon: "▤" },
@@ -125,51 +125,26 @@ export default async function DashboardLayout({
           snapshot.limits.maxWorkspaces - snapshot.usage.workspaceCount,
         );
   const theme = normalizeTheme(cookieStore.get(THEME_COOKIE)?.value);
+  // Read here rather than in the client, so the very first paint is already
+  // the width this person chose last time.
+  const sidebar = normalizeSidebar(cookieStore.get(SIDEBAR_COOKIE)?.value);
 
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col gap-4 border-r border-line bg-panel px-3 py-[18px] shell:flex">
-        <Link href="/dashboard" className="flex items-center gap-[9px] px-2">
-          <FoxMark className="h-7" />
-          <span className="font-display text-base font-bold tracking-[-0.02em] text-ink">
-            MarkedFox
-          </span>
-        </Link>
-
-        <WorkspaceSwitcher
-          workspaces={workspaces}
-          activeId={active.id}
-          canCreate={workspaceDecision.allowed}
-          createBlockedReason={
-            workspaceDecision.allowed ? undefined : workspaceDecision.reason
-          }
-          remaining={workspacesLeft}
-        />
-
-        <SidebarNav sections={sections} />
-
-        <div className="flex flex-col gap-1.5 border-t border-line px-1.5 pt-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="truncate text-[11.5px] text-muted" title={user.email ?? undefined}>
-                {user.email}
-              </p>
-              <p className="mt-0.5 text-[11px] text-faint capitalize">
-                {snapshot.planId} plan
-              </p>
-            </div>
-            <ThemeToggle initial={theme} />
-          </div>
-          <form action={signOut}>
-            <button
-              type="submit"
-              className="text-left text-[11.5px] text-faint transition hover:text-ink"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
-      </aside>
+      <Sidebar
+        sections={sections}
+        workspaces={workspaces}
+        activeId={active.id}
+        canCreate={workspaceDecision.allowed}
+        createBlockedReason={
+          workspaceDecision.allowed ? undefined : workspaceDecision.reason
+        }
+        remaining={workspacesLeft}
+        email={user.email ?? null}
+        planId={snapshot.planId}
+        theme={theme}
+        initial={sidebar}
+      />
 
       {/* Below 880px the sidebar is replaced by a fixed bottom tab bar; this
           strip keeps the brand and the workspace switcher reachable, since

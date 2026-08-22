@@ -82,7 +82,7 @@ export default async function DraftsPage({
         title="Drafts"
         subtitle="Started and not sent. Nothing here is checked until you publish it."
         actions={
-          <ButtonLink href="/dashboard/compose" tone="primary">
+          <ButtonLink href="/dashboard/new-post" tone="primary">
             New post
           </ButtonLink>
         }
@@ -146,7 +146,7 @@ export default async function DraftsPage({
 
                   <div className="mt-auto flex items-center gap-3 pt-1 text-xs">
                     <Link
-                      href={`/dashboard/compose?draft=${draft.id}`}
+                      href={`/dashboard/new-post?draft=${draft.id}`}
                       className="text-xs font-semibold text-accent transition hover:brightness-[1.08]"
                     >
                       Open

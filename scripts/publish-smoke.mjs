@@ -311,7 +311,7 @@ try {
 
   // ── pages render for the signed-in user ────────────────────────────────
   {
-    const compose = await fetch(`${BASE}/dashboard/compose`, { headers: { cookie: a.cookie }, redirect: "manual" });
+    const compose = await fetch(`${BASE}/dashboard/new-post`, { headers: { cookie: a.cookie }, redirect: "manual" });
     const composeHtml = await compose.text();
     check("compose page renders", compose.status === 200 && composeHtml.includes("Post to"), `status ${compose.status}`);
     const posts = await fetch(`${BASE}/dashboard/calendar`, { headers: { cookie: a.cookie }, redirect: "manual" });
@@ -321,7 +321,7 @@ try {
       posts.status === 200 && postsHtml.includes(`smoke scheduled ${stamp}`) && postsHtml.includes("failed"),
       `status ${posts.status}`,
     );
-    const anon = await fetch(`${BASE}/dashboard/compose`, { redirect: "manual" });
+    const anon = await fetch(`${BASE}/dashboard/new-post`, { redirect: "manual" });
     check("compose page redirects anonymous users to login", anon.status === 307 && (anon.headers.get("location") ?? "").includes("/login"), `status ${anon.status}`);
   }
 } catch (err) {
