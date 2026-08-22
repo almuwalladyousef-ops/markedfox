@@ -96,6 +96,91 @@ export const PLATFORM_BRAND: Record<Platform, { bg: string; fg: string }> = {
   pinterest: { bg: "bg-[#E60023]", fg: "text-white" },
 };
 
+/**
+ * The full-colour app tile: the platform's own brand fill with its mark
+ * knocked out in white. This is the treatment for anywhere the platform is
+ * the subject — the settings account list, the composer's platform grid, the
+ * calendar filter row — as opposed to `PlatformBadge`, which is the small
+ * round badge stamped on a thumbnail.
+ *
+ * Two of these took iteration and both are load-bearing:
+ *
+ * - YouTube and Pinterest are white tiles, so they disappear against a white
+ *   card without an inset ring. Their marks stay full-colour rather than
+ *   white, because a white YouTube play button on a white tile is nothing.
+ * - Snapchat's ghost is white on `#FFFC00`, which is illegible. Four
+ *   one-direction drop-shadows draw an outline around it.
+ */
+const PLATFORM_TILE: Record<
+  Platform,
+  { background: string; ring?: boolean; fg?: string; outline?: boolean }
+> = {
+  instagram: {
+    background:
+      "linear-gradient(135deg,#FEDA75 0%,#FA7E1E 26%,#D62976 56%,#962FBF 78%,#4F5BD5 100%)",
+  },
+  threads: { background: "#000000" },
+  tiktok: { background: "#000000" },
+  x: { background: "#000000" },
+  facebook: { background: "linear-gradient(180deg,#18ACFE 0%,#0163E0 100%)" },
+  youtube: { background: "#ffffff", ring: true, fg: "#FF0000" },
+  pinterest: { background: "#ffffff", ring: true, fg: "#E60023" },
+  snapchat: { background: "#FFFC00", outline: true },
+  linkedin: { background: "#0A66C2" },
+};
+
+/** A one-direction black shadow on each side, which is the only way to outline
+ *  a filled path without redrawing it as a stroke. */
+const GHOST_OUTLINE =
+  "drop-shadow(0.7px 0 0 #000) drop-shadow(-0.7px 0 0 #000) drop-shadow(0 0.7px 0 #000) drop-shadow(0 -0.7px 0 #000)";
+
+export function PlatformTile({
+  platform,
+  /** The tile's edge in pixels. Radius follows at 30% of it, which is what
+   *  keeps a 20px badge and a 40px settings tile looking like one shape. */
+  size = 32,
+  /** 999 where the mark reads as an avatar badge rather than an app icon. */
+  radius,
+  className,
+  title,
+}: {
+  platform: Platform;
+  size?: number;
+  radius?: number;
+  className?: string;
+  title?: string;
+}) {
+  const tile = PLATFORM_TILE[platform];
+  const mark = PATHS[platform];
+  const glyph = Math.round(size * 0.56);
+  return (
+    <span
+      title={title ?? mark.label}
+      className={`inline-flex shrink-0 items-center justify-center ${className ?? ""}`}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: radius ?? Math.round(size * 0.3),
+        background: tile.background,
+        boxShadow: tile.ring ? "inset 0 0 0 1px var(--border)" : undefined,
+      }}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill={tile.fg ?? "#ffffff"}
+        aria-hidden
+        style={{
+          width: glyph,
+          height: glyph,
+          filter: tile.outline ? GHOST_OUTLINE : undefined,
+        }}
+      >
+        <path d={mark.path} />
+      </svg>
+    </span>
+  );
+}
+
 /** The round brand badge used on grid tiles and in the composer's platform
  *  picker. `size` is a Tailwind size pair, because the two callers want
  *  different ones and everything else about the badge is identical. */

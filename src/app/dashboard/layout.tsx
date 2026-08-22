@@ -25,7 +25,10 @@ import { WorkspaceSwitcher } from "./workspace-switcher";
 //
 // The nav is grouped by what the person is doing rather than by which pillar
 // the code belongs to: publishing, automating, researching, writing, and the
-// setup that feeds all three.
+// setup that feeds all three. Settings sits in the rail's footer rather than
+// in a group, because it is not one of those things — and connected accounts
+// moved inside it, since "which accounts am I posting from" is setup a person
+// visits twice and then forgets.
 
 export default async function DashboardLayout({
   children,
@@ -55,22 +58,26 @@ export default async function DashboardLayout({
   const sections: NavSection[] = [
     {
       title: "Overview",
-      items: [{ href: "/dashboard", label: "Home", icon: "⌂" }],
+      items: [{ href: "/dashboard", label: "Home", icon: "home" }],
     },
     {
       title: "Publish",
       items: [
         // The calendar is the whole record of what is going out and what went
         // out, which is why there is no separate Posts list beside it.
-        { href: "/dashboard/calendar", label: "Calendar", icon: "▤" },
-        { href: "/dashboard/drafts", label: "Drafts", icon: "☰" },
+        { href: "/dashboard/calendar", label: "Calendar", icon: "calendar" },
+        { href: "/dashboard/drafts", label: "Drafts", icon: "drafts" },
       ],
     },
     {
       title: "Automate",
       items: [
-        { href: "/dashboard/automations", label: "Automations", icon: "⚡" },
-        { href: "/dashboard/automations/templates", label: "Templates", icon: "◈" },
+        { href: "/dashboard/automations", label: "Automations", icon: "automations" },
+        {
+          href: "/dashboard/automations/templates",
+          label: "Templates",
+          icon: "templates",
+        },
       ],
     },
     {
@@ -79,20 +86,14 @@ export default async function DashboardLayout({
         {
           href: "/dashboard/research",
           label: "Videos",
-          icon: "▶",
+          icon: "videos",
           locked: !research.allowed,
         },
         {
           href: "/dashboard/research/ideas",
           label: "Ideas",
-          icon: "◇",
+          icon: "ideas",
           badge: inbox,
-          locked: !research.allowed,
-        },
-        {
-          href: "/dashboard/research/hooks",
-          label: "Hooks",
-          icon: "⚿",
           locked: !research.allowed,
         },
       ],
@@ -100,18 +101,47 @@ export default async function DashboardLayout({
     {
       title: "Create",
       items: [
-        { href: "/dashboard/research/scripts", label: "Scripts", icon: "✍", locked: !research.allowed },
-        { href: "/dashboard/research/projects", label: "Projects", icon: "🗂", locked: !research.allowed },
+        {
+          href: "/dashboard/research/scripts",
+          label: "Scripts",
+          icon: "scripts",
+          locked: !research.allowed,
+        },
+        {
+          href: "/dashboard/research/projects",
+          label: "Projects",
+          icon: "projects",
+          locked: !research.allowed,
+        },
+        {
+          href: "/dashboard/research/hooks",
+          label: "Hooks",
+          icon: "hooks",
+          locked: !research.allowed,
+        },
       ],
     },
     {
       title: "Setup",
       items: [
-        { href: "/dashboard/research/channels", label: "Channels", icon: "◎", locked: !research.allowed },
-        { href: "/dashboard/research/persona", label: "Persona", icon: "☺", locked: !research.allowed },
-        { href: "/dashboard/research/rules", label: "Auto-analyze", icon: "⟳", locked: !research.allowed },
-        { href: "/dashboard/accounts", label: "Accounts", icon: "⊕" },
-        { href: "/dashboard/settings", label: "Settings", icon: "⚙" },
+        {
+          href: "/dashboard/research/channels",
+          label: "Channels",
+          icon: "channels",
+          locked: !research.allowed,
+        },
+        {
+          href: "/dashboard/research/persona",
+          label: "Persona",
+          icon: "persona",
+          locked: !research.allowed,
+        },
+        {
+          href: "/dashboard/research/rules",
+          label: "Auto-analyze",
+          icon: "autoanalyze",
+          locked: !research.allowed,
+        },
       ],
     },
   ];
@@ -142,41 +172,39 @@ export default async function DashboardLayout({
         remaining={workspacesLeft}
         email={user.email ?? null}
         planId={snapshot.planId}
-        theme={theme}
         initial={sidebar}
       />
 
       {/* Below 880px the sidebar is replaced by a fixed bottom tab bar; this
-          strip keeps the brand and the workspace switcher reachable, since
-          neither belongs in a five-item tab bar. */}
+          strip keeps the brand, the workspace switcher and the theme within
+          reach, since none of the three belongs in a four-item tab bar. */}
       <div className="min-w-0 flex-1">
-        <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3 shell:hidden">
-          <Link href="/dashboard" className="flex min-w-0 items-center gap-2">
-            <FoxMark className="h-6 shrink-0" />
+        <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-panel px-[18px] py-3.5 shell:hidden">
+          <Link href="/dashboard" className="flex min-w-0 items-center gap-2.5">
+            <FoxMark className="h-[26px] shrink-0" />
             {/* The wordmark is the first thing to go on a narrow phone: the
                 mark alone still says whose app this is, and the workspace
                 switcher beside it is the control people actually press. */}
-            <span className="font-display hidden text-[15px] font-bold tracking-[-0.02em] min-[420px]:inline">
+            <span className="font-display hidden text-[16px] font-bold tracking-[-0.02em] min-[420px]:inline">
               MarkedFox
             </span>
           </Link>
           <div className="flex shrink-0 items-center gap-2">
-            <div className="w-36">
-              <WorkspaceSwitcher
-                workspaces={workspaces}
-                activeId={active.id}
-                canCreate={workspaceDecision.allowed}
-                createBlockedReason={
-                  workspaceDecision.allowed ? undefined : workspaceDecision.reason
-                }
-                remaining={workspacesLeft}
-              />
-            </div>
+            <WorkspaceSwitcher
+              workspaces={workspaces}
+              activeId={active.id}
+              canCreate={workspaceDecision.allowed}
+              createBlockedReason={
+                workspaceDecision.allowed ? undefined : workspaceDecision.reason
+              }
+              remaining={workspacesLeft}
+              variant="compact"
+            />
             <ThemeToggle initial={theme} />
           </div>
         </div>
 
-        <main className="mx-auto flex w-full flex-col gap-4 px-4 pt-6 pb-[110px] shell:px-9 shell:pt-8 shell:pb-14">
+        <main className="mx-auto flex w-full flex-col gap-[22px] px-[18px] pt-7 pb-[120px] shell:px-12 shell:pt-11 shell:pb-[72px]">
           {children}
         </main>
 
