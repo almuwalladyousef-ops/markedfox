@@ -3,13 +3,19 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
-import { PlatformBadge, PlatformIcon } from "@/components/platform-icon";
+import { Icon, PlanDiamond, type IconName } from "@/components/icons";
+import { PlatformIcon, PlatformTile } from "@/components/platform-icon";
 import {
   Button,
   Card,
   Eyebrow,
   FoxMark,
+  Notice,
+  SectionHeading,
+  buttonClass,
   cx,
+  iconButtonClass,
+  inputClass,
   segmentedItem,
   segmentedTrack,
 } from "@/components/ui";
@@ -117,6 +123,51 @@ type Outcome =
 
 const VIDEO_EXTENSIONS = /\.(mp4|mov|m4v|webm|mkv|avi)(\?.*)?$/i;
 
+/**
+ * Five steps rather than one long form.
+ *
+ * The old composer put the file, the caption, the platform grid and every
+ * platform's own settings in one scrolling column, with the publish button
+ * underneath all of it. The settings alone run to a screenful for YouTube, so
+ * that was a publish button nobody had read by the time they reached it — and
+ * the two decisions that change everything downstream (what kind of post, and
+ * which accounts) were buried in the middle of it.
+ *
+ * A text post skips step 2, because there is no file to pick.
+ */
+const STEPS = [
+  { id: "kind", short: "Kind", title: "What are you posting?" },
+  { id: "file", short: "File", title: "Add your file" },
+  { id: "caption", short: "Caption", title: "Caption and platforms" },
+  { id: "settings", short: "Settings", title: "Per-platform settings" },
+  { id: "review", short: "Review", title: "Preview and publish" },
+] as const;
+
+type Step = (typeof STEPS)[number]["id"];
+
+type PostKind = "video" | "photo" | "text";
+
+const KINDS: { id: PostKind; label: string; note: string; icon: IconName }[] = [
+  {
+    id: "video",
+    label: "Short video",
+    note: "A reel on Instagram, a short on YouTube, a video on TikTok.",
+    icon: "play",
+  },
+  {
+    id: "photo",
+    label: "Photo or carousel",
+    note: "One image, or several in the order you add them.",
+    icon: "image",
+  },
+  {
+    id: "text",
+    label: "Text only",
+    note: "Words with no media — a post on X, Threads or Facebook.",
+    icon: "drafts",
+  },
+];
+
 // datetime-local wants "YYYY-MM-DDTHH:MM" in local time.
 function toLocalInputValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -191,10 +242,23 @@ export function Composer({
   // the clock is impure and React wants render idempotent.
   const [minSchedule, setMinSchedule] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  // Two screens, one state machine: write the post, then look at it and pick a
-  // time. The split exists because the settings each platform adds are long,
-  // and a publish button under all of them is a button nobody has read.
-  const [step, setStep] = useState<"compose" | "settings">("compose");
+  // A reopened draft already has its answers, so it starts on the caption
+  // rather than asking somebody to re-declare what they are posting.
+  const [kind, setKind] = useState<PostKind | null>(() => {
+    if (!draft) return null;
+    if (draft.media.some((item) => item.type === "video")) return "video";
+    if (draft.media.length > 0) return "photo";
+    return draft.caption ? "text" : null;
+  });
+  const [step, setStep] = useState<Step>(draft ? "caption" : "kind");
+  // Whether the caption is written once or once per platform. Derived from a
+  // reopened draft, so a draft with overrides comes back with the box ticked.
+  const [perPlatform, setPerPlatform] = useState(
+    () =>
+      Object.values(draft?.platformOverrides ?? {}).some(
+        (value) => value.caption !== undefined,
+      ),
+  );
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   // A ref, not state, because keys are allocated inside an event handler that
   // can run several times before React re-renders. Reading a state value there
@@ -681,7 +745,6 @@ export function Composer({
       setSubmitting(false);
     }
   };
-
   // ── render ────────────────────────────────────────────────────────────
   const grouped = useMemo(() => {
     const map = new Map<Platform, ComposerAccount[]>();
@@ -728,567 +791,805 @@ export function Composer({
     ]);
   };
 
-  return (
-    <div className="pb-2">
-      <div className="mx-auto flex w-full max-w-[980px] flex-col gap-5">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => (step === "settings" ? setStep("compose") : router.back())}
-            aria-label="Back"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[17px] text-faint transition hover:bg-chip hover:text-ink"
-          >
-            ‹
-          </button>
-          <h1 className="font-display text-[26px]/[32px] font-bold tracking-[-0.02em] text-ink">
-            {step === "compose" ? "New post" : "Review and publish"}
-          </h1>
+  // Which steps this post actually has. A text-only post has no file to pick,
+  // and a step that exists only to be skipped past is a step that makes the
+  // flow feel longer than it is.
+  const steps = STEPS.filter((item) => item.id !== "file" || kind !== "text");
+  const stepIndex = Math.max(0, steps.findIndex((item) => item.id === step));
+  const isLast = stepIndex === steps.length - 1;
+  const goTo = (id: Step) => {
+    setStep(id);
+    setOutcome(null);
+  };
+  const back = () => {
+    if (stepIndex > 0) goTo(steps[stepIndex - 1].id);
+    else router.back();
+  };
+  const forward = () => {
+    if (!isLast) goTo(steps[stepIndex + 1].id);
+  };
+
+  // What stops the person moving on, said as one sentence rather than as a
+  // disabled button with no explanation. null means nothing is in the way.
+  const holdup: string | null =
+    step === "kind"
+      ? kind === null
+        ? "Pick what you are posting."
+        : null
+      : step === "file"
+        ? uploading
+          ? "Waiting for the upload to finish."
+          : mediaRefs.length === 0
+            ? "Add a file, or go back and choose a text post."
+            : null
+        : step === "caption"
+          ? selected.length === 0
+            ? "Pick at least one account."
+            : issues.length > 0
+              ? "Fix the problems listed below first."
+              : null
+          : step === "settings"
+            ? blocked
+              ? "Fix the problems listed below first."
+              : null
+            : null;
+
+  // The media frame, shown on every step that has a post to look at.
+  const mediaFrame = (
+    <div className="wide:sticky wide:top-8">
+      <div className="relative overflow-hidden rounded-2xl border border-line bg-chip">
+        <div className="aspect-[9/16] w-full">
+          {preview ? (
+            preview.type === "video" ? (
+              <video
+                src={preview.url}
+                className="h-full w-full object-cover"
+                controls
+                playsInline
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={preview.url} alt="" className="h-full w-full object-cover" />
+            )
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-2.5 px-6 text-center">
+              <FoxMark className="h-7 opacity-70" />
+              <p className="text-[13px] text-pretty text-faint">
+                {kind === "text"
+                  ? "A text post has no media. It previews on the last step."
+                  : uploadsEnabled
+                    ? "Add a video or an image and it previews here."
+                    : "Paste a public link to a video or image and it previews here."}
+              </p>
+            </div>
+          )}
         </div>
 
-        <div className="grid items-start gap-8 wide:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
-          {/* ── the post itself, always in view ─────────────────────────── */}
-          <div className="wide:sticky wide:top-8">
-            <div className="relative overflow-hidden rounded-[18px] border border-line bg-chip">
-              <div className="aspect-[9/16] w-full">
-                {preview ? (
-                  preview.type === "video" ? (
-                    <video
-                      src={preview.url}
-                      className="h-full w-full object-cover"
-                      controls
-                      playsInline
-                    />
-                  ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={preview.url} alt="" className="h-full w-full object-cover" />
-                  )
-                ) : (
-                  <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-                    <FoxMark className="h-7 opacity-70" />
-                    <p className="text-[12.5px] text-faint">
-                      {uploadsEnabled
-                        ? "Add a video or an image and it previews here."
-                        : "Paste a public link to a video or image and it previews here."}
-                    </p>
-                  </div>
-                )}
-              </div>
+        {media.length > 1 ? (
+          <span className="absolute top-2.5 right-2.5 rounded-full bg-black/55 px-2.5 py-1 text-[11.5px] font-bold text-white">
+            1 / {media.length}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
 
-              {media.length > 1 ? (
-                <span className="absolute top-2 right-2 rounded-full bg-black/55 px-2 py-1 text-[11px] font-semibold text-white">
-                  1 / {media.length}
+  // The media list under the frame: filenames, upload progress, and the URL
+  // rows for a deployment with no object storage.
+  const mediaList =
+    media.length > 0 ? (
+      <ul className="mt-4 flex flex-col gap-2.5">
+        {media.map((row, index) => {
+          const isUpload = row.progress !== undefined || Boolean(row.name);
+          return (
+            <li key={row.key} className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2.5">
+                <span
+                  aria-hidden
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-chip text-faint"
+                >
+                  <Icon
+                    name={row.type === "video" ? "play" : "image"}
+                    className="h-4 w-4"
+                  />
                 </span>
-              ) : null}
-
-              <div className="absolute right-3 bottom-3 left-3 flex flex-wrap items-center justify-center gap-2">
-                {uploadsEnabled ? (
-                  <label className="cursor-pointer rounded-full bg-black/60 px-3.5 py-2 text-[12.5px] font-semibold text-white backdrop-blur-[2px] transition hover:bg-black/75">
-                    {preview ? "Replace media" : "Add media"}
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime"
-                      className="sr-only"
-                      onChange={(event) => {
-                        const files = Array.from(event.target.files ?? []);
-                        files.forEach(uploadFile);
-                        // Reset so choosing the same file twice still fires.
-                        event.target.value = "";
-                      }}
-                    />
-                  </label>
-                ) : null}
+                {isUpload ? (
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-muted">
+                    {row.name ?? "Uploaded file"}
+                    {row.progress !== undefined ? (
+                      <span className="ml-2 text-faint">{row.progress}%</span>
+                    ) : row.url ? (
+                      <span className="ml-2 text-ok">ready</span>
+                    ) : null}
+                  </span>
+                ) : (
+                  <input
+                    type="url"
+                    value={row.url}
+                    placeholder="https://…"
+                    aria-label={`Media ${index + 1} URL`}
+                    onChange={(e) => updateMedia(row.key, { url: e.target.value })}
+                    onBlur={(e) =>
+                      updateMedia(row.key, {
+                        type: VIDEO_EXTENSIONS.test(e.target.value)
+                          ? "video"
+                          : row.type,
+                      })
+                    }
+                    className={cx(inputClass, "min-w-0 flex-1 text-[13px]")}
+                  />
+                )}
                 <button
                   type="button"
-                  onClick={addMedia}
-                  className="rounded-full bg-black/60 px-3.5 py-2 text-[12.5px] font-semibold text-white backdrop-blur-[2px] transition hover:bg-black/75"
+                  onClick={() => removeMedia(row.key)}
+                  aria-label={`Remove media ${index + 1}`}
+                  className="p-1.5 text-faint transition-[color] duration-150 hover:text-danger"
                 >
-                  Paste a link
+                  <Icon name="close" className="h-4 w-4" />
                 </button>
               </div>
-            </div>
+              {row.progress !== undefined ? (
+                <div
+                  className="h-1 w-full overflow-hidden rounded-full bg-chip"
+                  role="progressbar"
+                  aria-valuenow={row.progress}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`Uploading ${row.name ?? "file"}`}
+                >
+                  <div
+                    className="h-full bg-ok transition-[width] duration-150"
+                    style={{ width: `${row.progress}%` }}
+                  />
+                </div>
+              ) : null}
+              {row.error ? (
+                <p className="text-[12.5px] text-danger">{row.error}</p>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    ) : null;
 
-            {/* The rows under the preview are the whole media list: the tile
-                shows the first item, and a carousel is several. */}
-            {media.length > 0 ? (
-              <ul className="mt-3 flex flex-col gap-2">
-                {media.map((row, index) => {
-                  const isUpload = row.progress !== undefined || Boolean(row.name);
-                  return (
-                    <li key={row.key} className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <span
-                          aria-hidden
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-chip text-[13px] text-faint"
-                        >
-                          {row.type === "video" ? "▶" : "◲"}
-                        </span>
-                        {isUpload ? (
-                          <span className="min-w-0 flex-1 truncate text-[12px] text-muted">
-                            {row.name ?? "Uploaded file"}
-                            {row.progress !== undefined ? (
-                              <span className="ml-2 text-faint">{row.progress}%</span>
-                            ) : row.url ? (
-                              <span className="ml-2 text-ok">ready</span>
-                            ) : null}
-                          </span>
-                        ) : (
-                          <input
-                            type="url"
-                            value={row.url}
-                            placeholder="https://…"
-                            aria-label={`Media ${index + 1} URL`}
-                            onChange={(e) => updateMedia(row.key, { url: e.target.value })}
-                            onBlur={(e) =>
-                              updateMedia(row.key, {
-                                type: VIDEO_EXTENSIONS.test(e.target.value)
-                                  ? "video"
-                                  : row.type,
-                              })
-                            }
-                            className="min-w-0 flex-1 rounded-[10px] border border-line bg-chip px-3 py-1.5 text-[12.5px] text-ink outline-none transition placeholder:text-faint focus:border-accent"
-                          />
+  const filePicker = uploadsEnabled ? (
+    <label className={cx(buttonClass("ink", "md"), "cursor-pointer")}>
+      <Icon name="plus" className="h-4 w-4" strokeWidth={2.1} />
+      Select from computer
+      <input
+        type="file"
+        multiple
+        accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime"
+        className="sr-only"
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          files.forEach(uploadFile);
+          // Reset so choosing the same file twice still fires.
+          event.target.value = "";
+        }}
+      />
+    </label>
+  ) : null;
+
+  const issuePanel =
+    issues.length > 0 && selected.length > 0 ? (
+      <div
+        aria-live="polite"
+        className="mt-6 rounded-xl border border-warn bg-warn-soft px-4 py-3.5"
+      >
+        <p className="text-[13px] font-bold text-warn">Fix before publishing</p>
+        <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-4 text-[14px]/[21px] text-ink">
+          {issues.map((issue, i) => (
+            <li key={i}>
+              {issue.platform ? (
+                <span className="font-semibold">{labels[issue.platform]}: </span>
+              ) : null}
+              {issue.message}
+            </li>
+          ))}
+        </ul>
+      </div>
+    ) : null;
+
+  return (
+    <div className="pb-2">
+      <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={back}
+            aria-label="Back"
+            className={iconButtonClass}
+          >
+            <Icon name="chevronLeft" className="h-4 w-4" />
+          </button>
+          <h1 className="font-display text-[30px]/[36px] font-bold tracking-[-0.025em] text-ink">
+            {steps[stepIndex]?.title ?? "New post"}
+          </h1>
+
+          {/* The step rail. Steps already passed are links back; steps ahead
+              are not, because arriving on "per-platform settings" before there
+              is a platform selected is a screen with nothing on it. */}
+          <ol className="ml-auto flex items-center gap-1.5">
+            {steps.map((item, index) => {
+              const done = index < stepIndex;
+              const here = index === stepIndex;
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    disabled={index > stepIndex}
+                    onClick={() => goTo(item.id)}
+                    title={item.title}
+                    className={cx(
+                      "flex h-8 items-center gap-2 rounded-full px-3 text-[12.5px] font-bold transition-[background,color] duration-150",
+                      here
+                        ? "bg-ink text-panel"
+                        : done
+                          ? "bg-chip text-muted hover:text-ink"
+                          : "text-faint",
+                    )}
+                  >
+                    <span
+                      aria-hidden
+                      className={cx(
+                        "flex h-[18px] w-[18px] items-center justify-center rounded-full text-[10.5px]",
+                        here ? "bg-white/20" : "bg-line",
+                      )}
+                    >
+                      {index + 1}
+                    </span>
+                    <span className={here ? "" : "hidden wide:inline"}>
+                      {item.short}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+
+        {step === "kind" ? (
+          /* ── 1. what kind of post ─────────────────────────────────────── */
+          <div>
+            <p className="max-w-lg text-[15px]/[24px] text-pretty text-muted">
+              This decides what MarkedFox calls the post on each platform, and
+              which settings it has to ask you about.
+            </p>
+            <ul className="mt-6 grid gap-3.5 sm:grid-cols-3">
+              {KINDS.map((option) => {
+                const on = kind === option.id;
+                return (
+                  <li key={option.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setKind(option.id);
+                        // Choosing "text" after uploading a file would silently
+                        // publish that file; dropping it here is the honest
+                        // reading of the press.
+                        if (option.id === "text") setMedia([]);
+                        goTo(option.id === "text" ? "caption" : "file");
+                      }}
+                      aria-pressed={on}
+                      className={cx(
+                        "flex h-full w-full flex-col items-start gap-2.5 rounded-2xl border-[1.5px] px-6 py-6 text-left transition-[background,border-color] duration-150",
+                        on
+                          ? "border-accent bg-accent-soft"
+                          : "border-line bg-panel hover:border-line-strong",
+                      )}
+                    >
+                      <span
+                        className={cx(
+                          "flex h-11 w-11 items-center justify-center rounded-[14px]",
+                          on ? "bg-accent text-accent-ink" : "bg-chip text-muted",
                         )}
-                        <button
-                          type="button"
-                          onClick={() => removeMedia(row.key)}
-                          aria-label={`Remove media ${index + 1}`}
-                          className="px-1 py-1 text-[13px] text-faint transition hover:text-danger"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      {row.progress !== undefined ? (
+                      >
+                        <Icon name={option.icon} className="h-5 w-5" />
+                      </span>
+                      <span className="font-display text-[16.5px] font-bold text-ink">
+                        {option.label}
+                      </span>
+                      <span className="text-[13.5px]/[20px] text-pretty text-muted">
+                        {option.note}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : step === "file" ? (
+          /* ── 2. the file ──────────────────────────────────────────────── */
+          <div className="grid items-start gap-9 wide:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
+            {mediaFrame}
+            <div className="min-w-0">
+              <SectionHeading>
+                {kind === "photo" ? "Add your photos" : "Add your video"}
+              </SectionHeading>
+              <p className="mt-2 max-w-md text-[15px]/[24px] text-pretty text-muted">
+                {kind === "photo"
+                  ? "Pick one image, or several for a carousel. They post in the order you add them."
+                  : "One file. It is uploaded straight to storage — the bytes never pass through our server."}
+              </p>
+
+              <div className="mt-5 flex flex-wrap items-center gap-2.5">
+                {filePicker}
+                <Button type="button" onClick={addMedia} tone="quiet">
+                  Paste a link
+                </Button>
+              </div>
+              <p className="mt-3 text-[13px] text-faint">
+                MP4 or MOV up to 300MB · JPEG, PNG or WebP up to 8MB
+              </p>
+
+              {mediaList}
+            </div>
+          </div>
+        ) : step === "caption" ? (
+          /* ── 3. caption and platforms ─────────────────────────────────── */
+          <div className="grid items-start gap-9 wide:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
+            {mediaFrame}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center -space-x-2">
+                  {selectedAccounts.slice(0, 3).map((account) => (
+                    <span
+                      key={account.id}
+                      title={`${labels[account.platform]} · ${account.name}`}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-panel bg-chip"
+                    >
+                      <PlatformIcon
+                        platform={account.platform}
+                        className="h-4 w-4 text-muted"
+                      />
+                    </span>
+                  ))}
+                </div>
+                {selectedAccounts.length > 3 ? (
+                  <span className="rounded-full bg-chip px-2.5 py-1 text-[12.5px] font-bold text-muted">
+                    +{selectedAccounts.length - 3}
+                  </span>
+                ) : null}
+                {selectedAccounts.length === 0 ? (
+                  <span className="text-[13.5px] text-faint">
+                    Pick where this goes below.
+                  </span>
+                ) : null}
+              </div>
+
+              <label htmlFor="caption" className="sr-only">
+                Caption
+              </label>
+              <textarea
+                id="caption"
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                rows={5}
+                placeholder="Write a caption…"
+                className="mt-3 w-full resize-y border-0 bg-transparent px-0 py-2 text-[17px]/[26px] text-ink outline-none placeholder:text-faint"
+              />
+
+              {/* One checkbox instead of a "Customize for X" link per platform.
+                  The old row of links grew with the number of platforms, and
+                  every one of them said almost the same thing. */}
+              {selectedPlatforms.length > 1 ? (
+                <label className="flex cursor-pointer items-center gap-2.5 text-[14px] font-semibold text-ink">
+                  <input
+                    type="checkbox"
+                    checked={perPlatform}
+                    onChange={(event) => {
+                      const on = event.target.checked;
+                      setPerPlatform(on);
+                      setOverrides(
+                        on
+                          ? Object.fromEntries(
+                              selectedPlatforms.map((platform) => [
+                                platform,
+                                overrides[platform] ?? caption,
+                              ]),
+                            )
+                          : {},
+                      );
+                    }}
+                    className="h-[17px] w-[17px] accent-[var(--accent)]"
+                  />
+                  Write a different caption per platform
+                </label>
+              ) : null}
+
+              {perPlatform && selectedPlatforms.length > 1 ? (
+                <ul className="mt-4 flex flex-col gap-3">
+                  {selectedPlatforms.map((platform) => {
+                    const spec = specs[platform];
+                    const value = overrides[platform] ?? caption;
+                    const length = captionLength(value);
+                    const max = spec?.rules.captionMaxChars ?? Infinity;
+                    const over = length > max;
+                    return (
+                      <li key={platform}>
                         <div
-                          className="h-1 w-full overflow-hidden rounded-full bg-chip"
-                          role="progressbar"
-                          aria-valuenow={row.progress}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                          aria-label={`Uploading ${row.name ?? "file"}`}
+                          className={cx(
+                            "rounded-2xl border bg-panel px-5 py-4",
+                            over ? "border-danger" : "border-line",
+                          )}
                         >
-                          <div
-                            className="h-full bg-ok transition-all"
-                            style={{ width: `${row.progress}%` }}
+                          <div className="flex items-center gap-2.5">
+                            <PlatformTile platform={platform} size={26} />
+                            <span className="text-[14px] font-semibold text-ink">
+                              {labels[platform]}
+                            </span>
+                            <span
+                              className={cx(
+                                "ml-auto text-[12.5px]",
+                                over ? "font-bold text-danger" : "text-faint",
+                              )}
+                            >
+                              {length.toLocaleString()}/
+                              {Number.isFinite(max) ? max.toLocaleString() : "∞"}
+                            </span>
+                          </div>
+                          <textarea
+                            value={value}
+                            onChange={(e) =>
+                              setOverrides((prev) => ({
+                                ...prev,
+                                [platform]: e.target.value,
+                              }))
+                            }
+                            rows={3}
+                            aria-label={`Caption for ${labels[platform]}`}
+                            className="mt-2.5 w-full resize-y border-0 bg-transparent px-0 text-[14.5px]/[22px] text-ink outline-none placeholder:text-faint"
                           />
                         </div>
-                      ) : null}
-                      {row.error ? (
-                        <p className="text-[11.5px] text-danger">{row.error}</p>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : null}
-          </div>
-
-          {/* ── caption, platforms, and each platform's own settings ─────── */}
-          <div className="min-w-0">
-            {step === "compose" ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center -space-x-2">
-                    {selectedAccounts.slice(0, 3).map((account) => (
-                      <span
-                        key={account.id}
-                        title={`${labels[account.platform]} · ${account.name}`}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-panel bg-chip"
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : selectedPlatforms.length > 0 ? (
+                <ul className="flex flex-wrap gap-x-5 gap-y-1.5 text-[12.5px]">
+                  {selectedPlatforms.map((platform) => {
+                    const spec = specs[platform];
+                    if (!spec) return null;
+                    const length = captionLength(captionFor(platform));
+                    const over = length > spec.rules.captionMaxChars;
+                    return (
+                      <li
+                        key={platform}
+                        className={over ? "font-bold text-danger" : "text-faint"}
                       >
-                        <PlatformIcon platform={account.platform} className="h-4 w-4 text-muted" />
-                      </span>
-                    ))}
-                  </div>
-                  {selectedAccounts.length > 3 ? (
-                    <span className="rounded-full bg-chip px-2.5 py-1 text-[12px] font-semibold text-muted">
-                      +{selectedAccounts.length - 3}
-                    </span>
-                  ) : null}
-                  {selectedAccounts.length === 0 ? (
-                    <span className="text-[12.5px] text-faint">
-                      Pick where this goes below.
-                    </span>
-                  ) : null}
-                </div>
+                        {labels[platform]} {length.toLocaleString()}/
+                        {spec.rules.captionMaxChars.toLocaleString()}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
 
-                <label htmlFor="caption" className="sr-only">
-                  Caption
-                </label>
-                <textarea
-                  id="caption"
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  rows={4}
-                  placeholder="Write a caption…"
-                  className="mt-3 w-full resize-y border-0 bg-transparent px-0 py-2 text-[17px]/[25px] text-ink outline-none placeholder:text-faint"
-                />
+              {/* Tagging is a platform-side feature we do not call yet. Saying
+                  so is better than a control that looks live and is not. */}
+              <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-panel px-5 py-4">
+                <Icon name="people" className="h-[18px] w-[18px] text-muted" />
+                <span className="text-[14px] font-semibold text-ink">
+                  Tag people
+                </span>
+                <span className="text-[13px] text-faint">
+                  Add @handles to the caption — MarkedFox passes them through as
+                  written, and each platform links its own.
+                </span>
+              </div>
 
-                {selectedPlatforms.length > 0 ? (
-                  <ul className="flex flex-wrap gap-3 text-[11.5px]">
-                    {selectedPlatforms.map((platform) => {
-                      const spec = specs[platform];
-                      if (!spec) return null;
-                      const length = captionLength(captionFor(platform));
-                      const over = length > spec.rules.captionMaxChars;
-                      return (
-                        <li key={platform} className={over ? "text-danger" : "text-faint"}>
-                          {labels[platform]} {length.toLocaleString()}/
-                          {spec.rules.captionMaxChars.toLocaleString()}
-                          {overrides[platform] !== undefined ? " (custom)" : ""}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : null}
+              <div className="mt-7 border-t border-line pt-7">
+                <SectionHeading>Choose platforms</SectionHeading>
+                <p className="mt-2 max-w-md text-[14px]/[21px] text-pretty text-muted">
+                  Select the accounts this goes to. Everything selected here
+                  publishes at the same time.
+                </p>
 
-                {/* Per-platform caption overrides stay available, because one
-                    caption across five platforms is the common case and the
-                    exception is why this product exists. */}
-                {selectedPlatforms.length > 1 || Object.keys(overrides).length > 0 ? (
-                  <div className="mt-3 flex flex-col gap-3">
-                    <div className="flex flex-wrap gap-4">
-                      {selectedPlatforms.map((platform) => {
-                        const enabled = overrides[platform] !== undefined;
-                        return (
-                          <button
-                            key={platform}
-                            type="button"
-                            onClick={() =>
-                              setOverrides((prev) => {
-                                const next = { ...prev };
-                                if (enabled) delete next[platform];
-                                else next[platform] = caption;
-                                return next;
-                              })
-                            }
-                            className="text-xs font-medium text-accent transition hover:brightness-[1.08]"
-                          >
-                            {enabled
-                              ? `Use the shared caption for ${labels[platform]}`
-                              : `Customize for ${labels[platform]}`}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {selectedPlatforms.map((platform) =>
-                      overrides[platform] !== undefined ? (
-                        <textarea
-                          key={platform}
-                          value={overrides[platform] ?? ""}
-                          onChange={(e) =>
-                            setOverrides((prev) => ({
-                              ...prev,
-                              [platform]: e.target.value,
-                            }))
+                <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-6">
+                  {grouped.map(([platform, list]) => {
+                    const gate = gates[platform];
+                    const usable = list.filter(
+                      (account) => account.status === "active" && account.publishable,
+                    );
+                    const on = usable.some((account) => selected.includes(account.id));
+                    const disabledReason = gate
+                      ? gate.message
+                      : usable.length === 0
+                        ? "Reconnect this account in Settings first."
+                        : null;
+                    return (
+                      <li key={platform} className="w-[76px]">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (disabledReason) return;
+                            togglePlatform(platform, list);
+                          }}
+                          aria-pressed={on}
+                          title={
+                            disabledReason ??
+                            `${labels[platform]} · ${list.map((a) => a.name).join(", ")}`
                           }
-                          rows={3}
-                          aria-label={`Caption for ${labels[platform]}`}
-                          className="w-full resize-y rounded-[10px] border border-line bg-chip px-3.5 py-2.5 text-[13.5px] text-ink outline-none transition focus:border-accent"
-                        />
-                      ) : null,
-                    )}
-                  </div>
-                ) : null}
-
-                <div className="mt-6 border-t border-line pt-6">
-                  <h2 className="font-display flex items-center gap-2 text-[17px] font-bold tracking-[-0.01em] text-ink">
-                    Choose platforms
-                  </h2>
-                  <p className="mt-1 max-w-md text-[12.5px]/[18px] text-muted">
-                    Select the platforms where you want this posted at the same
-                    time.
-                  </p>
-
-                  <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-5">
-                    {grouped.map(([platform, list]) => {
-                      const gate = gates[platform];
-                      const usable = list.filter(
-                        (account) => account.status === "active" && account.publishable,
-                      );
-                      const on = usable.some((account) => selected.includes(account.id));
-                      const disabledReason = gate
-                        ? gate.message
-                        : usable.length === 0
-                          ? "Reconnect this account on the accounts page first."
-                          : null;
-                      return (
-                        <li key={platform} className="w-[74px]">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (disabledReason) return;
-                              togglePlatform(platform, list);
-                            }}
-                            aria-pressed={on}
-                            title={disabledReason ?? `${labels[platform]} · ${list.map((a) => a.name).join(", ")}`}
-                            className={cx(
-                              "block w-[74px] rounded-[20px] transition",
-                              disabledReason ? "cursor-not-allowed opacity-45" : "hover:-translate-y-0.5",
-                            )}
-                          >
-                            <PlatformBadge
-                              platform={platform}
-                              className="h-[62px] w-[62px] rounded-[18px]"
-                              iconClassName="h-8 w-8"
-                            />
-                            <span className="mt-2 flex items-center justify-center gap-1.5">
-                              <span
-                                aria-hidden
-                                className={cx(
-                                  "flex h-[15px] w-[15px] items-center justify-center rounded-[5px] text-[10px] font-bold transition",
-                                  on
-                                    ? "bg-sky text-white"
-                                    : "border border-line-strong text-transparent",
-                                )}
-                              >
-                                ✓
-                              </span>
-                              <span
-                                className={cx(
-                                  "text-[12px] font-semibold",
-                                  on ? "text-ink" : "text-faint",
-                                )}
-                              >
-                                {destination(platform)}
-                              </span>
-                            </span>
-                            {gate ? (
-                              <span className="mt-0.5 block text-center text-[10px]" title={gate.message}>
-                                💎
-                              </span>
-                            ) : null}
-                          </button>
-
-                          {/* Two accounts on one platform is a real case — a
-                              personal and a brand Instagram — so the tile
-                              toggles both and these pick between them. */}
-                          {list.length > 1 ? (
-                            <ul className="mt-1.5 flex flex-col items-center gap-1">
-                              {list.map((account) => (
-                                <li key={account.id}>
-                                  <label
-                                    className={cx(
-                                      "flex cursor-pointer items-center gap-1 text-[10.5px]",
-                                      selected.includes(account.id) ? "text-ink" : "text-faint",
-                                    )}
-                                    title={account.name}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      className="sr-only"
-                                      checked={selected.includes(account.id)}
-                                      disabled={Boolean(disabledReason)}
-                                      onChange={() => toggleAccount(account.id)}
-                                    />
-                                    <span aria-hidden>
-                                      {selected.includes(account.id) ? "●" : "○"}
-                                    </span>
-                                    <span className="max-w-[64px] truncate">{account.name}</span>
-                                  </label>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-
-                    {/* Never hidden and never a dead label: a platform with no
-                        account here still shows, and the + goes somewhere that
-                        explains itself. */}
-                    {connectable.map((item) => (
-                      <li key={item.platform} className="w-[74px]">
-                        <a
-                          href={`/api/connect/${item.platform}/start`}
-                          title={item.reason ?? `Connect ${item.label}`}
-                          className="block w-[74px] transition hover:-translate-y-0.5"
+                          className={cx(
+                            "block w-[76px] transition-transform duration-150",
+                            disabledReason
+                              ? "cursor-not-allowed opacity-45"
+                              : "hover:-translate-y-0.5",
+                          )}
                         >
-                          <span className="relative block">
-                            <PlatformBadge
-                              platform={item.platform}
-                              className="h-[62px] w-[62px] rounded-[18px] opacity-45"
-                              iconClassName="h-8 w-8"
-                            />
-                          </span>
-                          <span className="mt-2 flex items-center justify-center gap-1.5">
+                          <PlatformTile platform={platform} size={64} radius={19} />
+                          <span className="mt-2.5 flex items-center justify-center gap-1.5">
                             <span
                               aria-hidden
-                              className="flex h-[15px] w-[15px] items-center justify-center rounded-full bg-chip text-[11px] font-bold text-muted"
+                              className={cx(
+                                "flex h-[16px] w-[16px] items-center justify-center rounded-[5px] transition-[background,border-color] duration-150",
+                                on
+                                  ? "bg-accent text-accent-ink"
+                                  : "border border-line-strong text-transparent",
+                              )}
                             >
-                              +
+                              <Icon name="check" className="h-2.5 w-2.5" strokeWidth={3} />
                             </span>
-                            <span className="text-[12px] font-semibold text-faint">
-                              {item.label}
+                            <span
+                              className={cx(
+                                "text-[12.5px] font-bold",
+                                on ? "text-ink" : "text-faint",
+                              )}
+                            >
+                              {destination(platform)}
                             </span>
                           </span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                          {gate ? (
+                            <span
+                              className="mt-1 flex justify-center"
+                              title={gate.message}
+                            >
+                              <PlanDiamond className="h-2.5 w-2.5" />
+                            </span>
+                          ) : null}
+                        </button>
 
-                {/* ── each platform's own settings ───────────────────────── */}
-                <div className="mt-6">
-                  {selectedPlatforms.map((platform) => {
-                    const spec = optionSpecs[platform];
-                    if (!spec) return null;
-                    return (
-                      <PlatformOptionsPanel
-                        key={platform}
-                        platform={platform}
-                        spec={spec}
-                        values={platformOptions[platform] ?? {}}
-                        hasVideo={hasVideo}
-                        variant="split"
-                        onChange={(next) =>
-                          setPlatformOptions((current) => ({
-                            ...current,
-                            [platform]: next,
-                          }))
-                        }
-                      />
+                        {/* Two accounts on one platform is a real case — a
+                            personal and a brand Instagram — so the tile
+                            toggles both and these pick between them. */}
+                        {list.length > 1 ? (
+                          <ul className="mt-2 flex flex-col items-center gap-1">
+                            {list.map((account) => (
+                              <li key={account.id}>
+                                <label
+                                  className={cx(
+                                    "flex cursor-pointer items-center gap-1.5 text-[11.5px]",
+                                    selected.includes(account.id)
+                                      ? "text-ink"
+                                      : "text-faint",
+                                  )}
+                                  title={account.name}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="sr-only"
+                                    checked={selected.includes(account.id)}
+                                    disabled={Boolean(disabledReason)}
+                                    onChange={() => toggleAccount(account.id)}
+                                  />
+                                  <span aria-hidden>
+                                    {selected.includes(account.id) ? "●" : "○"}
+                                  </span>
+                                  <span className="max-w-[64px] truncate">
+                                    {account.name}
+                                  </span>
+                                </label>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </li>
                     );
                   })}
 
-                  {selectedTikTok.length > 0 ? (
-                    <div className="border-t border-line py-6">
-                      <TikTokOptionsPanel
-                        accounts={selectedTikTok.map((a) => ({ id: a.id, name: a.name }))}
-                        contexts={contexts}
-                        options={tiktokOptions}
-                        onChange={setTiktokOptions}
-                        hasVideo={hasVideo}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              </>
-            ) : (
-              /* ── review ─────────────────────────────────────────────── */
-              <div className="flex flex-col gap-4">
-                <PostPreview
-                  platforms={selectedPlatforms}
-                  labels={labels}
-                  caption={caption}
-                  overrides={overrides}
-                  media={mediaRefs}
-                  scheduledFor={mode === "schedule" ? scheduledFor : null}
-                  accountsByPlatform={Object.fromEntries(
-                    selectedPlatforms.map((platform) => [
-                      platform,
-                      selected
-                        .map((id) => accountById.get(id))
-                        .filter((account) => account?.platform === platform)
-                        .map((account) => account!.name),
-                    ]),
-                  )}
-                />
-
-                <Card>
-                  <Eyebrow>When</Eyebrow>
-                  <div className="mt-2.5 flex flex-wrap items-center gap-3">
-                    <div className={segmentedTrack}>
-                      <button
-                        type="button"
-                        onClick={() => setMode("now")}
-                        aria-pressed={mode === "now"}
-                        className={segmentedItem(mode === "now")}
+                  {/* Never hidden and never a dead label: a platform with no
+                      account here still shows, and the + goes somewhere that
+                      explains itself. */}
+                  {connectable.map((item) => (
+                    <li key={item.platform} className="w-[76px]">
+                      <a
+                        href={`/api/connect/${item.platform}/start`}
+                        title={item.reason ?? `Connect ${item.label}`}
+                        className="block w-[76px] transition-transform duration-150 hover:-translate-y-0.5"
                       >
-                        Publish now
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMode("schedule");
-                          const now = new Date();
-                          setMinSchedule(toLocalInputValue(now));
-                          if (!scheduledFor) {
-                            setScheduledFor(
-                              toLocalInputValue(new Date(now.getTime() + 60 * 60 * 1000)),
-                            );
-                          }
-                        }}
-                        aria-pressed={mode === "schedule"}
-                        className={segmentedItem(mode === "schedule")}
-                      >
-                        Schedule
-                      </button>
-                    </div>
-                    {mode === "schedule" ? (
-                      <input
-                        type="datetime-local"
-                        value={scheduledFor}
-                        min={minSchedule}
-                        onChange={(e) => setScheduledFor(e.target.value)}
-                        aria-label="Scheduled time"
-                        className="rounded-[10px] border border-line bg-chip px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
-                      />
-                    ) : null}
-                  </div>
-                  {mode === "schedule" ? (
-                    <p className="mt-2.5 text-[11.5px]/[17px] text-faint">
-                      🦊 It publishes on the server — no tab open, no reminder needed.
-                    </p>
-                  ) : null}
-                  <p className="mt-2 text-[11.5px] text-faint">
-                    Posts today: {usage.postsToday}
-                    {usage.postsPerDay === null ? "" : ` / ${usage.postsPerDay}`}
-                    {selectedPlatforms.includes("x")
-                      ? ` · X this month: ${usage.xPostsThisMonth} / ${usage.xPostsPerMonth}`
-                      : ""}
-                  </p>
-                </Card>
-
-                {outcome ? <OutcomePanel outcome={outcome} labels={labels} /> : null}
-              </div>
-            )}
-
-            {issues.length > 0 && selected.length > 0 ? (
-              <div
-                aria-live="polite"
-                className="mt-5 rounded-xl border border-warn bg-warn-soft px-3.5 py-3"
-              >
-                <p className="text-xs font-semibold text-warn">Fix before publishing</p>
-                <ul className="mt-1.5 flex list-disc flex-col gap-1 pl-4 text-[13px]/[19px] text-ink">
-                  {issues.map((issue, i) => (
-                    <li key={i}>
-                      {issue.platform ? (
-                        <span className="font-semibold">{labels[issue.platform]}: </span>
-                      ) : null}
-                      {issue.message}
+                        <PlatformTile
+                          platform={item.platform}
+                          size={64}
+                          radius={19}
+                          className="opacity-45"
+                        />
+                        <span className="mt-2.5 flex items-center justify-center gap-1.5">
+                          <span
+                            aria-hidden
+                            className="flex h-[16px] w-[16px] items-center justify-center rounded-full bg-chip text-muted"
+                          >
+                            <Icon name="plus" className="h-2.5 w-2.5" strokeWidth={3} />
+                          </span>
+                          <span className="text-[12.5px] font-bold text-faint">
+                            {item.label}
+                          </span>
+                        </span>
+                      </a>
                     </li>
                   ))}
                 </ul>
               </div>
-            ) : null}
+
+              {issuePanel}
+            </div>
           </div>
-        </div>
+        ) : step === "settings" ? (
+          /* ── 4. what each platform asks for ───────────────────────────── */
+          <div className="grid items-start gap-9 wide:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
+            {mediaFrame}
+            <div className="min-w-0">
+              <SectionHeading>Settings for each platform</SectionHeading>
+              <p className="mt-2 max-w-md text-[14px]/[21px] text-pretty text-muted">
+                Only what the platform&apos;s own API accepts appears here. A toggle
+                that looks right and does nothing is worse than no toggle.
+              </p>
+
+              <div className="mt-5">
+                {selectedPlatforms.map((platform) => {
+                  const spec = optionSpecs[platform];
+                  if (!spec) return null;
+                  return (
+                    <PlatformOptionsPanel
+                      key={platform}
+                      platform={platform}
+                      spec={spec}
+                      values={platformOptions[platform] ?? {}}
+                      hasVideo={hasVideo}
+                      variant="split"
+                      onChange={(next) =>
+                        setPlatformOptions((current) => ({
+                          ...current,
+                          [platform]: next,
+                        }))
+                      }
+                    />
+                  );
+                })}
+
+                {selectedTikTok.length > 0 ? (
+                  <div className="border-t border-line py-7">
+                    <TikTokOptionsPanel
+                      accounts={selectedTikTok.map((a) => ({ id: a.id, name: a.name }))}
+                      contexts={contexts}
+                      options={tiktokOptions}
+                      onChange={setTiktokOptions}
+                      hasVideo={hasVideo}
+                    />
+                  </div>
+                ) : null}
+
+                {/* A platform's section can be absent for two different
+                    reasons — it declares nothing, or what it declares is
+                    video-only and this is a photo — and both leave the step
+                    blank. An empty step with no explanation reads as a page
+                    that failed to load. */}
+                {selectedPlatforms.every((platform) => {
+                  const spec = optionSpecs[platform];
+                  return !spec || (spec.videoOnly && !hasVideo);
+                }) && selectedTikTok.length === 0 ? (
+                  <Notice>
+                    Nothing to set. None of the platforms you picked take extra
+                    settings for this kind of post.
+                  </Notice>
+                ) : null}
+              </div>
+
+              {issuePanel}
+            </div>
+          </div>
+        ) : (
+          /* ── 5. preview and publish ───────────────────────────────────── */
+          <div className="grid items-start gap-9 wide:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
+            {mediaFrame}
+            <div className="flex min-w-0 flex-col gap-5">
+              <PostPreview
+                platforms={selectedPlatforms}
+                labels={labels}
+                caption={caption}
+                overrides={overrides}
+                media={mediaRefs}
+                scheduledFor={mode === "schedule" ? scheduledFor : null}
+                accountsByPlatform={Object.fromEntries(
+                  selectedPlatforms.map((platform) => [
+                    platform,
+                    selected
+                      .map((id) => accountById.get(id))
+                      .filter((account) => account?.platform === platform)
+                      .map((account) => account!.name),
+                  ]),
+                )}
+              />
+
+              <Card>
+                <Eyebrow>When</Eyebrow>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <div className={segmentedTrack}>
+                    <button
+                      type="button"
+                      onClick={() => setMode("now")}
+                      aria-pressed={mode === "now"}
+                      className={segmentedItem(mode === "now")}
+                    >
+                      Publish now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("schedule");
+                        const now = new Date();
+                        setMinSchedule(toLocalInputValue(now));
+                        if (!scheduledFor) {
+                          setScheduledFor(
+                            toLocalInputValue(new Date(now.getTime() + 60 * 60 * 1000)),
+                          );
+                        }
+                      }}
+                      aria-pressed={mode === "schedule"}
+                      className={segmentedItem(mode === "schedule")}
+                    >
+                      Schedule
+                    </button>
+                  </div>
+                  {mode === "schedule" ? (
+                    <input
+                      type="datetime-local"
+                      value={scheduledFor}
+                      min={minSchedule}
+                      onChange={(e) => setScheduledFor(e.target.value)}
+                      aria-label="Scheduled time"
+                      className={cx(inputClass, "w-auto")}
+                    />
+                  ) : null}
+                </div>
+                {mode === "schedule" ? (
+                  <p className="mt-3 text-[13px]/[19px] text-faint">
+                    It publishes on the server — no tab open, no reminder needed.
+                  </p>
+                ) : null}
+                <p className="mt-2.5 text-[13px] text-faint">
+                  Posts today: {usage.postsToday}
+                  {usage.postsPerDay === null ? "" : ` / ${usage.postsPerDay}`}
+                  {selectedPlatforms.includes("x")
+                    ? ` · X this month: ${usage.xPostsThisMonth} / ${usage.xPostsPerMonth}`
+                    : ""}
+                </p>
+              </Card>
+
+              {outcome ? <OutcomePanel outcome={outcome} labels={labels} /> : null}
+
+              {issuePanel}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── the bar that follows you down the page ──────────────────────── */}
       {/* Sticky inside the column rather than fixed to the viewport: the
           sidebar changes width when it collapses, and a bar pinned to the
           window would have to guess which width it is. */}
-      <div className="sticky bottom-0 z-40 -mx-4 mt-6 border-t border-line bg-panel/95 px-4 py-3 backdrop-blur shell:-mx-9 shell:px-9">
-        <div className="mx-auto flex max-w-[980px] flex-col items-center gap-1">
+      <div className="sticky bottom-0 z-40 -mx-[18px] mt-8 border-t border-line bg-panel/95 px-[18px] py-3.5 backdrop-blur shell:-mx-12 shell:px-12">
+        <div className="mx-auto flex max-w-[1000px] flex-col items-center gap-1.5">
           <div className="flex items-center gap-3">
             <Button
               type="button"
+              tone="quiet"
               onClick={saveDraft}
               disabled={savingDraft || submitting}
             >
               {savingDraft ? "Saving…" : "Save draft"}
             </Button>
-            {step === "compose" ? (
-              <Button
-                type="button"
-                tone="primary"
-                onClick={() => setStep("settings")}
-                disabled={blocked}
-              >
-                Next
-              </Button>
-            ) : (
+            {isLast ? (
               <Button
                 type="button"
                 tone="primary"
@@ -1301,22 +1602,28 @@ export function Composer({
                     ? "Publish now"
                     : "Schedule post"}
               </Button>
+            ) : (
+              <Button
+                type="button"
+                tone="primary"
+                onClick={forward}
+                disabled={holdup !== null}
+              >
+                Next
+              </Button>
             )}
           </div>
-          <p className="text-[11.5px] text-faint">
-            {step === "compose"
-              ? uploading
-                ? "Waiting for the upload to finish."
-                : selected.length === 0
-                  ? "Choose at least one platform."
-                  : "You will be able to preview this before posting."
-              : "Nothing is sent until you press publish."}
+          <p className="text-[13px] text-faint">
+            {isLast
+              ? "Nothing is sent until you press publish."
+              : (holdup ?? `Next: ${steps[stepIndex + 1]?.title.toLowerCase()}.`)}
           </p>
         </div>
       </div>
     </div>
   );
 }
+
 
 function OutcomePanel({
   outcome,
