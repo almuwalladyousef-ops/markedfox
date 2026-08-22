@@ -37,7 +37,10 @@ const TABLES: { name: string; columns: string }[] = [
     columns:
       "id, workspace_id, connection_id, name, folder, enabled, trigger_type, keywords, target_post_ids, actions, config, created_at",
   },
-  { name: "usage", columns: "id, workspace_id, kind, quantity, created_at" },
+  {
+    name: "usage",
+    columns: "id, workspace_id, kind, amount, platform, occurred_at",
+  },
   { name: "subscriptions", columns: "plan_id, status, current_period_end" },
   {
     name: "research_sources",
@@ -61,12 +64,18 @@ export async function GET() {
   const data: Record<string, unknown[]> = {};
   for (const table of TABLES) {
     // A table this deployment has not migrated yet is absent from the export
-    // rather than failing the whole download.
+    // rather than failing the whole download. Logged, though: the first
+    // version of this list named two columns that do not exist, and the
+    // tolerance swallowed it — the table simply was not in the file, and
+    // nothing said so.
     const { data: rows, error } = await supabase
       .from(table.name)
       .select(table.columns)
       .limit(5000);
-    if (error) continue;
+    if (error) {
+      console.warn(`account-export: skipped ${table.name}: ${error.message}`);
+      continue;
+    }
     data[table.name] = rows ?? [];
   }
 

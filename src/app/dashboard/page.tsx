@@ -485,15 +485,17 @@ function Avatar({
   className,
 }: {
   entry: AccountEntry;
-  size: number;
+  /** Tailwind size classes rather than a number: the stack has to shrink on a
+   *  phone, and an inline width cannot answer a media query. */
+  size: string;
   className?: string;
 }) {
   const { connection, profile } = entry;
   return (
     <span
-      style={{ width: size, height: size }}
       className={cx(
         "relative inline-flex items-center justify-center overflow-hidden rounded-full border-[3px] border-panel bg-chip",
+        size,
         className,
       )}
     >
@@ -520,6 +522,11 @@ function Avatar({
 function AvatarStack({ accounts }: { accounts: AccountEntry[] }) {
   const shown = accounts.slice(0, 4);
   const rest = accounts.length - shown.length;
+  // Five 86px circles overlapping by 24 is 334px, which overflows a 375px
+  // phone once the two arrows are beside them. The circles shrink instead of
+  // the row scrolling: the stack is a glance, not something to read.
+  const circle = "h-14 w-14 shell:h-[86px] shell:w-[86px]";
+  const overlap = "-ml-4 shell:-ml-6";
   return (
     <div className="flex items-center">
       {shown.map((entry, index) => (
@@ -530,19 +537,19 @@ function AvatarStack({ accounts }: { accounts: AccountEntry[] }) {
             entry.connection.platform_account_name ??
             undefined
           }
-          style={{
-            zIndex: shown.length - index,
-            marginLeft: index === 0 ? 0 : -24,
-          }}
-          className="relative"
+          style={{ zIndex: shown.length - index }}
+          className={cx("relative", index > 0 && overlap)}
         >
-          <Avatar entry={entry} size={86} />
+          <Avatar entry={entry} size={circle} />
         </span>
       ))}
       {rest > 0 ? (
         <span
-          style={{ marginLeft: -24 }}
-          className="font-display relative inline-flex h-[86px] w-[86px] items-center justify-center rounded-full border-[3px] border-panel bg-chip text-[17px] font-bold text-muted"
+          className={cx(
+            "font-display relative inline-flex items-center justify-center rounded-full border-[3px] border-panel bg-chip text-[15px] font-bold text-muted shell:text-[17px]",
+            circle,
+            overlap,
+          )}
         >
           +{rest}
         </span>
@@ -556,7 +563,7 @@ function AvatarStack({ accounts }: { accounts: AccountEntry[] }) {
 function SingleAvatar({ entry }: { entry: AccountEntry }) {
   return (
     <span className="relative inline-block">
-      <Avatar entry={entry} size={104} />
+      <Avatar entry={entry} size="h-20 w-20 shell:h-[104px] shell:w-[104px]" />
       <span className="absolute right-0 bottom-0">
         <PlatformTile
           platform={entry.connection.platform}
@@ -739,7 +746,7 @@ function Timeline({
           className="flex gap-3 border-b border-line py-4 last:border-b-0"
         >
           {account ? (
-            <Avatar entry={account} size={40} className="border-0" />
+            <Avatar entry={account} size="h-10 w-10" className="border-0" />
           ) : null}
           <div className="min-w-0 flex-1">
             <p className="flex flex-wrap items-baseline gap-x-1.5 text-[14px]">

@@ -1578,7 +1578,10 @@ export function Composer({
       {/* Sticky inside the column rather than fixed to the viewport: the
           sidebar changes width when it collapses, and a bar pinned to the
           window would have to guess which width it is. */}
-      <div className="sticky bottom-0 z-40 -mx-[18px] mt-8 border-t border-line bg-panel/95 px-[18px] py-3.5 backdrop-blur shell:-mx-12 shell:px-12">
+      {/* Held clear of the mobile tab bar, which is fixed to the viewport
+          bottom: at `bottom-0` this bar sat underneath it and the primary
+          action was unreachable on a phone. */}
+      <div className="sticky bottom-[calc(70px+env(safe-area-inset-bottom))] z-40 -mx-[18px] mt-8 border-t border-line bg-panel/95 px-[18px] py-3.5 backdrop-blur shell:bottom-0 shell:-mx-12 shell:px-12">
         <div className="mx-auto flex max-w-[1000px] flex-col items-center gap-1.5">
           <div className="flex items-center gap-3">
             <Button

@@ -15,7 +15,11 @@ export default async function AppearancePane() {
       title="Appearance"
       blurb="Light or dark. The choice is remembered on this browser and applied on the server, so pages do not flash the wrong one while they load."
     >
-      <ThemeSegmented initial={theme} />
+      {/* The wrapper is load-bearing: the pane lays its children out in a flex
+          column, which stretches an inline-flex track to the full width. */}
+      <div className="flex">
+        <ThemeSegmented initial={theme} />
+      </div>
     </Pane>
   );
 }

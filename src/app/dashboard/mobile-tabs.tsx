@@ -25,13 +25,21 @@ export function MobileTabs() {
   const pathname = usePathname();
   // Home is the one exact match: every other dashboard path starts with
   // /dashboard, so a prefix test would light Home on every screen.
-  const isActive = (href: string) =>
+  //
+  // And only the LONGEST matching tab lights. Ideas lives under
+  // /dashboard/research, so a plain prefix test lit Videos while the person was
+  // looking at Ideas — the same rule the sidebar already uses, for the same
+  // reason.
+  const matches = (href: string) =>
     href === "/dashboard"
       ? pathname === href
       : pathname === href || pathname.startsWith(`${href}/`);
+  const activeHref = TABS.map((tab) => tab.href)
+    .filter(matches)
+    .sort((a, b) => b.length - a.length)[0];
 
   const tab = (item: (typeof TABS)[number]) => {
-    const active = isActive(item.href);
+    const active = item.href === activeHref;
     return (
       <Link
         key={item.href}
