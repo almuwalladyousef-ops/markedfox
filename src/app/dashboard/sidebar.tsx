@@ -76,7 +76,7 @@ export function Sidebar({
         // A width transition rather than a jump: the page beside it reflows
         // either way, and a jump reads as a reload.
         "transition-[width] duration-200",
-        collapsed ? "w-[76px]" : "w-[232px]",
+        collapsed ? "w-[86px]" : "w-[264px]",
       )}
     >
       <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-[22px] border border-line bg-panel px-2.5 py-4">

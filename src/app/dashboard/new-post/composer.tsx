@@ -729,7 +729,7 @@ export function Composer({
   };
 
   return (
-    <div className="pb-28">
+    <div className="pb-2">
       <div className="mx-auto flex w-full max-w-[980px] flex-col gap-5">
         <div className="flex items-center gap-2">
           <button
@@ -1266,7 +1266,10 @@ export function Composer({
       </div>
 
       {/* ── the bar that follows you down the page ──────────────────────── */}
-      <div className="fixed right-0 bottom-0 left-0 z-40 border-t border-line bg-panel/95 px-4 py-3 backdrop-blur shell:left-[76px]">
+      {/* Sticky inside the column rather than fixed to the viewport: the
+          sidebar changes width when it collapses, and a bar pinned to the
+          window would have to guess which width it is. */}
+      <div className="sticky bottom-0 z-40 -mx-4 mt-6 border-t border-line bg-panel/95 px-4 py-3 backdrop-blur shell:-mx-9 shell:px-9">
         <div className="mx-auto flex max-w-[980px] flex-col items-center gap-1">
           <div className="flex items-center gap-3">
             <Button

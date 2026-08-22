@@ -57,7 +57,11 @@ export function SidebarNav({
       // No `items-center` on the column itself: it would size every row to its
       // content and let the 32px tiles spill out of a rail narrower than they
       // are. The rows centre themselves instead.
-      className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-y-auto px-1"
+      //
+      // The column still scrolls when the nav is taller than the screen, but
+      // without a visible scrollbar: a grey bar running down the middle of a
+      // floating panel reads as a seam in the panel rather than as a control.
+      className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-y-auto px-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {sections.map((section) => (
         <div key={section.title} className="w-full">

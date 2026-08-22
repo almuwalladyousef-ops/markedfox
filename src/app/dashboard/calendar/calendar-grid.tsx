@@ -259,9 +259,14 @@ export function CalendarGrid({
               className="sr-only"
             />
           </label>
-          <ButtonLink href="/dashboard/new-post" tone="ghost" size="sm" title="New post">
+          <Link
+            href="/dashboard/new-post"
+            title="New post"
+            aria-label="New post"
+            className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-ink text-[15px] text-panel transition hover:brightness-110"
+          >
             +
-          </ButtonLink>
+          </Link>
         </div>
 
         <div className={segmentedTrack}>
@@ -326,7 +331,10 @@ export function CalendarGrid({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search posts"
             aria-label="Search posts"
-            className={cx(inputClass, "w-[190px] py-2 text-[12.5px]")}
+            className={cx(
+              inputClass,
+              "w-[190px] rounded-full py-2 text-[12.5px]",
+            )}
           />
         </div>
       </div>
@@ -362,7 +370,7 @@ export function CalendarGrid({
 }
 
 const STEP_BUTTON =
-  "inline-flex items-center gap-1 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-[13px] text-ink transition hover:border-line-strong";
+  "inline-flex items-center gap-1 rounded-full border border-line-strong bg-panel px-3 py-1.5 text-[13px] font-medium text-ink transition hover:border-accent hover:text-accent";
 
 function MonthGrid({
   days,
@@ -389,7 +397,7 @@ function MonthGrid({
   );
 
   return (
-    <div className="overflow-hidden rounded-[14px] border border-line bg-panel">
+    <div className="overflow-hidden rounded-[18px] border border-line bg-panel">
       <div className="grid grid-cols-7 bg-chip">
         {DAY_NAMES.map((name) => (
           <div
@@ -471,7 +479,7 @@ function TimeGrid({
       : now.getHours() * HOUR_HEIGHT_REM + (now.getMinutes() / 60) * HOUR_HEIGHT_REM;
 
   return (
-    <div className="overflow-x-auto rounded-[14px] border border-line bg-panel">
+    <div className="overflow-x-auto rounded-[18px] border border-line bg-panel">
       <div className="min-w-[52rem]">
         <div
           className="grid border-b border-line bg-panel"
@@ -494,7 +502,8 @@ function TimeGrid({
         </div>
 
         <div
-          className="relative max-h-[34rem] overflow-y-auto"
+          // Scrolls, but without the grey bar down the side of the panel.
+          className="relative max-h-[34rem] overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           ref={(node) => {
             // Only on first attach: re-scrolling on every render would fight
             // somebody who has scrolled somewhere else.
