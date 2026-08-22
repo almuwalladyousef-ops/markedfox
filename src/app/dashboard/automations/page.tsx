@@ -2,15 +2,19 @@ import type { Metadata } from "next";
 
 import Link from "next/link";
 
+import { Icon, PlanDiamond } from "@/components/icons";
+import { PlatformTile } from "@/components/platform-icon";
 import {
   ButtonLink,
   Card,
   CardTitle,
   EmptyState,
+  Eyebrow,
   Notice,
   Page,
   PageHeader,
   Pill,
+  ToggleForm,
   inputClass,
 } from "@/components/ui";
 import { LocalTime } from "@/components/local-time";
@@ -135,7 +139,7 @@ export default async function AutomationsPage({
   );
 
   return (
-    <Page width="max-w-[860px]">
+    <Page>
       <PageHeader
         title="Automations"
         subtitle={
@@ -151,7 +155,8 @@ export default async function AutomationsPage({
             </ButtonLink>
             {canCreate.allowed && accounts.length > 0 ? (
               <ButtonLink href="/dashboard/automations/new" tone="primary">
-                + New automation
+                <Icon name="plus" className="h-4 w-4" strokeWidth={2.1} />
+                New automation
               </ButtonLink>
             ) : !canCreate.allowed ? (
               <ButtonLink
@@ -159,7 +164,8 @@ export default async function AutomationsPage({
                 title={canCreate.reason}
                 className="border border-warn bg-warn-soft text-warn"
               >
-                💎 More rules
+                <PlanDiamond className="h-3 w-3 text-warn" />
+                More rules
               </ButtonLink>
             ) : null}
           </>
@@ -189,7 +195,7 @@ export default async function AutomationsPage({
         )
       ) : null}
 
-      <Card className="px-4 py-3.5">
+      <Card className="px-6 py-5">
         <CardTitle
           hint={
             accounts.length === 0
@@ -200,7 +206,7 @@ export default async function AutomationsPage({
           Accounts
         </CardTitle>
         {accounts.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">
+          <p className="mt-2.5 text-[14px]/[21px] text-pretty text-muted">
             Connect an Instagram account on the{" "}
             <Link href="/dashboard/accounts" className="underline">
               dashboard
@@ -208,7 +214,7 @@ export default async function AutomationsPage({
             first. Automation runs on Instagram today; Facebook Pages follow.
           </p>
         ) : (
-          <ul className="mt-3 flex flex-col gap-2">
+          <ul className="mt-4 flex flex-col gap-2">
             {accounts.map((c) => (
               <AccountRow key={c.id} connection={c} />
             ))}
@@ -251,7 +257,7 @@ export default async function AutomationsPage({
           </button>
         </form>
 
-        <p className="text-[11.5px] text-faint">
+        <p className="text-[13px] text-faint">
           {snapshot.usage.dmRuleCount}
           {snapshot.limits.dmRulesMax === null
             ? ""
@@ -282,11 +288,9 @@ export default async function AutomationsPage({
         groups.map(([folder, folderRules]) => (
           <section key={folder || "__none"}>
             {folder ? (
-              <h2 className="mb-2 text-[10px] font-bold tracking-[0.12em] text-faint uppercase">
-                {folder}
-              </h2>
+              <Eyebrow className="mb-2.5">{folder}</Eyebrow>
             ) : null}
-            <ul className="flex flex-col gap-3">
+            <ul className="flex flex-col gap-3.5">
               {folderRules.map((rule) => {
                 const s = stats[rule.id] ?? {};
                 const sent = s.sent ?? 0;
@@ -294,19 +298,19 @@ export default async function AutomationsPage({
                 const account = connectionById.get(rule.connection_id);
                 return (
                   <li key={rule.id}>
-                    <Card className="p-4">
+                    <Card className="px-6 py-5">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <Pill
-                              tone={rule.enabled ? "danger" : "neutral"}
-                              className="text-[9.5px] font-bold tracking-[0.04em]"
+                              tone={rule.enabled ? "ok" : "neutral"}
+                              className="tracking-[0.06em]"
                             >
                               {rule.enabled ? "LIVE" : "STOPPED"}
                             </Pill>
                             <Link
                               href={`/dashboard/automations/${rule.id}`}
-                              className="text-sm font-semibold text-ink hover:underline"
+                              className="font-display text-[16.5px] font-bold tracking-[-0.01em] text-ink hover:underline"
                             >
                               {rule.name}
                             </Link>
@@ -315,7 +319,7 @@ export default async function AutomationsPage({
                           {/* The rule as a sentence, with the keywords as the
                               chips they are in the builder — so the list and
                               the builder describe the same thing the same way. */}
-                          <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12.5px] text-muted">
+                          <p className="mt-2.5 flex flex-wrap items-center gap-2 text-[14px]/[22px] text-muted">
                             <span>
                               {rule.trigger_type === "comment"
                                 ? `Someone comments on ${rule.target_post_ids.length ? `${rule.target_post_ids.length} chosen post${rule.target_post_ids.length === 1 ? "" : "s"}` : "any post or reel"}`
@@ -329,7 +333,7 @@ export default async function AutomationsPage({
                                   containing
                                 </span>
                                 {rule.keywords.map((word) => (
-                                  <Pill key={word} className="text-[11px] text-ink">
+                                  <Pill key={word} className="text-ink">
                                     {word}
                                   </Pill>
                                 ))}
@@ -337,7 +341,7 @@ export default async function AutomationsPage({
                             ) : null}
                           </p>
 
-                          <p className="mt-1 text-[11.5px] text-faint">
+                          <p className="mt-2 text-[13px] text-faint">
                             {account
                               ? `${PLATFORM_LABELS[account.platform]} · ${account.platform_account_name ?? account.platform_account_id}`
                               : "account disconnected"}
@@ -357,23 +361,18 @@ export default async function AutomationsPage({
                             name="enabled"
                             value={rule.enabled ? "false" : "true"}
                           />
-                          <button
-                            type="submit"
-                            aria-label={
+                          <ToggleForm
+                            on={rule.enabled}
+                            label={
                               rule.enabled
                                 ? `Stop ${rule.name}`
                                 : `Start ${rule.name}`
                             }
-                            className={`relative inline-flex h-[22px] w-10 items-center rounded-full transition ${rule.enabled ? "bg-ok" : "bg-line-strong"}`}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.3)] transition-transform duration-150 ${rule.enabled ? "translate-x-[21px]" : "translate-x-[3px]"}`}
-                            />
-                          </button>
+                          />
                         </form>
                       </div>
 
-                      <dl className="mt-3.5 grid grid-cols-2 gap-2 shell:grid-cols-5">
+                      <dl className="mt-5 grid grid-cols-2 gap-2.5 shell:grid-cols-5">
                         <Stat label="Runs" value={s.triggered ?? 0} />
                         <Stat label="Sends" value={sent} />
                         <Stat label="Clicks" value={clicked} accent />
@@ -390,7 +389,7 @@ export default async function AutomationsPage({
                       </dl>
 
                       {(s.triggered ?? 0) === 0 ? (
-                        <p className="mt-3 text-[11.5px] text-faint">
+                        <p className="mt-4 text-[13px]/[19px] text-pretty text-faint">
                           No data yet. Ask a friend to{" "}
                           {rule.trigger_type === "comment"
                             ? "comment"
@@ -402,7 +401,7 @@ export default async function AutomationsPage({
                         </p>
                       ) : null}
 
-                      <div className="mt-3 flex items-center gap-3 text-xs">
+                      <div className="mt-4 flex items-center gap-4 text-[13px]">
                         <Link
                           href={`/dashboard/automations/${rule.id}`}
                           className="font-semibold text-accent transition hover:brightness-[1.08]"
@@ -420,7 +419,7 @@ export default async function AutomationsPage({
                         </form>
                         {(s.skipped ?? 0) + (s.failed ?? 0) > 0 ? (
                           <span
-                            className="ml-auto text-[11.5px] text-faint"
+                            className="ml-auto text-[13px] text-faint"
                             title="Most often: the person never replied, so Instagram's 24-hour messaging window was never open. Also counts posts over the plan cap, people already answered, and follow-ups skipped because they had already clicked."
                           >
                             {(s.skipped ?? 0) + (s.failed ?? 0)} not sent
@@ -445,21 +444,16 @@ function AccountRow({ connection }: { connection: ConnectionRow }) {
   const granted = required.every((scope) => connection.scopes.includes(scope));
   const name = connection.platform_account_name ?? connection.platform_account_id;
   return (
-    <li className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-line px-3 py-2.5">
-      <span className="flex min-w-0 items-center gap-2.5">
-        <span
-          aria-hidden
-          className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-accent-soft text-[12px] font-semibold text-accent uppercase"
-        >
-          {name.replace(/^@/, "").charAt(0)}
-        </span>
-        <span className="min-w-0 text-[13px] font-semibold text-ink">
+    <li className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line px-4 py-3">
+      <span className="flex min-w-0 items-center gap-3">
+        <PlatformTile platform={connection.platform} size={32} />
+        <span className="min-w-0 text-[14px] font-semibold text-ink">
           <span className="truncate">{name}</span>
-          <span className="ml-1.5 font-normal text-faint">
+          <span className="ml-2 font-normal text-faint">
             · {PLATFORM_LABELS[connection.platform]}
           </span>
           {connection.status !== "active" ? (
-            <span className="ml-2 text-[11.5px] font-normal text-danger">
+            <span className="ml-2 text-[13px] font-normal text-danger">
               reconnect needed
             </span>
           ) : null}
@@ -467,15 +461,15 @@ function AccountRow({ connection }: { connection: ConnectionRow }) {
       </span>
       {granted ? (
         <span className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5 text-[11.5px] text-ok">
-            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-ok" />
+          <span className="flex items-center gap-2 text-[13px] font-semibold text-ok">
+            <span aria-hidden className="h-[7px] w-[7px] rounded-full bg-ok" />
             Automation on
           </span>
           <form action={resubscribeWebhooksAction}>
             <input type="hidden" name="connection_id" value={connection.id} />
             <button
               type="submit"
-              className="text-[11.5px] text-faint transition hover:text-ink"
+              className="text-[13px] text-faint transition hover:text-ink"
               title="Ask Instagram again to send this account's comments and messages here"
             >
               Refresh events
@@ -485,7 +479,7 @@ function AccountRow({ connection }: { connection: ConnectionRow }) {
       ) : (
         <a
           href={`/api/connect/${connection.platform}/start?features=messaging`}
-          className="rounded-lg border border-line-strong bg-panel px-3 py-1.5 text-[11.5px] font-semibold text-ink transition hover:border-accent hover:text-accent"
+          className="rounded-[9px] border border-line bg-panel px-3.5 py-2 text-[13px] font-semibold text-ink transition-[border-color,color] duration-150 hover:border-accent hover:text-accent"
         >
           Turn on automation
         </a>
@@ -507,10 +501,10 @@ function Stat({
   accent?: boolean;
 }) {
   return (
-    <div title={title} className="rounded-[10px] bg-chip px-[11px] py-2">
-      <dt className="text-[10.5px] text-faint">{label}</dt>
+    <div title={title} className="rounded-xl bg-chip px-3.5 py-2.5">
+      <dt className="text-[12.5px] text-faint">{label}</dt>
       <dd
-        className={`font-display text-[17px] font-semibold ${accent ? "text-accent" : "text-ink"}`}
+        className={`font-display mt-0.5 text-[20px] font-bold tracking-[-0.02em] ${accent ? "text-accent" : "text-ink"}`}
       >
         {value}
       </dd>

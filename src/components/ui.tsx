@@ -399,6 +399,42 @@ export function Toggle({
   );
 }
 
+/**
+ * The same switch as a form's submit button, for the several places a toggle
+ * posts a server action rather than moving local state. It is not a client
+ * component: pressing it submits the form it sits in, which is what the row
+ * around it already is.
+ */
+export function ToggleForm({
+  on,
+  label,
+  className,
+}: {
+  on: boolean;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <button
+      type="submit"
+      aria-label={label}
+      className={cx(
+        "relative h-[26px] w-[46px] shrink-0 rounded-full transition-[background-color] duration-[180ms]",
+        on ? "bg-ok" : "bg-line hover:bg-line-strong",
+        className,
+      )}
+    >
+      <span
+        aria-hidden
+        className={cx(
+          "absolute top-[3px] left-0 h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.22)] transition-transform duration-[180ms]",
+          on ? "translate-x-[23px]" : "translate-x-[3px]",
+        )}
+      />
+    </button>
+  );
+}
+
 // ── inputs ─────────────────────────────────────────────────────────────────
 
 export const inputClass =
