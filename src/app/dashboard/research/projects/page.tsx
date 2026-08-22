@@ -45,7 +45,7 @@ export default async function ResearchProjectsPage() {
       <NewProjectForm />
 
       {projects.length === 0 ? (
-        <p className="rounded-lg border border-line bg-panel px-4 py-6 text-center text-sm text-faint">
+        <p className="rounded-lg border border-line bg-panel px-4 py-6 text-center text-[14.5px] text-faint">
           No projects yet. Create one, then save outliers into it from the feed.
         </p>
       ) : (
@@ -58,11 +58,11 @@ export default async function ResearchProjectsPage() {
               <div className="min-w-0">
                 <Link
                   href={`/dashboard/research/projects/${project.id}`}
-                  className="text-sm font-medium hover:underline"
+                  className="text-[14.5px] font-medium hover:underline"
                 >
                   {project.name}
                 </Link>
-                <p className="mt-0.5 text-xs text-faint">
+                <p className="mt-0.5 text-[13px] text-faint">
                   {project.item_count} saved
                   {project.description ? ` · ${project.description}` : ""}
                 </p>

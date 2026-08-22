@@ -84,10 +84,10 @@ export default async function ScriptsPage() {
                 className="flex items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3 transition hover:border-accent"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] font-semibold text-ink">
+                  <span className="block truncate text-[14.5px] font-semibold text-ink">
                     {draft.title}
                   </span>
-                  <span className="block truncate text-[11.5px] text-faint">
+                  <span className="block truncate text-[13px] text-faint">
                     {draft.chosen_hook
                       ? `“${draft.chosen_hook}”`
                       : (draft.topic ?? "No topic yet")}
@@ -95,11 +95,11 @@ export default async function ScriptsPage() {
                 </span>
                 <Pill
                   tone={draft.script ? "ok" : "neutral"}
-                  className="text-[10.5px] font-bold"
+                  className="text-[12px] font-bold"
                 >
                   {draft.script ? "Written" : STAGE_LABELS[draft.stage]}
                 </Pill>
-                <span className="shrink-0 text-[11px] text-faint">
+                <span className="shrink-0 text-[12.5px] text-faint">
                   <LocalTime value={draft.updated_at} mode="date" />
                 </span>
               </Link>
@@ -108,7 +108,7 @@ export default async function ScriptsPage() {
         </ul>
       )}
 
-      <p className="text-[11.5px]/[17px] text-faint">
+      <p className="text-[13px]/[19px] text-faint">
         Or press <em>Create script</em> on any analysed video — the breakdown
         comes with it, so the script is built from a shape that already worked.
       </p>

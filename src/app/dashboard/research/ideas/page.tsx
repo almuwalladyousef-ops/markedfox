@@ -7,12 +7,14 @@ import {
   Page,
   PageHeader,
   UpgradeCard,
+  destructiveButtonClass,
   segmentedItem,
   segmentedTrack,
 } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
+import { listBreakdowns } from "@/lib/research/store";
 import { discardAllInboxAction } from "@/lib/research/studio-actions";
 import { listIdeas } from "@/lib/research/studio-store";
 import { createClient } from "@/lib/supabase/server";
@@ -39,7 +41,7 @@ export default async function IdeasPage({
   const allowed = canUserDo(snapshot, { type: "use_research" });
   if (!allowed.allowed) {
     return (
-      <Page width="max-w-[1060px]">
+      <Page>
         <PageHeader title="Ideas" />
         <UpgradeCard title="Studio" reason={allowed.reason}>
           Every video you break down leaves an idea here — the angle, not the
@@ -51,19 +53,23 @@ export default async function IdeasPage({
   }
 
   const ideas = await listIdeas(supabase, active.id, status);
+  // Why each video worked, beside the idea it produced. One query for the
+  // whole list rather than one per selection, since arrowing down a queue of
+  // thirty is the movement this screen is built around.
+  const breakdowns = await listBreakdowns(
+    supabase,
+    ideas.map((idea) => idea.video_id),
+  );
 
   return (
-    <Page width="max-w-[1060px]">
+    <Page width="max-w-[1180px]">
       <PageHeader
         title="Ideas"
         subtitle="Review ideas generated from the videos you analyzed. Read, decide, next."
         actions={
           status === "inbox" && ideas.length > 0 ? (
             <form action={discardAllInboxAction}>
-              <button
-                type="submit"
-                className="text-[11.5px] text-faint transition hover:text-danger"
-              >
+              <button type="submit" className={destructiveButtonClass}>
                 Discard all
               </button>
             </form>
@@ -80,7 +86,35 @@ export default async function IdeasPage({
         />
       </div>
 
-      <IdeaTriage ideas={ideas} status={status} />
+      <IdeaTriage
+        ideas={ideas}
+        status={status}
+        analyses={Object.fromEntries(
+          [...breakdowns.entries()].map(([videoId, row]) => [
+            videoId,
+            {
+              positioning: [
+                ["Topic", row.topic],
+                ["The angle", row.unique_angle],
+              ],
+              format: [
+                ["Format", row.format_category],
+                ["How it is built", row.format_notes],
+                ["Why it suits this idea", row.format_analysis],
+              ],
+              contrast: [
+                ["What people believe", row.common_belief],
+                ["What it argues instead", row.contrarian_reality],
+              ],
+              hook: [
+                ["The opening line", row.hook],
+                ["The pattern", row.hook_formula],
+                ["Why it fits", row.hook_alignment],
+              ],
+            },
+          ]),
+        )}
+      />
     </Page>
   );
 }

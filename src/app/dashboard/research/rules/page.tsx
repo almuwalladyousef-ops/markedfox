@@ -8,7 +8,10 @@ import {
   PageHeader,
   Pill,
   UpgradeCard,
+  cx,
+  destructiveButtonClass,
   formatCount,
+  textButtonClass,
 } from "@/components/ui";
 import { LocalTime } from "@/components/local-time";
 import { requireUser } from "@/lib/auth/session";
@@ -42,7 +45,7 @@ export default async function RulesPage() {
   const allowed = canUserDo(snapshot, { type: "use_research" });
   if (!allowed.allowed) {
     return (
-      <Page width="max-w-[780px]">
+      <Page width="max-w-[900px]">
         <PageHeader title="Auto-analyze" />
         <UpgradeCard title="Studio" reason={allowed.reason}>
           Set the bar once — say, anything that tripled its channel&rsquo;s
@@ -77,7 +80,7 @@ export default async function RulesPage() {
     .reduce((total, rule) => total + rule.daily_limit, 0);
 
   return (
-    <Page width="max-w-[780px]">
+    <Page width="max-w-[900px]">
       <PageHeader
         title="Auto-analyze"
         subtitle="Automatically break down videos that clear a bar you set, and drop the ideas in your inbox."
@@ -112,18 +115,26 @@ export default async function RulesPage() {
         <ul className="flex flex-col gap-4">
           {rules.map((rule) => (
             <li key={rule.id}>
-              <Card className="p-4">
+              <Card
+                className={cx(
+                  "px-6 py-5",
+                  // An active rule spends credits without being asked, so the
+                  // one thing the card has to say at a glance is whether it is
+                  // running.
+                  rule.active ? "border-accent" : "border-line",
+                )}
+              >
                 <div className="flex flex-wrap items-center gap-3">
                   <Pill
                     tone={rule.active ? "ok" : "neutral"}
-                    className="text-[9.5px] font-bold tracking-[0.04em]"
+                    className="tracking-[0.06em]"
                   >
                     {rule.active ? "ACTIVE" : "PAUSED"}
                   </Pill>
-                  <p className="text-[13.5px] font-semibold text-ink">
+                  <p className="font-display text-[16.5px] font-bold tracking-[-0.01em] text-ink">
                     {rule.name}
                   </p>
-                  <p className="text-xs text-muted">
+                  <p className="text-[13.5px]/[20px] text-muted">
                     {rule.source_id
                       ? (byId.get(rule.source_id) ?? "a deleted channel")
                       : "All channels"}{" "}
@@ -136,23 +147,23 @@ export default async function RulesPage() {
                     <input type="hidden" name="id" value={rule.id} />
                     <button
                       type="submit"
-                      className="text-[11.5px] text-faint transition hover:text-danger"
+                      className={destructiveButtonClass}
                     >
                       Delete
                     </button>
                   </form>
                 </div>
-                <p className="mt-1 text-[11.5px] text-faint">
+                <p className="mt-2 text-[13px] text-faint">
                   {rule.last_run_at
                     ? <>Last ran <LocalTime value={rule.last_run_at} /></>
                     : "Has not run yet"}
                 </p>
 
-                <details className="mt-3">
-                  <summary className="cursor-pointer text-xs font-semibold text-accent">
+                <details className="mt-4">
+                  <summary className={cx(textButtonClass, "cursor-pointer")}>
                     Edit
                   </summary>
-                  <div className="mt-3">
+                  <div className="mt-4">
                     <RuleForm rule={rule} sources={options} />
                   </div>
                 </details>
@@ -162,7 +173,7 @@ export default async function RulesPage() {
         </ul>
       )}
 
-      <p className="text-[11.5px]/[17px] text-faint">
+      <p className="text-[13px]/[19px] text-pretty text-faint">
         A rule is a standing instruction to spend credits, so the daily limit is
         the column that matters — a rule with no ceiling could empty a
         month&rsquo;s allowance into one afternoon on a channel that suddenly

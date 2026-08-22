@@ -2,12 +2,16 @@
 
 import { useActionState, useState } from "react";
 
+import { Icon } from "@/components/icons";
+import { PlatformTile } from "@/components/platform-icon";
 import {
   Button,
+  Eyebrow,
+  Kbd,
   Notice,
   Pill,
+  cx,
   formatCount,
-  inputClass,
   segmentedItem,
   segmentedTrack,
 } from "@/components/ui";
@@ -110,7 +114,7 @@ export function ChannelPicker({
 
       <form
         action={action}
-        className="rounded-[14px] border border-line bg-panel p-3.5"
+        className="rounded-2xl border border-line bg-panel px-5 py-4"
       >
         <input type="hidden" name="platform" value={platform} />
         <input type="hidden" name="mode" value={tab === "suggest" ? "suggest" : "describe"} />
@@ -119,7 +123,7 @@ export function ChannelPicker({
         ))}
 
         {tab === "suggest" ? (
-          <p className="px-1 py-2 text-sm text-muted">
+          <p className="py-2 text-[14.5px]/[22px] text-pretty text-muted">
             Suggestions are built from the channels you already track, then
             checked against {active?.label ?? "the platform"} — anything that
             does not resolve to a real account is dropped before you see it.
@@ -130,53 +134,64 @@ export function ChannelPicker({
             rows={4}
             defaultValue={state.query}
             placeholder={PLACEHOLDER[tab]}
-            className={`${inputClass} resize-y font-mono text-xs`}
+            className="w-full resize-y border-0 bg-transparent px-0 py-2 font-mono text-[14px]/[22px] text-ink outline-none placeholder:text-faint"
           />
         ) : (
+          /* Borderless: this is the one thing the card is asking for, and a
+             box drawn round it only competes with the platform buttons. */
           <input
             name="query"
             defaultValue={state.query}
             placeholder={PLACEHOLDER[tab]}
-            className={inputClass}
+            className="w-full border-0 bg-transparent px-0 py-2 text-[16px] text-ink outline-none placeholder:text-faint"
           />
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <select
-            value={platform}
-            onChange={(event) =>
-              setPlatform(event.target.value as ResearchPlatform)
-            }
-            className="rounded-[10px] border border-line bg-chip px-2.5 py-2 text-xs text-ink outline-none focus:border-accent"
-          >
-            {/* Selectable even when this deployment cannot read it yet: the
-                note under the box says what is missing, which is more use than
-                an option the user cannot click and cannot ask about. */}
-            {platforms.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-                {item.available ? "" : " — needs setup"}
-              </option>
-            ))}
-          </select>
+          {/* Buttons wearing each platform's own mark rather than a select:
+              there are four, this is the most-changed control on the card, and
+              a dropdown hides three of them behind a click.
+
+              Still selectable when this deployment cannot read the platform —
+              the note under the card says what is missing, which is more use
+              than a control nobody can press and nobody can ask about. */}
+          {platforms.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setPlatform(item.id)}
+              aria-pressed={platform === item.id}
+              title={item.available ? item.label : `${item.label} — needs setup`}
+              className={cx(
+                "inline-flex items-center gap-2 rounded-[10px] border px-2.5 py-1.5 text-[13px] font-semibold transition-[background,border-color,color] duration-150",
+                platform === item.id
+                  ? "border-accent bg-accent-soft text-ink"
+                  : "border-line text-muted hover:border-line-strong hover:text-ink",
+              )}
+            >
+              <PlatformTile platform={item.id} size={18} />
+              {item.label}
+              {item.available ? null : <span className="text-faint">· setup</span>}
+            </button>
+          ))}
 
           <div className="relative">
             <button
               type="button"
               onClick={() => setSizeOpen((v) => !v)}
-              className="rounded-[10px] border border-line bg-chip px-2.5 py-2 text-xs text-ink"
+              className="inline-flex items-center gap-2 rounded-[10px] border border-line bg-chip px-2.5 py-1.5 text-[13px] font-semibold text-ink"
             >
               {sizes.length === 0
                 ? "Account size"
-                : `${sizes.length} size${sizes.length === 1 ? "" : "s"}`}{" "}
-              ▾
+                : `${sizes.length} size${sizes.length === 1 ? "" : "s"}`}
+              <Icon name="chevronDown" className="h-3 w-3 text-faint" />
             </button>
             {sizeOpen ? (
-              <div className="absolute z-20 mt-1 w-64 rounded-xl border border-line bg-panel p-1 shadow-panel">
+              <div className="absolute z-20 mt-1.5 w-64 rounded-[14px] border border-line bg-panel p-1.5 shadow-panel">
                 {SIZE_TIERS.map((tier) => (
                   <label
                     key={tier.id}
-                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs transition hover:bg-chip"
+                    className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-[background] duration-150 hover:bg-chip"
                   >
                     <input
                       type="checkbox"
@@ -188,9 +203,9 @@ export function ChannelPicker({
                             : current.filter((id) => id !== tier.id),
                         )
                       }
-                      className="accent-accent"
+                      className="h-[15px] w-[15px] accent-[var(--accent)]"
                     />
-                    <span className="font-medium text-ink">
+                    <span className="font-semibold text-ink">
                       {tier.label}
                     </span>
                     <span className="ml-auto text-faint">{tier.range}</span>
@@ -204,9 +219,10 @@ export function ChannelPicker({
             <button
               type="button"
               onClick={() => setSizes([])}
-              className="text-xs text-faint transition hover:text-ink"
+              className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-faint transition-[color] duration-150 hover:text-ink"
             >
-              ✕ Clear filters
+              <Icon name="close" className="h-3 w-3" />
+              Clear filters
             </button>
           ) : null}
 
@@ -224,22 +240,29 @@ export function ChannelPicker({
                 : tab === "suggest"
                   ? "Suggest channels"
                   : "Search"}
+            {tab === "search" || tab === "describe" ? (
+              <Kbd className="border-accent-ink/40 bg-transparent text-accent-ink">
+                ↵
+              </Kbd>
+            ) : null}
           </Button>
         </div>
 
         {(tab === "suggest" || tab === "describe") && aiConfigured ? (
-          <p className="mt-2 px-1 text-[11px] text-faint">
+          <p className="mt-3 text-[12.5px] text-faint">
             Costs 1 credit. {creditsLeft} left this month.
           </p>
         ) : null}
         {(tab === "suggest" || tab === "describe") && !aiConfigured ? (
-          <p className="mt-2 px-1 text-[11px] text-warn">
+          <p className="mt-3 text-[12.5px] text-warn">
             Needs an AI key on this deployment. Search and Add URL work without
             one.
           </p>
         ) : null}
         {active && !active.available ? (
-          <p className="mt-2 px-1 text-[11px] text-warn">{active.note}</p>
+          <p className="mt-3 text-[12.5px]/[18px] text-pretty text-warn">
+            {active.note}
+          </p>
         ) : null}
       </form>
 
@@ -251,10 +274,8 @@ export function ChannelPicker({
           and it is free to repeat one. */}
       {state.groups?.map((group, index) => (
         <section key={`${index}-${group.group}`}>
-          <p className="text-[9.5px] font-bold tracking-[0.12em] text-faint uppercase">
-            {group.group}
-          </p>
-          <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+          <Eyebrow>{group.group}</Eyebrow>
+          <ul className="mt-2.5 grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5">
             {group.channels.map((channel) => {
               const id = key(channel);
               const chosen = Boolean(picked[id]);
@@ -271,25 +292,30 @@ export function ChannelPicker({
                         return next;
                       })
                     }
-                    className={`flex w-full items-center gap-3 rounded-[10px] border px-3 py-2.5 text-left transition disabled:opacity-50 ${
+                    className={cx(
+                      "flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-[background,border-color] duration-150 disabled:opacity-50",
                       chosen
                         ? "border-accent bg-accent-soft"
-                        : "border-line hover:border-line-strong"
-                    }`}
+                        : "border-line hover:border-line-strong",
+                    )}
                   >
                     <Avatar url={channel.thumbnailUrl} platform={channel.platform} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-semibold text-ink">
+                      <span className="block truncate text-[14px] font-semibold text-ink">
                         {channel.handle ? `@${channel.handle}` : channel.title}
                       </span>
-                      <span className="block text-[11px] text-faint">
+                      <span className="block text-[12.5px] text-faint">
                         {formatCount(channel.followerCount)} followers
                       </span>
                     </span>
                     {channel.watching ? (
                       <Pill tone="ok">Watching</Pill>
                     ) : chosen ? (
-                      <span className="text-sm text-accent">✓</span>
+                      <Icon
+                        name="check"
+                        className="h-4 w-4 text-accent"
+                        strokeWidth={2.6}
+                      />
                     ) : null}
                   </button>
                 </li>
@@ -302,7 +328,7 @@ export function ChannelPicker({
       {pickedList.length > 0 ? (
         <form
           action={runAdd}
-          className="sticky bottom-4 flex items-center gap-3 rounded-xl border border-line bg-panel p-3 shadow-panel"
+          className="sticky bottom-4 flex items-center gap-3 rounded-2xl border border-line bg-panel px-4 py-3 shadow-panel"
         >
           {/* JSON rather than a delimited string: "Alex Hormozi | Acquisition"
               is a perfectly ordinary channel name, and a pipe-joined value
@@ -323,12 +349,12 @@ export function ChannelPicker({
               })}
             />
           ))}
-          <p className="text-sm">
+          <p className="text-[14px] font-semibold">
             {pickedList.length} selected
             <button
               type="button"
               onClick={() => setPicked({})}
-              className="ml-3 text-xs text-faint transition hover:text-ink"
+              className="ml-3 text-[13px] font-normal text-faint transition-[color] duration-150 hover:text-ink"
             >
               Clear
             </button>
@@ -340,7 +366,7 @@ export function ChannelPicker({
             disabled={adding}
             className="ml-auto"
           >
-            {adding ? "Adding…" : "Add to watchlist"}
+            {adding ? "Saving…" : "Save to watchlist"}
           </Button>
         </form>
       ) : null}
@@ -357,10 +383,10 @@ function Avatar({
   platform,
 }: {
   url: string | null;
-  platform: string;
+  platform: ResearchPlatform;
 }) {
   return (
-    <span className="relative block h-9 w-9 shrink-0">
+    <span className="relative block h-[38px] w-[38px] shrink-0">
       {url ? (
         /* Avatars come from four platforms' CDNs; see video-card.tsx for the
            same reasoning about next/image. */
@@ -369,13 +395,18 @@ function Avatar({
           src={url}
           alt=""
           loading="lazy"
-          className="h-9 w-9 rounded-full object-cover"
+          className="h-[38px] w-[38px] rounded-full object-cover"
         />
       ) : (
-        <span className="block h-9 w-9 rounded-full bg-chip" />
+        <span className="block h-[38px] w-[38px] rounded-full bg-chip" />
       )}
-      <span className="absolute -right-0.5 -bottom-0.5 rounded border border-line bg-panel px-1 text-[7px] font-extrabold text-muted uppercase">
-        {platform.slice(0, 2)}
+      <span className="absolute -right-1 -bottom-1">
+        <PlatformTile
+          platform={platform}
+          size={16}
+          radius={999}
+          className="ring-2 ring-panel"
+        />
       </span>
     </span>
   );

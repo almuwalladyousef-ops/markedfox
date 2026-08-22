@@ -82,7 +82,7 @@ export function ScriptBuilder({
   return (
     <div className="flex flex-col gap-4">
       <nav className="flex flex-wrap items-center gap-1 rounded-lg bg-chip p-1">
-        <span className="px-2 text-xs text-faint">Jump to:</span>
+        <span className="px-2 text-[13px] text-faint">Jump to:</span>
         {SCRIPT_STAGES.map((item) => (
           <form key={item} action={goToStageAction}>
             <input type="hidden" name="draft_id" value={draft.id} />
@@ -90,7 +90,7 @@ export function ScriptBuilder({
             <button
               type="submit"
               onClick={() => setStage(item)}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition ${
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[14.5px] transition ${
                 stage === item
                   ? "bg-chip font-medium text-ink"
                   : "text-muted hover:text-ink"
@@ -165,14 +165,14 @@ function StageCard({
   return (
     <Card className="p-0">
       <div className="border-b border-line px-5 py-4">
-        <h2 className="text-sm font-semibold">{title}</h2>
-        {hint ? <p className="mt-1 text-xs text-faint">{hint}</p> : null}
+        <h2 className="text-[14.5px] font-semibold">{title}</h2>
+        {hint ? <p className="mt-1 text-[13px] text-faint">{hint}</p> : null}
       </div>
       <div className="px-5 py-4">{children}</div>
       {next || actions ? (
         <div className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-3">
           {next ? (
-            <span className="text-xs text-faint">Next step: {next}</span>
+            <span className="text-[13px] text-faint">Next step: {next}</span>
           ) : null}
           <div className="ml-auto flex gap-2">{actions}</div>
         </div>
@@ -253,7 +253,7 @@ function ResearchStage({
                 ? "Rewrite the research"
                 : "Write the research for me"}
           </Button>
-          <span className="ml-2 text-xs text-faint">
+          <span className="ml-2 text-[13px] text-faint">
             1 credit · {creditsLeft} left
           </span>
         </form>
@@ -283,7 +283,7 @@ function ResearchStage({
             key={draft.research_notes ?? "empty"}
             defaultValue={draft.research_notes ?? ""}
             placeholder="Describe your topic first, then generate a research brief — or paste your own."
-            className={`${inputClass} resize-y font-mono text-xs leading-relaxed`}
+            className={`${inputClass} resize-y font-mono text-[13px] leading-relaxed`}
           />
           {saveState.message ? (
             <div className="mt-3">
@@ -344,7 +344,7 @@ function HookStage({
           </Button>
         ) : null}
         {templates.length === 0 && aiEnabled ? (
-          <span className="text-xs text-faint">
+          <span className="text-[13px] text-faint">
             Your vault is empty, so hooks come from the built-in patterns. Save
             formulas from analysed videos and they get sharper.
           </span>
@@ -353,8 +353,8 @@ function HookStage({
 
       {picker ? (
         <Card>
-          <p className="text-sm font-medium">Generate more hooks</p>
-          <p className="mt-1 text-xs text-faint">
+          <p className="text-[14.5px] font-medium">Generate more hooks</p>
+          <p className="mt-1 text-[13px] text-faint">
             Pick patterns from videos that already beat their channel. Each one
             produces a hook for this topic, keeping its shape.
           </p>
@@ -377,10 +377,10 @@ function HookStage({
                       className="mt-0.5 accent-neutral-200"
                     />
                     <span className="min-w-0">
-                      <span className="block font-mono text-xs text-ink">
+                      <span className="block font-mono text-[13px] text-ink">
                         {template.formula}
                       </span>
-                      <span className="mt-1 block text-[11px] text-faint">
+                      <span className="mt-1 block text-[12.5px] text-faint">
                         {template.favorite ? "★ " : ""}
                         {template.sourceHandle
                           ? `@${template.sourceHandle}`
@@ -398,7 +398,7 @@ function HookStage({
               <Button type="submit" tone="primary" size="sm" disabled={generating}>
                 {generating ? "Generating…" : "Generate hooks"}
               </Button>
-              <span className="text-xs text-faint">
+              <span className="text-[13px] text-faint">
                 1 credit · {creditsLeft} left
               </span>
             </div>
@@ -430,7 +430,7 @@ function HookStage({
           }
         >
           {options.length === 0 ? (
-            <p className="text-sm text-faint">
+            <p className="text-[14.5px] text-faint">
               No hooks yet. Generate some above, or write your own below.
             </p>
           ) : (
@@ -447,14 +447,14 @@ function HookStage({
                     }`}
                   >
                     {option.sourceHandle ? (
-                      <span className="text-[11px] text-faint">
+                      <span className="text-[12.5px] text-faint">
                         Inspired by @{option.sourceHandle}
                         {option.sourceViews
                           ? ` · ${formatCount(option.sourceViews)} views`
                           : ""}
                       </span>
                     ) : null}
-                    <span className="text-sm leading-relaxed text-ink">
+                    <span className="text-[14.5px] leading-relaxed text-ink">
                       {option.text}
                     </span>
                   </button>
@@ -464,7 +464,7 @@ function HookStage({
           )}
 
           <label className="mt-4 block">
-            <span className="text-xs font-medium text-muted">
+            <span className="text-[13px] font-medium text-muted">
               Or write your own
             </span>
             <textarea
@@ -547,10 +547,10 @@ function ScriptStage({
     <div className="flex flex-col gap-3">
       {draft.chosen_hook ? (
         <Card className="p-4">
-          <p className="text-[10px] font-semibold tracking-widest text-faint uppercase">
+          <p className="text-[11.5px] font-semibold tracking-widest text-faint uppercase">
             Opening line
           </p>
-          <p className="mt-1 text-sm text-ink italic">
+          <p className="mt-1 text-[14.5px] text-ink italic">
             &ldquo;{draft.chosen_hook}&rdquo;
           </p>
         </Card>
@@ -566,7 +566,7 @@ function ScriptStage({
                 ? "Rewrite the script"
                 : "Write the script"}
           </Button>
-          <span className="text-xs text-faint">
+          <span className="text-[13px] text-faint">
             1 credit · {creditsLeft} left
           </span>
         </form>
@@ -622,7 +622,7 @@ function ScriptStage({
         </StageCard>
       </form>
 
-      <p className="text-xs text-faint">
+      <p className="text-[13px] text-faint">
         <Pill>Tip</Pill> The stages above stay filled in. Go back to Hook, pick a
         different one, and rewrite — the research and style come with it.
       </p>

@@ -226,6 +226,29 @@ export async function deleteSourceAction(formData: FormData): Promise<void> {
   revalidatePath("/dashboard/research");
 }
 
+/**
+ * Stop watching every channel in this workspace.
+ *
+ * The one-at-a-time delete is fine for pruning and hopeless for the case this
+ * exists for: changing niche, where somebody is looking at forty channels they
+ * no longer want. RLS scopes the delete to their own rows, so the workspace id
+ * is the whole filter it needs.
+ */
+export async function deleteAllSourcesAction(): Promise<void> {
+  await requireUser();
+  const active = await getActiveWorkspace();
+  if (!active) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("research_sources")
+    .delete()
+    .eq("workspace_id", active.id);
+  if (error) throw error;
+  revalidatePath("/dashboard/research/channels");
+  revalidatePath("/dashboard/research");
+}
+
 /** Pull a transcript on demand. Free — no model runs, so no credit is spent. */
 export async function fetchTranscriptAction(
   formData: FormData,

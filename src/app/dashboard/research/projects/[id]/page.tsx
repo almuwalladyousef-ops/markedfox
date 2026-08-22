@@ -60,7 +60,7 @@ export default async function ProjectPage({
       <header>
         <Link
           href="/dashboard/research/projects"
-          className="text-[12.5px] font-medium text-faint transition hover:text-ink"
+          className="text-[13.5px] font-medium text-faint transition hover:text-ink"
         >
           ← Projects
         </Link>
@@ -68,14 +68,14 @@ export default async function ProjectPage({
           {project.name}
         </h1>
         {project.description ? (
-          <p className="mt-1.5 text-[13.5px]/[20px] text-muted">
+          <p className="mt-1.5 text-[14.5px]/[22px] text-muted">
             {project.description}
           </p>
         ) : null}
       </header>
 
       {items.length === 0 ? (
-        <p className="rounded-lg border border-line bg-panel px-4 py-6 text-center text-sm text-faint">
+        <p className="rounded-lg border border-line bg-panel px-4 py-6 text-center text-[14.5px] text-faint">
           Nothing saved yet. Open an outlier from{" "}
           <Link href="/dashboard/research" className="underline">
             the feed
@@ -90,7 +90,7 @@ export default async function ProjectPage({
 
             return (
               <section key={stage.id}>
-                <h2 className="text-sm font-semibold">
+                <h2 className="text-[14.5px] font-semibold">
                   {stage.label}
                   <span className="ml-2 font-normal text-faint">
                     {stageItems.length}
@@ -105,11 +105,11 @@ export default async function ProjectPage({
                       <div className="min-w-0 flex-1">
                         <Link
                           href={`/dashboard/research/${item.video.id}`}
-                          className="line-clamp-2 text-sm font-medium hover:underline"
+                          className="line-clamp-2 text-[14.5px] font-medium hover:underline"
                         >
                           {item.video.title}
                         </Link>
-                        <p className="mt-1 text-xs text-faint">
+                        <p className="mt-1 text-[13px] text-faint">
                           {item.video.source.title} ·{" "}
                           {describeScore(
                             item.video.outlier_score === null
@@ -126,7 +126,7 @@ export default async function ProjectPage({
                           <select
                             name="stage"
                             defaultValue={item.stage}
-                            className="rounded-lg border border-line bg-chip px-2 py-1.5 text-xs outline-none"
+                            className="rounded-lg border border-line bg-chip px-2 py-1.5 text-[13px] outline-none"
                           >
                             {STAGES.map((option) => (
                               <option key={option.id} value={option.id}>
@@ -136,7 +136,7 @@ export default async function ProjectPage({
                           </select>
                           <button
                             type="submit"
-                            className="ml-1 rounded-lg border border-line-strong px-2 py-1.5 text-xs transition hover:bg-chip"
+                            className="ml-1 rounded-lg border border-line-strong px-2 py-1.5 text-[13px] transition hover:bg-chip"
                           >
                             Move
                           </button>

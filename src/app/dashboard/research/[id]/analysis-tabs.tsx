@@ -48,7 +48,7 @@ export function AnalysisTabs({
               key={item.id}
               type="button"
               onClick={() => setTab(item.id)}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm whitespace-nowrap transition ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[14.5px] whitespace-nowrap transition ${
                 tab === item.id
                   ? "bg-chip font-medium text-ink"
                   : "text-muted hover:text-ink"
@@ -65,7 +65,7 @@ export function AnalysisTabs({
         {tab === "transcript" ? (
           <>
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold">
+              <h3 className="text-[14.5px] font-semibold">
                 Transcript
                 {wordCount > 0 ? (
                   <span className="ml-2">
@@ -81,22 +81,22 @@ export function AnalysisTabs({
                     setCopied(true);
                     setTimeout(() => setCopied(false), 1500);
                   }}
-                  className="text-xs text-faint transition hover:text-ink"
+                  className="text-[13px] text-faint transition hover:text-ink"
                 >
                   {copied ? "Copied" : "Copy"}
                 </button>
               ) : null}
             </div>
             {transcript ? (
-              <p className="mt-3 max-h-96 overflow-y-auto text-sm leading-relaxed whitespace-pre-wrap text-muted italic">
+              <p className="mt-3 max-h-96 overflow-y-auto text-[14.5px] leading-relaxed whitespace-pre-wrap text-muted italic">
                 {transcript}
               </p>
             ) : (
-              <p className="mt-2 text-sm text-faint">{transcriptNote}</p>
+              <p className="mt-2 text-[14.5px] text-faint">{transcriptNote}</p>
             )}
           </>
         ) : !breakdown ? (
-          <p className="text-sm text-faint">
+          <p className="text-[14.5px] text-faint">
             Break this video down first — the tabs above fill in from the
             analysis, not from the title.
           </p>
@@ -117,7 +117,7 @@ export function AnalysisTabs({
           <div className="flex flex-col gap-4">
             {breakdown.hookType ? (
               <div>
-                <p className="text-[10px] font-semibold tracking-widest text-faint uppercase">
+                <p className="text-[11.5px] font-semibold tracking-widest text-faint uppercase">
                   Category
                 </p>
                 <p className="mt-1.5">
@@ -125,7 +125,7 @@ export function AnalysisTabs({
                     {HOOK_TYPE_LABELS[breakdown.hookType].split(" — ")[0]}
                   </Pill>
                 </p>
-                <p className="mt-1 text-xs text-faint">
+                <p className="mt-1 text-[13px] text-faint">
                   {HOOK_TYPE_LABELS[breakdown.hookType].split(" — ")[1]}
                 </p>
               </div>
@@ -146,7 +146,7 @@ export function AnalysisTabs({
           <div className="flex flex-col gap-4">
             {breakdown.formatCategory ? (
               <div>
-                <p className="text-[10px] font-semibold tracking-widest text-faint uppercase">
+                <p className="text-[11.5px] font-semibold tracking-widest text-faint uppercase">
                   Category
                 </p>
                 <p className="mt-1.5">
@@ -160,13 +160,13 @@ export function AnalysisTabs({
             </Labelled>
             {breakdown.structure.length > 0 ? (
               <div>
-                <p className="text-[10px] font-semibold tracking-widest text-faint uppercase">
+                <p className="text-[11.5px] font-semibold tracking-widest text-faint uppercase">
                   Beats
                 </p>
                 <ol className="mt-2 flex flex-col gap-2">
                   {breakdown.structure.map((beat, index) => (
-                    <li key={index} className="flex gap-3 text-sm">
-                      <span className="w-16 shrink-0 text-xs text-faint uppercase">
+                    <li key={index} className="flex gap-3 text-[14.5px]">
+                      <span className="w-16 shrink-0 text-[13px] text-faint uppercase">
                         {beat.label}
                       </span>
                       <span className="text-ink">{beat.detail}</span>
@@ -204,13 +204,13 @@ function Labelled({
   if (!children) return null;
   return (
     <div>
-      <p className="text-[10px] font-semibold tracking-widest text-faint uppercase">
+      <p className="text-[11.5px] font-semibold tracking-widest text-faint uppercase">
         {label}
       </p>
       <p
-        className={`mt-1 text-sm leading-relaxed ${
+        className={`mt-1 text-[14.5px] leading-relaxed ${
           quote ? "text-ink italic" : "text-ink"
-        } ${mono ? "font-mono text-xs" : ""}`}
+        } ${mono ? "font-mono text-[13px]" : ""}`}
       >
         {quote ? `“${children}”` : children}
       </p>

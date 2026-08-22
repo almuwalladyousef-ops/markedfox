@@ -75,7 +75,7 @@ export default async function HooksPage({
       <PageHeader
         title="Hook vault"
         subtitle="Opening patterns lifted from videos that beat their channel's average. The script builder fills these in for your topic."
-        actions={<Pill className="text-xs">{hooks.length} saved</Pill>}
+        actions={<Pill className="text-[13px]">{hooks.length} saved</Pill>}
       />
 
       <div className="flex flex-wrap items-end gap-3">
@@ -86,7 +86,7 @@ export default async function HooksPage({
             placeholder="Search by formula, category, or channel"
             className={`${inputClass} w-[280px]! flex-none`}
           />
-          <label className="flex items-center gap-2 text-sm text-muted">
+          <label className="flex items-center gap-2 text-[14.5px] text-muted">
             <input
               type="checkbox"
               name="fav"
@@ -102,7 +102,7 @@ export default async function HooksPage({
           {q || fav ? (
             <Link
               href="/dashboard/research/hooks"
-              className="text-xs text-faint hover:text-ink"
+              className="text-[13px] text-faint hover:text-ink"
             >
               Clear
             </Link>
@@ -112,12 +112,12 @@ export default async function HooksPage({
 
       <Card>
         <details>
-          <summary className="cursor-pointer text-xs font-semibold text-accent">
+          <summary className="cursor-pointer text-[13px] font-semibold text-accent">
             + Add a formula by hand
           </summary>
           <form action={saveHookAction} className="mt-4 flex flex-col gap-3">
             <label className="block">
-              <span className="text-xs font-semibold text-muted">
+              <span className="text-[13px] font-semibold text-muted">
                 Formula
               </span>
               <input
@@ -125,16 +125,16 @@ export default async function HooksPage({
                 required
                 maxLength={400}
                 placeholder="Most people have never [experienced] [common thing]."
-                className={`${inputClass} mt-1.5 font-mono text-xs`}
+                className={`${inputClass} mt-1.5 font-mono text-[13px]`}
               />
-              <span className="mt-1 block text-xs text-faint">
+              <span className="mt-1 block text-[13px] text-faint">
                 Put the parts that change in [brackets] — that is what makes it
                 reusable for another topic.
               </span>
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
-                <span className="text-xs font-semibold text-muted">
+                <span className="text-[13px] font-semibold text-muted">
                   Example line
                 </span>
                 <input
@@ -144,7 +144,7 @@ export default async function HooksPage({
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-semibold text-muted">
+                <span className="text-[13px] font-semibold text-muted">
                   Category
                 </span>
                 <select name="category" className={`${inputClass} mt-1.5`}>
@@ -191,7 +191,7 @@ export default async function HooksPage({
               }`}
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="font-mono text-[11.5px]/[17px] text-ink">
+                <p className="font-mono text-[13px]/[19px] text-ink">
                   {hook.formula}
                 </p>
                 <div className="flex shrink-0 gap-1">
@@ -205,7 +205,7 @@ export default async function HooksPage({
                     <button
                       type="submit"
                       aria-label={hook.favorite ? "Unfavourite" : "Favourite"}
-                      className={`rounded px-1.5 py-1 text-sm transition ${
+                      className={`rounded px-1.5 py-1 text-[14.5px] transition ${
                         hook.favorite ? "text-warn" : "text-line-strong hover:text-warn"
                       }`}
                     >
@@ -217,7 +217,7 @@ export default async function HooksPage({
                     <button
                       type="submit"
                       aria-label="Delete"
-                      className="rounded px-1.5 py-1 text-sm text-faint transition hover:text-danger"
+                      className="rounded px-1.5 py-1 text-[14.5px] text-faint transition hover:text-danger"
                     >
                       ×
                     </button>
@@ -226,12 +226,12 @@ export default async function HooksPage({
               </div>
 
               {hook.example ? (
-                <p className="text-[12.5px]/[18px] text-muted italic">
+                <p className="text-[13.5px]/[20px] text-muted italic">
                   &ldquo;{hook.example}&rdquo;
                 </p>
               ) : null}
 
-              <div className="mt-auto flex flex-wrap items-center gap-2 pt-1 text-[11px] text-faint">
+              <div className="mt-auto flex flex-wrap items-center gap-2 pt-1 text-[12.5px] text-faint">
                 {hook.category ? (
                   <Pill tone="accent">
                     {HOOK_TYPE_LABELS[hook.category as HookType]?.split(

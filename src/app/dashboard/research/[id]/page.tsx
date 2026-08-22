@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Icon } from "@/components/icons";
 import {
   Card,
   CardTitle,
@@ -10,7 +11,10 @@ import {
   Notice,
   Page,
   Pill,
+  TwoPane,
+  cx,
   formatCount,
+  iconButtonClass,
 } from "@/components/ui";
 import { LocalTime } from "@/components/local-time";
 import { requireUser } from "@/lib/auth/session";
@@ -119,7 +123,7 @@ export default async function ResearchVideoPage({
     <Page width="max-w-[1160px]">
       <Link
         href="/dashboard/research"
-        className="text-[12.5px] font-medium text-faint transition hover:text-ink"
+        className="text-[13.5px] font-medium text-faint transition hover:text-ink"
       >
         ← Videos
       </Link>
@@ -129,7 +133,7 @@ export default async function ResearchVideoPage({
           <h1 className="font-display text-[22px]/[29px] font-bold tracking-[-0.02em]">
             {video.title}
           </h1>
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted">
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-muted">
             <span>
               {source?.handle ? `@${source.handle}` : (source?.title ?? "Unknown channel")}
             </span>
@@ -148,7 +152,7 @@ export default async function ResearchVideoPage({
             best one, read it, press next. */}
         <div className="flex shrink-0 items-center gap-1.5">
           {neighbors.total > 0 ? (
-            <span className="mr-1 text-xs text-faint">
+            <span className="mr-1 text-[13px] text-faint">
               {neighbors.index} of {neighbors.total}
               {neighbors.truncated ? "+" : ""}
             </span>
@@ -158,8 +162,11 @@ export default async function ResearchVideoPage({
         </div>
       </div>
 
-      <div className="grid items-start gap-4 wide:grid-cols-[320px_1fr]">
-        <div className="flex flex-col gap-4">
+      {/* A wrapping flex row with a floor on each pane rather than a grid —
+          see the note in the Ideas triage for what the grid track did at
+          around 920px. */}
+      <TwoPane>
+        <div className="flex min-w-[250px] flex-[0_1_288px] flex-col gap-4">
           <Card className="overflow-hidden p-0">
             <div className="relative aspect-[9/16] w-full bg-chip">
               {video.thumbnail_url ? (
@@ -174,10 +181,10 @@ export default async function ResearchVideoPage({
                 href={video.url}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="absolute inset-0 flex items-center justify-center bg-black/30 text-3xl text-white/80 opacity-0 transition hover:opacity-100"
+                className="absolute inset-0 flex items-center justify-center bg-black/30 text-white/80 opacity-0 transition-[opacity] duration-150 hover:opacity-100"
                 aria-label="Play on the platform"
               >
-                ▶
+                <Icon name="play" className="h-11 w-11" strokeWidth={1.4} />
               </a>
             </div>
             <div className="flex flex-col gap-2 p-3">
@@ -193,11 +200,11 @@ export default async function ResearchVideoPage({
                   source?.platform === "instagram" ? "likes" : "views"
                 }
               />
-              <p className="font-display text-[13px] font-bold text-ok">
+              <p className="font-display text-[14px] font-bold text-ok">
                 {describeScore(score, source?.baseline_sample ?? 0)}
               </p>
               {video.baseline_views !== null ? (
-                <p className="text-xs text-faint">
+                <p className="text-[13px] text-faint">
                   This channel normally does {formatCount(video.baseline_views)}.
                 </p>
               ) : null}
@@ -230,20 +237,20 @@ export default async function ResearchVideoPage({
               <input type="hidden" name="video_id" value={id} />
               <button
                 type="submit"
-                className="w-full rounded-[10px] border border-line-strong bg-panel px-3 py-2 text-[13px] text-ink transition hover:border-accent hover:text-accent"
+                className="w-full rounded-[10px] border border-line-strong bg-panel px-3 py-2 text-[14px] text-ink transition hover:border-accent hover:text-accent"
               >
                 Fetch transcript
-                <span className="ml-2 text-xs text-faint">Free</span>
+                <span className="ml-2 text-[13px] text-faint">Free</span>
               </button>
             </form>
           ) : null}
         </div>
 
-        <div className="flex min-w-0 flex-col gap-3.5">
+        <div className="flex min-w-[min(100%,440px)] flex-[1_1_480px] flex-col gap-4">
           {breakdown?.summary ? (
             <Card>
               <CardTitle>Summary</CardTitle>
-              <p className="mt-2 text-[13px]/[20px] text-muted">
+              <p className="mt-2 text-[14px]/[21px] text-muted">
                 {breakdown.summary}
               </p>
             </Card>
@@ -279,21 +286,21 @@ export default async function ResearchVideoPage({
 
           {forThisVideo.length > 0 ? (
             <section>
-              <h2 className="text-sm font-semibold">Generated from this video</h2>
+              <h2 className="text-[14.5px] font-semibold">Generated from this video</h2>
               <ul className="mt-3 flex flex-col gap-3">
                 {forThisVideo.map((script) => (
                   <li
                     key={script.id}
                     className="rounded-xl border border-line bg-panel p-4"
                   >
-                    <p className="flex items-center gap-2 text-xs text-faint">
+                    <p className="flex items-center gap-2 text-[13px] text-faint">
                       <Pill>{script.kind}</Pill>
                       {script.topic ? script.topic : null}
                       <span className="ml-auto">
                         <LocalTime value={script.created_at} mode="date" />
                       </span>
                     </p>
-                    <pre className="mt-2 font-sans text-sm leading-relaxed whitespace-pre-wrap text-ink">
+                    <pre className="mt-2 font-sans text-[14.5px] leading-relaxed whitespace-pre-wrap text-ink">
                       {script.output}
                     </pre>
                   </li>
@@ -302,7 +309,7 @@ export default async function ResearchVideoPage({
             </section>
           ) : null}
         </div>
-      </div>
+      </TwoPane>
     </Page>
   );
 }
@@ -316,12 +323,13 @@ function NeighborLink({
   label: string;
   query: FeedQuery;
 }) {
-  const className =
-    "rounded-lg border border-line px-2.5 py-1.5 text-sm transition";
   if (!href) {
     return (
-      <span className={`${className} text-faint`} aria-hidden>
-        {label}
+      <span
+        className={cx(iconButtonClass, "cursor-default opacity-40")}
+        aria-hidden
+      >
+        <Icon name={label === "←" ? "arrowLeft" : "arrowRight"} className="h-4 w-4" />
       </span>
     );
   }
@@ -338,9 +346,10 @@ function NeighborLink({
   return (
     <Link
       href={`/dashboard/research/${href}${suffix ? `?${suffix}` : ""}`}
-      className={`${className} text-ink hover:border-line-strong hover:text-ink`}
+      aria-label={label === "←" ? "Previous video" : "Next video"}
+      className={iconButtonClass}
     >
-      {label}
+      <Icon name={label === "←" ? "arrowLeft" : "arrowRight"} className="h-4 w-4" />
     </Link>
   );
 }

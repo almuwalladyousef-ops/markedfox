@@ -10,7 +10,6 @@ import {
   EmptyState,
   Notice,
   Page,
-  buttonClass,
   cx,
   formatCount,
 } from "@/components/ui";
@@ -268,11 +267,10 @@ export default async function HomePage({
                 <button
                   type="submit"
                   title="X charges per read, so it refreshes only when you ask"
-                  className={buttonClass(
-                    "secondary",
-                    "xs",
-                    "rounded-full border-accent bg-accent-soft text-accent hover:brightness-[1.05]",
-                  )}
+                  // Written out rather than layered over buttonClass: two
+                  // border-colour utilities in one class string are resolved by
+                  // CSS source order, so an override appended here loses.
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-accent bg-accent-soft px-[11px] py-[6px] text-[12.5px] font-semibold whitespace-nowrap text-accent transition-[filter] duration-150 hover:brightness-[1.05]"
                 >
                   Include X
                 </button>
