@@ -1,93 +1,100 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
+import { LocalTime } from "@/components/local-time";
+import { PlatformIcon } from "@/components/platform-icon";
 import {
   Button,
-  Card,
-  CardTitle,
+  ButtonLink,
+  EmptyState,
   Notice,
   Page,
-  PageHeader,
-  Stat,
+  chipToggle,
+  formatCount,
+  segmentedItem,
+  segmentedTrack,
 } from "@/components/ui";
+import { refreshAccountsAction } from "@/lib/accounts/actions";
+import {
+  listAccountMedia,
+  listAccountProfiles,
+  totalsFrom,
+} from "@/lib/accounts/store";
+import type { AccountMediaRow, AccountProfileRow } from "@/lib/accounts/types";
 import { signOut } from "@/lib/auth/actions";
 import { requireUser } from "@/lib/auth/session";
-import { listConnections } from "@/lib/connections/store";
-import { canUserDo } from "@/lib/entitlements/can-user-do";
-import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
-import { parsePlanLimits, type PlanLimits } from "@/lib/entitlements/types";
-import { PLATFORM_LABELS as LABELS } from "@/lib/platforms/labels";
-import { listRegisteredPlatforms } from "@/lib/platforms/registry";
-import { PLATFORMS, type Platform } from "@/lib/platforms/types";
+import { listConnections, type ConnectionRow } from "@/lib/connections/store";
+import { PLATFORM_LABELS } from "@/lib/platforms/labels";
+import { getPlatform } from "@/lib/platforms/registry";
+import { PLATFORMS, type AccountMediaKind, type Platform } from "@/lib/platforms/types";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
-import { buildSteps, progress } from "@/lib/onboarding/steps";
-import { getOnboarding } from "@/lib/onboarding/store";
+import { AutoFill } from "./auto-fill";
 
-import { OnboardingPanel } from "./onboarding-panel";
-import { PlatformToggles, type PlatformRow } from "./platform-toggles";
+export const metadata: Metadata = { title: "Home · MarkedFox" };
 
-export const metadata: Metadata = { title: "Dashboard · MarkedFox" };
+// The first screen: everything the user has, everywhere, before anything the
+// product wants them to do.
+//
+// It opens on the total — posts, followers, following across every connected
+// account at once — and then the same grid narrowed to one platform. The posts
+// are the real ones from each platform, not our record of what we published:
+// somebody who posted from their phone this morning should see it here, or the
+// screen is lying about being their account.
+//
+// Nothing here calls a platform. Everything is read from the cache that
+// lib/accounts/sync.ts fills, because these reads are rate-limited per app and,
+// on X, billed per request — a page that refreshed on every load would spend
+// every user's share of one shared budget on people idly reloading.
 
-// What each connect failure means, in words the person reading it can act on.
-// `provider_error` carries the platform's own sentence in connect_detail
-// underneath — that is the one that says what to fix.
-const CONNECT_ERRORS: Record<string, string> = {
-  denied: "You cancelled before granting access. Nothing was connected.",
-  provider_error: "The platform refused the connection.",
-  bad_state:
-    "That connect link expired or was opened out of order. Start again from this page.",
-  missing_code: "The platform sent us back without an authorization code. Try again.",
-  exchange_failed: "We could not finish connecting that account.",
-  unknown_platform: "That platform is not one we support.",
-  not_configured:
-    "That platform is not switched on for this deployment yet.",
-};
+const KINDS: { id: AccountMediaKind | null; label: string }[] = [
+  { id: null, label: "All" },
+  { id: "video", label: "Short videos" },
+  { id: "photo", label: "Photos" },
+  { id: "text", label: "Text posts" },
+];
 
-type PublicPlan = { id: string; name: string; cents: number; limits: PlanLimits };
-
-/** The cheapest public plan that includes this platform, so the badge can say
- *  what upgrading actually buys instead of the word "Locked". Read from the
- *  plans table rather than hardcoded, because every limit here is a row edit. */
-function cheapestPlanWith(
-  plans: PublicPlan[],
-  platform: Platform,
-): PublicPlan | null {
-  return (
-    plans.find((plan) => {
-      if (platform === "x") return plan.limits.xPostsPerMonth > 0;
-      return plan.limits.platforms === null
-        ? true
-        : plan.limits.platforms.includes(platform);
-    }) ?? null
-  );
+function parsePlatform(value: string | undefined): Platform | null {
+  return PLATFORMS.includes(value as Platform) ? (value as Platform) : null;
 }
 
-// Everything here reads through the user's own client, so RLS is what returns
-// the rows — not a filter this page remembered to apply.
-export default async function DashboardPage({
+function parseKind(value: string | undefined): AccountMediaKind | null {
+  return value === "video" || value === "photo" || value === "text" ? value : null;
+}
+
+function href(params: {
+  platform?: Platform | null;
+  kind?: AccountMediaKind | null;
+  page?: number;
+}): string {
+  const search = new URLSearchParams();
+  if (params.platform) search.set("platform", params.platform);
+  if (params.kind) search.set("kind", params.kind);
+  if (params.page) search.set("page", String(params.page));
+  const query = search.toString();
+  return query ? `/dashboard?${query}` : "/dashboard";
+}
+
+export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    connected?: string;
-    connect_error?: string;
-    connect_detail?: string;
-    disconnected?: string;
-    disconnect_error?: string;
-  }>;
+  searchParams: Promise<{ platform?: string; kind?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const user = await requireUser();
-
   const active = await getActiveWorkspace();
 
   if (!active) {
-    // Two ways here: the signup trigger did not run (worth saying plainly),
-    // or the account was deleted while this browser still held a session
-    // — a JWT verifies locally until it expires, so the cookie outlives the
-    // user. Tell them apart by the users row.
+    // Two ways to be here: the signup trigger never ran, or the account was
+    // deleted while this browser still held a session — a JWT verifies locally
+    // until it expires, so the cookie outlives the user.
     const supabaseForCheck = await createClient();
-    const { data: userRow } = await supabaseForCheck.from("users").select("id").eq("id", user.id).maybeSingle();
+    const { data: userRow } = await supabaseForCheck
+      .from("users")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
     return (
       <Page width="max-w-2xl">
         <h1 className="font-display text-[26px] font-bold tracking-[-0.02em]">
@@ -105,238 +112,445 @@ export default async function DashboardPage({
     );
   }
 
+  const platform = parsePlatform(params.platform);
+  const kind = parseKind(params.kind);
+  const page = Math.max(0, Math.min(20, Number(params.page ?? 0) || 0));
+
   const supabase = await createClient();
-  const [snapshot, connections, onboarding, planRows] = await Promise.all([
-    getEntitlementSnapshot(supabase, user.id, active.id),
+  const [connections, profiles, media] = await Promise.all([
     listConnections(supabase, active.id),
-    getOnboarding(supabase, user.id),
-    supabase
-      .from("plans")
-      .select("id, name, price_monthly_cents, is_public, limits")
-      .eq("is_public", true)
-      .order("price_monthly_cents", { ascending: true }),
+    listAccountProfiles(supabase, active.id),
+    listAccountMedia(supabase, active.id, { platform, kind, page }),
   ]);
 
-  const publicPlans: PublicPlan[] = (planRows.data ?? []).map((row) => {
-    const plan = row as {
-      id: string;
-      name: string;
-      price_monthly_cents: number;
-      limits: unknown;
-    };
-    return {
-      id: plan.id,
-      name: plan.name,
-      cents: plan.price_monthly_cents,
-      limits: parsePlanLimits(plan.limits),
-    };
-  });
+  const totals = totalsFrom(profiles);
+  const byConnection = new Map(profiles.map((row) => [row.connectionId, row]));
+  const accounts = connections.map((connection) => ({
+    connection,
+    profile: byConnection.get(connection.id) ?? null,
+  }));
 
-  // Counted rather than read: the checklist ticks a step when the thing is
-  // actually true, so it can never disagree with the rest of the dashboard.
-  // Head-counts, so this is three cheap queries and no rows.
-  const [posts, rules] = await Promise.all([
-    supabase
-      .from("scheduled_posts")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .in("status", ["scheduled", "publishing", "published", "partial"]),
-    supabase
-      .from("dm_rules")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id),
-  ]);
+  // Connected accounts we have never managed to read. The sweep reaches them
+  // within the hour, but somebody who connected an account thirty seconds ago
+  // should not stare at an empty screen until then.
+  const unread = accounts.filter(
+    ({ connection, profile }) =>
+      profile === null && readable(connection.platform) !== "none",
+  ).length;
 
-  const steps = buildSteps({
-    connectedPlatforms: connections.map((c) => c.platform),
-    postCount: posts.count ?? 0,
-    ruleCount: rules.count ?? 0,
-    researchSourceCount: snapshot.usage.researchSourceCount,
-    planId: snapshot.planId,
-    researchAllowed: canUserDo(snapshot, { type: "use_research" }).allowed,
-  });
-  const { done, total, next } = progress(steps);
-  // Hidden once it is finished or dismissed — a permanent checklist of ticks is
-  // clutter, and somebody who said "hide this" meant it.
-  const showOnboarding = !onboarding?.dismissed && next !== null;
+  // A read that failed is worth a sentence at the top rather than a quiet dash
+  // in a chip: the fix — reconnect the account — is not something anybody
+  // guesses from a missing number.
+  const failed = accounts.filter(({ profile }) => profile?.lastError);
 
-  // Whether pressing Connect can actually reach the platform: the adapter
-  // exists AND its credentials are on this deployment. Where they are not, the
-  // toggle still renders — it just says so when pressed. What is missing is
-  // named, because "not configured" is a sentence the owner can act on and
-  // "coming soon" is not.
-  const missingEnv = new Map<Platform, string[]>();
-  for (const adapter of listRegisteredPlatforms()) {
-    const missing = adapter.requiredEnv.filter((name) => !process.env[name]);
-    if (missing.length > 0) missingEnv.set(adapter.id, missing);
-  }
-  const registered = new Set(listRegisteredPlatforms().map((a) => a.id));
-  const accountCap = canUserDo(snapshot, {
-    type: "connect_platform",
-    platform: "instagram",
-  });
-  const atAccountCap =
-    !accountCap.allowed && accountCap.code === "connected_accounts_cap";
+  const connectedPlatforms = [
+    ...new Set(connections.map((connection) => connection.platform)),
+  ];
+  const hasMetered = connectedPlatforms.some(
+    (id) => readable(id) === "metered",
+  );
+  const lastSynced = profiles
+    .map((row) => row.lastSyncedAt)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1);
 
-  const rows: PlatformRow[] = PLATFORMS.map((platform) => {
-    const decision = canUserDo(snapshot, {
-      type: "connect_platform",
-      platform,
-    });
-    const included =
-      decision.allowed || decision.code !== "plan_platform_locked";
-    const upgradeTo = included ? null : cheapestPlanWith(publicPlans, platform);
-
-    return {
-      id: platform,
-      label: LABELS[platform],
-      connected: connections
-        .filter((c) => c.platform === platform)
-        .map((c) => ({
-          id: c.id,
-          name: c.platform_account_name ?? c.platform_account_id,
-        })),
-      configured: registered.has(platform) && !missingEnv.has(platform),
-      configReason: !registered.has(platform)
-        ? `${LABELS[platform]} does not have an adapter yet, so there is nothing to connect to.`
-        : missingEnv.has(platform)
-          ? `${LABELS[platform]} needs its developer app created and ${missingEnv
-              .get(platform)!
-              .join(" and ")} added to this deployment.`
-          : undefined,
-      included,
-      reason: included ? undefined : decision.allowed ? undefined : decision.reason,
-      atAccountCap: included && atAccountCap,
-      capReason: atAccountCap && !accountCap.allowed ? accountCap.reason : undefined,
-      upgradeNote: upgradeTo
-        ? platform === "x"
-          ? `On ${upgradeTo.name} · ${upgradeTo.limits.xPostsPerMonth}/mo`
-          : `On ${upgradeTo.name}`
-        : undefined,
-      // The one platform that is never "unlimited", said on the row itself
-      // rather than in fine print somewhere else.
-      note:
-        platform === "x" && included
-          ? `${snapshot.limits.xPostsPerMonth}/mo · no links — X charges per post`
-          : undefined,
-    };
-  });
-
-
-  return (
-    <Page width="max-w-[980px]">
-      <PageHeader
-        title="Accounts"
-        subtitle={
-          <>
-            Connecting into <span className="text-ink">{active.name}</span>.
-            Posts, DMs and credits are shared across all your workspaces;
-            connected accounts belong to this one.
-          </>
-        }
-      />
-
-      {params.connect_error ? (
-        <Notice tone="danger">
-          {CONNECT_ERRORS[params.connect_error] ??
-            "Connecting that account did not work."}
-          {params.connect_detail ? (
-            <span className="mt-1 block opacity-80">
-              {params.connect_detail}
-            </span>
-          ) : null}
-        </Notice>
-      ) : null}
-      {params.connected ? (
-        <Notice tone="ok">Connected {params.connected}.</Notice>
-      ) : null}
-      {params.disconnected ? (
-        <Notice>
-          Disconnected {params.disconnected}. Its stored tokens are deleted.
-        </Notice>
-      ) : null}
-      {params.disconnect_error ? (
-        <Notice tone="danger">
-          That account was not found — it may already be disconnected.
-        </Notice>
-      ) : null}
-
-      {showOnboarding ? (
-        <OnboardingPanel
-          steps={steps}
-          done={done}
-          total={total}
-          askQuestions={onboarding === null}
+  if (connections.length === 0) {
+    return (
+      <Page width="max-w-[1120px]">
+        <Header
+          name={active.name}
+          totals={totals}
+          accounts={accounts}
+          lastSynced={undefined}
+          hasMetered={false}
         />
-      ) : null}
-
-      <Card>
-        <CardTitle
-          hint="pooled figures are shared across every workspace you own"
+        <EmptyState
+          title="Nothing connected yet"
           action={
-            <span className="font-display text-[17px] font-bold capitalize">
-              {snapshot.planId}
-            </span>
+            <ButtonLink href="/dashboard/accounts" tone="primary">
+              Connect an account
+            </ButtonLink>
           }
         >
-          Plan
-        </CardTitle>
+          Connect Instagram, TikTok, YouTube or any of the others and this
+          screen fills with your own posts and your own numbers — including the
+          ones you posted from your phone.
+        </EmptyState>
+      </Page>
+    );
+  }
 
-        <dl className="mt-3.5 grid grid-cols-2 gap-2.5 shell:grid-cols-3">
-          <Stat
-            label="Posts today"
-            value={limitText(snapshot.usage.postsToday, snapshot.limits.postsPerDay)}
-            note="pooled"
-          />
-          <Stat
-            label="X posts this month"
-            value={limitText(
-              snapshot.usage.xPostsThisMonth,
-              snapshot.limits.xPostsPerMonth,
-            )}
-            note="X charges per post — never unlimited"
-          />
-          <Stat
-            label="DM sends this month"
-            value={limitText(
-              snapshot.usage.dmSendsThisMonth,
-              snapshot.limits.dmSendsPerMonth,
-            )}
-            note="pooled"
-          />
-          <Stat
-            label="DM rules"
-            value={limitText(snapshot.usage.dmRuleCount, snapshot.limits.dmRulesMax)}
-            note="pooled"
-          />
-          <Stat
-            label="Accounts here"
-            value={limitText(
-              snapshot.usage.connectedAccountsInWorkspace,
-              snapshot.limits.maxConnectedAccountsPerWorkspace,
-            )}
-            note="per workspace"
-          />
-          <Stat
-            label="Workspaces"
-            value={limitText(
-              snapshot.usage.workspaceCount,
-              snapshot.limits.maxWorkspaces,
-            )}
-          />
-        </dl>
-      </Card>
+  return (
+    <Page width="max-w-[1120px]">
+      {unread > 0 ? <AutoFill /> : null}
 
-      <Card>
-        <CardTitle hint="one outside your plan wears a 💎 and says what upgrading buys">
-          Platforms
-        </CardTitle>
-        <PlatformToggles rows={rows} />
-      </Card>
+      <Header
+        name={active.name}
+        totals={totals}
+        accounts={accounts}
+        lastSynced={lastSynced}
+        hasMetered={hasMetered}
+      />
+
+      {failed.length > 0 ? (
+        <Notice tone="warn">
+          {readFailureNotice(failed)}{" "}
+          <Link href="/dashboard/accounts" className="underline">
+            Manage accounts
+          </Link>
+        </Notice>
+      ) : null}
+
+      <AccountStrip accounts={accounts} />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <nav className="flex flex-wrap gap-1.5">
+          <Link
+            href={href({ kind })}
+            aria-current={platform === null ? "page" : undefined}
+            className={chipToggle(platform === null)}
+          >
+            All platforms
+          </Link>
+          {connectedPlatforms.map((id) => (
+            <Link
+              key={id}
+              href={href({ platform: id, kind })}
+              aria-current={platform === id ? "page" : undefined}
+              className={chipToggle(platform === id, "inline-flex items-center gap-1.5")}
+            >
+              <PlatformIcon platform={id} />
+              {PLATFORM_LABELS[id]}
+            </Link>
+          ))}
+        </nav>
+
+        <div className={`ml-auto ${segmentedTrack}`}>
+          {KINDS.map((option) => (
+            <Link
+              key={option.label}
+              href={href({ platform, kind: option.id })}
+              aria-current={kind === option.id ? "page" : undefined}
+              className={segmentedItem(kind === option.id)}
+            >
+              {option.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {media.items.length === 0 ? (
+        <EmptyState
+          title={unread > 0 ? "Reading your accounts…" : "Nothing to show yet"}
+          action={
+            <ButtonLink href="/dashboard/compose" tone="primary">
+              Compose a post
+            </ButtonLink>
+          }
+        >
+          {unread > 0
+            ? "This takes a few seconds the first time. The page fills itself when the accounts answer."
+            : platform || kind
+              ? "No posts match this filter. Try another platform or post type."
+              : "Once these accounts have posts, they appear here — the ones you publish from MarkedFox and the ones you do not."}
+        </EmptyState>
+      ) : (
+        <>
+          <MediaGrid items={media.items} accounts={accounts} />
+          {media.hasMore ? (
+            <div className="flex justify-center">
+              <ButtonLink href={href({ platform, kind, page: page + 1 })} tone="secondary">
+                Load more
+              </ButtonLink>
+            </div>
+          ) : null}
+        </>
+      )}
     </Page>
   );
 }
 
-function limitText(used: number, limit: number | null): string {
-  return limit === null ? `${used} / unlimited` : `${used} / ${limit}`;
+type AccountEntry = { connection: ConnectionRow; profile: AccountProfileRow | null };
+
+/** One sentence about the accounts that could not be read. Several accounts
+ *  failing for the same reason — an expired app secret, say — say it once with
+ *  the names, not the same paragraph three times. */
+function readFailureNotice(failed: AccountEntry[]): string {
+  const byMessage = new Map<string, string[]>();
+  for (const { connection, profile } of failed) {
+    const message = profile?.lastError ?? "";
+    const names = byMessage.get(message) ?? [];
+    names.push(PLATFORM_LABELS[connection.platform]);
+    byMessage.set(message, names);
+  }
+
+  return [...byMessage.entries()]
+    .map(([message, names]) =>
+      failed.length === 1 ? message : `${names.join(", ")}: ${message}`,
+    )
+    .join(" ");
+}
+
+
+/** What this deployment can read for a platform, in the three states the
+ *  screen has to say something different about. */
+function readable(platform: Platform): "yes" | "metered" | "none" {
+  try {
+    const insights = getPlatform(platform).insights;
+    if (!insights) return "none";
+    return insights.metered ? "metered" : "yes";
+  } catch {
+    return "none";
+  }
+}
+
+function Header({
+  name,
+  totals,
+  accounts,
+  lastSynced,
+  hasMetered,
+}: {
+  name: string;
+  totals: ReturnType<typeof totalsFrom>;
+  accounts: AccountEntry[];
+  lastSynced: string | undefined;
+  hasMetered: boolean;
+}) {
+  return (
+    <header className="flex flex-wrap items-start gap-5">
+      <AvatarStack accounts={accounts} />
+
+      <div className="min-w-[240px] flex-1">
+        <h1 className="font-display text-[26px]/[32px] font-bold tracking-[-0.02em] text-ink">
+          {name}
+        </h1>
+        <dl className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[13.5px] text-muted">
+          <div className="flex items-baseline gap-1.5">
+            <dt className="order-2">total posts</dt>
+            <dd className="order-1 font-display text-[17px] font-bold text-ink">
+              {formatCount(totals.posts)}
+            </dd>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <dt className="order-2">total followers</dt>
+            <dd className="order-1 font-display text-[17px] font-bold text-ink">
+              {formatCount(totals.followers)}
+            </dd>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <dt className="order-2">total following</dt>
+            <dd className="order-1 font-display text-[17px] font-bold text-ink">
+              {formatCount(totals.following)}
+            </dd>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <dt className="order-2">
+              {totals.accounts === 1 ? "account" : "accounts"}
+            </dt>
+            <dd className="order-1 font-display text-[17px] font-bold text-ink">
+              {totals.accounts}
+            </dd>
+          </div>
+        </dl>
+        {lastSynced ? (
+          <p className="mt-1.5 text-[11.5px] text-faint">
+            Last read <LocalTime value={lastSynced} fallback="recently" />
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <form action={refreshAccountsAction}>
+          <Button type="submit" tone="secondary" size="sm">
+            Refresh
+          </Button>
+        </form>
+        {/* X bills per request, so its refresh is a separate press with the
+            cost said out loud rather than a surprise on an invoice. */}
+        {hasMetered ? (
+          <form action={refreshAccountsAction}>
+            <input type="hidden" name="include_metered" value="1" />
+            <Button
+              type="submit"
+              tone="ghost"
+              size="sm"
+              title="X charges per read, so it refreshes only when you ask"
+            >
+              Refresh including X
+            </Button>
+          </form>
+        ) : null}
+        <ButtonLink href="/dashboard/accounts" tone="ghost" size="sm">
+          Manage accounts
+        </ButtonLink>
+        <ButtonLink href="/dashboard/compose" tone="primary" size="sm">
+          + New post
+        </ButtonLink>
+      </div>
+    </header>
+  );
+}
+
+function AvatarStack({ accounts }: { accounts: AccountEntry[] }) {
+  const shown = accounts.slice(0, 4);
+  return (
+    <div className="flex items-center -space-x-3">
+      {shown.map(({ connection, profile }) => (
+        <span
+          key={connection.id}
+          title={profile?.displayName ?? connection.platform_account_name ?? undefined}
+          className="relative inline-flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-panel bg-chip"
+        >
+          {profile?.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={profile.avatarUrl}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <PlatformIcon platform={connection.platform} className="h-5 w-5 text-muted" />
+          )}
+        </span>
+      ))}
+      {accounts.length > shown.length ? (
+        <span className="relative inline-flex h-14 w-14 items-center justify-center rounded-full border-2 border-panel bg-chip text-[13px] font-semibold text-muted">
+          +{accounts.length - shown.length}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function AccountStrip({ accounts }: { accounts: AccountEntry[] }) {
+  return (
+    <ul className="flex flex-wrap gap-2">
+      {accounts.map(({ connection, profile }) => {
+        const state = readable(connection.platform);
+        const name =
+          profile?.handle ??
+          profile?.displayName ??
+          connection.platform_account_name ??
+          connection.platform_account_id;
+        // Three different silences, and they mean different things: a platform
+        // with no read API at all, one that costs money to read, and one that
+        // refused us. Each says which, rather than all showing an empty number.
+        const note =
+          profile?.lastError ??
+          (state === "none"
+            ? `${PLATFORM_LABELS[connection.platform]} has no API for reading an account's own posts.`
+            : state === "metered" && !profile
+              ? "X charges per read — press Refresh including X to pull it in."
+              : null);
+
+        return (
+          <li key={connection.id}>
+            <span
+              className="inline-flex items-center gap-2 rounded-full bg-chip py-1 pr-3 pl-1 text-[12px] text-muted"
+              title={note ?? undefined}
+            >
+              <span className="inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-panel">
+                {profile?.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <PlatformIcon platform={connection.platform} className="h-3 w-3" />
+                )}
+              </span>
+              <PlatformIcon platform={connection.platform} className="h-3 w-3" />
+              <span className="font-medium text-ink">{name}</span>
+              <span>{formatCount(profile?.followers)}</span>
+              {note ? (
+                <span className="text-warn" title={note}>
+                  ⚠
+                </span>
+              ) : null}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function MediaGrid({
+  items,
+  accounts,
+}: {
+  items: AccountMediaRow[];
+  accounts: AccountEntry[];
+}) {
+  const metricFor = new Map(
+    accounts
+      .filter((entry) => entry.profile)
+      .map((entry) => [entry.connection.id, entry.profile!.primaryMetric]),
+  );
+
+  return (
+    <ul className="grid grid-cols-2 gap-2.5 shell:grid-cols-3 wide:grid-cols-4">
+      {items.map((item) => {
+        const metric = metricFor.get(item.connectionId) ?? "views";
+        const headline = metric === "views" ? item.views : item.likes;
+        return (
+          <li key={item.id}>
+            <a
+              href={item.permalink ?? "#"}
+              target={item.permalink ? "_blank" : undefined}
+              rel="noreferrer"
+              className="group block overflow-hidden rounded-[14px] border border-line bg-panel transition hover:border-line-strong"
+            >
+              <div className="relative aspect-[9/13] bg-chip">
+                {item.thumbnailUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.thumbnailUrl}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  // A text post has no picture, so it shows its own words —
+                  // an empty grey tile would read as a broken image. The right
+                  // padding keeps the last line clear of the platform badge.
+                  <p className="line-clamp-[9] py-3 pr-9 pl-3.5 text-[12.5px]/[18px] text-ink">
+                    {item.caption?.trim() || "No text"}
+                  </p>
+                )}
+
+                <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-1.5 py-1 text-white backdrop-blur-[2px]">
+                  <PlatformIcon
+                    platform={item.platform}
+                    title={PLATFORM_LABELS[item.platform]}
+                  />
+                </span>
+
+                <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur-[2px]">
+                  <span aria-hidden>{metric === "views" ? "▶" : "♥"}</span>
+                  {formatCount(headline)}
+                  <span className="sr-only">{metric}</span>
+                </span>
+              </div>
+
+              <div className="px-2.5 py-2">
+                {/* A text post already shows its words in the tile above;
+                    repeating them under it is the same sentence twice. */}
+                {item.kind === "text" ? null : (
+                  <p className="line-clamp-2 text-[12px]/[17px] text-muted group-hover:text-ink">
+                    {item.caption?.trim() || "No caption"}
+                  </p>
+                )}
+                {item.postedAt ? (
+                  <p className="mt-1 text-[10.5px] text-faint">
+                    <LocalTime value={item.postedAt} mode="date" />
+                  </p>
+                ) : null}
+              </div>
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }

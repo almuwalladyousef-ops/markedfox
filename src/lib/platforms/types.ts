@@ -147,6 +147,71 @@ export type RecentPost = {
   timestamp?: string;
 };
 
+// ── what an account looks like on its own platform ─────────────────────────
+// The home screen shows every connected account the way its own platform
+// shows it: followers, total posts, and the recent grid with the number each
+// platform actually publishes. That number is not the same everywhere, which
+// is why `primaryMetric` is declared rather than assumed — Instagram business
+// reads carry likes, TikTok and YouTube carry views, and a card that labelled
+// likes as views would be lying in a way nobody could catch.
+
+export interface AccountProfile {
+  /** @handle without the @. */
+  handle?: string;
+  displayName?: string;
+  avatarUrl?: string;
+  bio?: string;
+  /** The account's page on its own platform, for "open profile". */
+  profileUrl?: string;
+  /** null means the platform does not expose the number, which is different
+   *  from zero and is rendered as "—" rather than "0". */
+  followers?: number | null;
+  following?: number | null;
+  postCount?: number | null;
+}
+
+export type AccountMediaKind = "video" | "photo" | "text";
+
+export interface AccountMediaItem {
+  /** The platform's own id for this post. Unique per connection. */
+  externalId: string;
+  kind: AccountMediaKind;
+  caption?: string;
+  permalink?: string;
+  thumbnailUrl?: string;
+  /** ISO 8601. Absent posts sort last rather than to 1970. */
+  postedAt?: string;
+  views?: number | null;
+  likes?: number | null;
+  comments?: number | null;
+  shares?: number | null;
+}
+
+// Reading a connected account's own profile and recent posts. Optional on the
+// adapter: a platform with no read API (Snapchat) simply does not have one,
+// and the home screen says so in a sentence instead of showing an empty grid.
+export interface AccountInsights {
+  /** Which number the grid puts on a card for this platform. */
+  readonly primaryMetric: "views" | "likes";
+  /** True when every read costs money — X bills per request. Metered
+   *  platforms are never swept in the background; the user asks for them. */
+  readonly metered: boolean;
+  /** Scopes the connection must hold. A connection authorized before these
+   *  existed reads as "reconnect to include stats" rather than failing. */
+  readonly requiredScopes: readonly string[];
+  readProfile(input: {
+    tokens: ConnectionTokens;
+    platformAccountId: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<AccountProfile>;
+  listMedia(input: {
+    tokens: ConnectionTokens;
+    platformAccountId: string;
+    metadata?: Record<string, unknown>;
+    limit?: number;
+  }): Promise<AccountMediaItem[]>;
+}
+
 // One adapter per platform, one file per adapter, registered in registry.ts.
 // Routes never contain platform-specific code: they resolve an adapter and
 // call it.
@@ -209,6 +274,9 @@ export interface PlatformAdapter {
    *  (Instagram via the Messaging API; Facebook Pages later). Absent means the
    *  automation engine has nothing to drive here. */
   readonly messaging?: MessagingCapability;
+  /** Reading this account's own profile and recent posts, for the home
+   *  screen. Absent means the platform has no read API we can use. */
+  readonly insights?: AccountInsights;
   /** Tell the platform to invalidate this grant, when it offers a per-token
    *  revoke endpoint (X, Google, TikTok). Optional and best-effort: the
    *  disconnect that calls it deletes our copy of the token regardless, and

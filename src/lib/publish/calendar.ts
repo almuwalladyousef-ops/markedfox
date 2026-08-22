@@ -121,3 +121,13 @@ export function fromDateParam(raw: string | undefined, fallback: Date): Date {
   const parsed = new Date(year, month - 1, day);
   return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 }
+
+/** The month the anchor falls in, split so the toolbar can weight the month
+ *  and the year differently — "August" reads as the heading, "2026" as the
+ *  qualifier, which is how every calendar app people already use shows it. */
+export function monthYearParts(anchor: Date): { month: string; year: string } {
+  return {
+    month: anchor.toLocaleDateString(undefined, { month: "long" }),
+    year: String(anchor.getFullYear()),
+  };
+}

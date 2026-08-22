@@ -4,7 +4,13 @@ import { requireEnv } from "@/lib/env";
 
 import { PlatformApiError, PlatformAuthError } from "./errors";
 import { optionValue } from "./publish-options";
-import type { ConnectionTokens, PlatformAdapter } from "./types";
+import type {
+  AccountInsights,
+  AccountMediaItem,
+  AccountProfile,
+  ConnectionTokens,
+  PlatformAdapter,
+} from "./types";
 
 // X (Twitter) API v2, pay-per-use tier (the only tier open to new developers
 // since Feb 2026: $0.015 per post, $0.20 per post containing a URL — which is
@@ -141,10 +147,117 @@ async function tokenCall(form: URLSearchParams): Promise<ConnectionTokens> {
   );
 }
 
+// X is the one metered read in the product: the API bills per request, the
+// same reason posting to X carries a hard monthly cap on every plan. So
+// `metered` is true and the background sweep skips it — X refreshes only when
+// somebody presses the button, and the screen says why.
+const xInsights: AccountInsights = {
+  primaryMetric: "views",
+  metered: true,
+  requiredScopes: ["users.read", "tweet.read"],
+
+  async readProfile({ tokens }) {
+    const out = await xFetch<{
+      data?: {
+        id?: string;
+        name?: string;
+        username?: string;
+        description?: string;
+        profile_image_url?: string;
+        public_metrics?: {
+          followers_count?: number;
+          following_count?: number;
+          tweet_count?: number;
+        };
+      };
+    }>(
+      "/users/me?user.fields=description,profile_image_url,public_metrics",
+      { auth: `Bearer ${tokens.accessToken}` },
+    );
+
+    const user = out.data ?? {};
+    const profile: AccountProfile = {
+      handle: user.username,
+      displayName: user.name,
+      // _normal is a 48px avatar; _400x400 is the same file at a usable size.
+      avatarUrl: user.profile_image_url?.replace("_normal", "_400x400"),
+      bio: user.description,
+      profileUrl: user.username ? `https://x.com/${user.username}` : undefined,
+      followers: user.public_metrics?.followers_count ?? null,
+      following: user.public_metrics?.following_count ?? null,
+      postCount: user.public_metrics?.tweet_count ?? null,
+    };
+    return profile;
+  },
+
+  async listMedia({ tokens, platformAccountId, limit = 20 }) {
+    const out = await xFetch<{
+      data?: {
+        id: string;
+        text?: string;
+        created_at?: string;
+        attachments?: { media_keys?: string[] };
+        public_metrics?: {
+          like_count?: number;
+          reply_count?: number;
+          retweet_count?: number;
+          impression_count?: number;
+        };
+      }[];
+      includes?: {
+        media?: {
+          media_key: string;
+          type?: string;
+          url?: string;
+          preview_image_url?: string;
+        }[];
+      };
+    }>(
+      `/users/${encodeURIComponent(platformAccountId)}/tweets` +
+        `?max_results=${Math.min(Math.max(limit, 5), 100)}` +
+        "&exclude=retweets,replies" +
+        "&tweet.fields=created_at,public_metrics,attachments" +
+        "&expansions=attachments.media_keys" +
+        "&media.fields=type,url,preview_image_url",
+      { auth: `Bearer ${tokens.accessToken}` },
+    );
+
+    const media = new Map(
+      (out.includes?.media ?? []).map((item) => [item.media_key, item]),
+    );
+
+    return (out.data ?? []).map((post): AccountMediaItem => {
+      const attached = post.attachments?.media_keys
+        ?.map((key) => media.get(key))
+        .find(Boolean);
+      return {
+        externalId: post.id,
+        kind:
+          attached?.type === "video" || attached?.type === "animated_gif"
+            ? "video"
+            : attached
+              ? "photo"
+              : "text",
+        caption: post.text,
+        permalink: `https://x.com/i/web/status/${post.id}`,
+        thumbnailUrl: attached?.url ?? attached?.preview_image_url,
+        postedAt: post.created_at,
+        // impression_count is only returned for the authenticated user's own
+        // posts, which is precisely what this reads.
+        views: post.public_metrics?.impression_count ?? null,
+        likes: post.public_metrics?.like_count ?? null,
+        comments: post.public_metrics?.reply_count ?? null,
+        shares: post.public_metrics?.retweet_count ?? null,
+      };
+    });
+  },
+};
+
 export const x: PlatformAdapter = {
   id: "x",
   displayName: "X",
   requiredEnv: ["X_CLIENT_ID", "X_CLIENT_SECRET"],
+  insights: xInsights,
   refreshPolicy: "on-use",
   capabilities: {
     text: true,

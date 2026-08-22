@@ -2,6 +2,9 @@ import { requireEnv } from "@/lib/env";
 
 import { PlatformApiError, PlatformAuthError } from "./errors";
 import type {
+  AccountInsights,
+  AccountMediaItem,
+  AccountProfile,
   ConnectedAccount,
   ConnectionTokens,
   PlatformAdapter,
@@ -86,10 +89,97 @@ async function exchangeForLongLived(token: string): Promise<ConnectionTokens> {
   };
 }
 
+// The Page as its own audience sees it. Reactions and comments come back as
+// summary counts on the same call as the posts, so the whole grid is one
+// request rather than one per post — which matters because Meta rate-limits
+// per app and every MarkedFox user shares that budget.
+const facebookInsights: AccountInsights = {
+  primaryMetric: "likes",
+  metered: false,
+  requiredScopes: ["pages_read_engagement"],
+
+  async readProfile({ tokens, platformAccountId }) {
+    const out = await graph<{
+      name?: string;
+      username?: string;
+      about?: string;
+      link?: string;
+      followers_count?: number;
+      fan_count?: number;
+      picture?: { data?: { url?: string } };
+    }>(`/${platformAccountId}`, {
+      searchParams: {
+        fields:
+          "name,username,about,link,followers_count,fan_count,picture.type(large)",
+        access_token: tokens.accessToken,
+      },
+    });
+
+    const profile: AccountProfile = {
+      handle: out.username,
+      displayName: out.name,
+      avatarUrl: out.picture?.data?.url,
+      bio: out.about,
+      profileUrl: out.link ?? `https://www.facebook.com/${platformAccountId}`,
+      // A Page has followers and fans and no "following" of its own.
+      followers: out.followers_count ?? out.fan_count ?? null,
+      following: null,
+      postCount: null,
+    };
+    return profile;
+  },
+
+  async listMedia({ tokens, platformAccountId, limit = 36 }) {
+    const out = await graph<{
+      data?: {
+        id: string;
+        message?: string;
+        created_time?: string;
+        permalink_url?: string;
+        full_picture?: string;
+        attachments?: { data?: { media_type?: string }[] };
+        reactions?: { summary?: { total_count?: number } };
+        comments?: { summary?: { total_count?: number } };
+      }[];
+    }>(`/${platformAccountId}/posts`, {
+      searchParams: {
+        fields:
+          "id,message,created_time,permalink_url,full_picture," +
+          "attachments{media_type}," +
+          "reactions.summary(true).limit(0),comments.summary(true).limit(0)",
+        limit: String(Math.min(Math.max(limit, 1), 50)),
+        access_token: tokens.accessToken,
+      },
+    });
+
+    return (out.data ?? []).map((post): AccountMediaItem => {
+      const attachment = post.attachments?.data?.[0]?.media_type;
+      return {
+        externalId: post.id,
+        kind:
+          attachment === "video"
+            ? "video"
+            : attachment === "photo" || post.full_picture
+              ? "photo"
+              : "text",
+        caption: post.message,
+        permalink: post.permalink_url,
+        thumbnailUrl: post.full_picture,
+        postedAt: post.created_time,
+        views: null,
+        likes: post.reactions?.summary?.total_count ?? null,
+        comments: post.comments?.summary?.total_count ?? null,
+        shares: null,
+      };
+    });
+  },
+};
+
 export const facebook: PlatformAdapter = {
   id: "facebook",
   displayName: "Facebook",
   requiredEnv: ["META_APP_ID", "META_APP_SECRET"],
+  insights: facebookInsights,
   refreshPolicy: "sweep",
   capabilities: {
     text: true, // unlike Instagram, a Page post needs no media

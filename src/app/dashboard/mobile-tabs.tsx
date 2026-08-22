@@ -9,8 +9,8 @@ import { usePathname } from "next/navigation";
 // than reviewing it.
 
 const TABS = [
+  { href: "/dashboard", label: "Home", icon: "⌂" },
   { href: "/dashboard/calendar", label: "Calendar", icon: "▤" },
-  { href: "/dashboard/posts", label: "Posts", icon: "◫" },
   { href: "/dashboard/automations", label: "Autos", icon: "⚡" },
   { href: "/dashboard/research", label: "Videos", icon: "▶" },
 ] as const;
@@ -35,8 +35,12 @@ function PencilIcon() {
 
 export function MobileTabs() {
   const pathname = usePathname();
+  // Home is the one exact match: every other dashboard path starts with
+  // /dashboard, so a prefix test would light Home on every screen.
   const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
+    href === "/dashboard"
+      ? pathname === href
+      : pathname === href || pathname.startsWith(`${href}/`);
 
   const tab = (item: (typeof TABS)[number]) => (
     <Link

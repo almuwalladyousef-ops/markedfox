@@ -137,6 +137,9 @@ export const snapchat: PlatformAdapter = {
   id: "snapchat",
   displayName: "Snapchat",
   requiredEnv: ["SNAPCHAT_CLIENT_ID", "SNAPCHAT_CLIENT_SECRET"],
+  // No `insights`, deliberately: Snapchat exposes no API for reading an
+  // account's own posts or follower count, so the home screen says that on the
+  // account rather than showing a card with empty numbers in it.
   refreshPolicy: "on-use",
   capabilities: {
     text: false,

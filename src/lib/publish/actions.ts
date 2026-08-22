@@ -23,7 +23,7 @@ export async function cancelPostAction(formData: FormData): Promise<void> {
     .eq("status", "scheduled");
   if (error) throw error;
 
-  revalidatePath("/dashboard/posts");
+  revalidatePath("/dashboard/calendar");
 }
 
 // Moving a scheduled post to a different time. Scoped exactly like cancel: a
@@ -49,7 +49,6 @@ export async function reschedulePostAction(formData: FormData): Promise<void> {
     .eq("status", "scheduled");
   if (error) throw error;
 
-  revalidatePath("/dashboard/posts");
   revalidatePath("/dashboard/calendar");
 }
 

@@ -1176,7 +1176,7 @@ function OutcomePanel({
         <p>
           Scheduled — the fox will take it from here.{" "}
           {new Date(outcome.scheduledFor).toLocaleString()}.{" "}
-          <a href="/dashboard/posts" className="text-accent underline">
+          <a href="/dashboard/calendar" className="text-accent underline">
             See it in Posts
           </a>
           .

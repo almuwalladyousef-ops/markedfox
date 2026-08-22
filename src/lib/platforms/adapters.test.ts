@@ -105,7 +105,11 @@ describe("tiktok adapter", () => {
     expect(url.searchParams.get("client_key")).toBe("tt-key");
     expect(url.searchParams.get("client_id")).toBeNull();
     expect(url.searchParams.get("scope")).toBe(
-      "user.info.basic,video.publish,video.upload",
+      // The read scopes (profile, stats, video.list) ride along with the
+      // publish ones: the home screen needs the account's own videos and
+      // follower count, and none of them is part of the posting audit.
+      "user.info.basic,user.info.profile,user.info.stats,video.list," +
+        "video.publish,video.upload",
     );
   });
 

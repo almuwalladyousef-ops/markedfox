@@ -4,6 +4,9 @@ import { PlatformApiError, PlatformAuthError } from "./errors";
 import { pollDelays, pollTotalMs } from "./polling";
 import { optionValue } from "./publish-options";
 import type {
+  AccountInsights,
+  AccountMediaItem,
+  AccountProfile,
   ConnectedAccount,
   ConnectionTokens,
   PlatformAdapter,
@@ -241,10 +244,95 @@ async function createContainer(
   );
 }
 
+// Reading the connected Instagram Business account itself, for the home
+// screen. Two honest limits, both visible on the screen rather than papered
+// over: the media edge carries likes and comments but NOT plays (views need
+// the per-media insights edge, one call per post, and a permission this app
+// has not requested), and a carousel reports one entry rather than one per
+// image. So Instagram's cards are labelled with likes.
+const instagramInsights: AccountInsights = {
+  primaryMetric: "likes",
+  metered: false,
+  requiredScopes: ["instagram_basic"],
+
+  async readProfile({ tokens, platformAccountId }) {
+    const out = await graph<{
+      username?: string;
+      name?: string;
+      biography?: string;
+      profile_picture_url?: string;
+      followers_count?: number;
+      follows_count?: number;
+      media_count?: number;
+    }>(`/${platformAccountId}`, {
+      searchParams: {
+        fields:
+          "username,name,biography,profile_picture_url,followers_count,follows_count,media_count",
+        access_token: tokens.accessToken,
+      },
+    });
+
+    const profile: AccountProfile = {
+      handle: out.username,
+      displayName: out.name ?? out.username,
+      avatarUrl: out.profile_picture_url,
+      bio: out.biography,
+      profileUrl: out.username
+        ? `https://www.instagram.com/${out.username}/`
+        : undefined,
+      followers: out.followers_count ?? null,
+      following: out.follows_count ?? null,
+      postCount: out.media_count ?? null,
+    };
+    return profile;
+  },
+
+  async listMedia({ tokens, platformAccountId, limit = 36 }) {
+    const out = await graph<{
+      data?: {
+        id: string;
+        caption?: string;
+        media_type?: string;
+        media_product_type?: string;
+        permalink?: string;
+        thumbnail_url?: string;
+        media_url?: string;
+        timestamp?: string;
+        like_count?: number;
+        comments_count?: number;
+      }[];
+    }>(`/${platformAccountId}/media`, {
+      searchParams: {
+        fields:
+          "id,caption,media_type,media_product_type,permalink,thumbnail_url," +
+          "media_url,timestamp,like_count,comments_count",
+        limit: String(Math.min(Math.max(limit, 1), 50)),
+        access_token: tokens.accessToken,
+      },
+    });
+
+    return (out.data ?? []).map((m): AccountMediaItem => ({
+      externalId: m.id,
+      kind: m.media_type === "VIDEO" ? "video" : "photo",
+      caption: m.caption,
+      permalink: m.permalink,
+      // Videos carry thumbnail_url; images only media_url.
+      thumbnailUrl:
+        m.thumbnail_url ?? (m.media_type === "VIDEO" ? undefined : m.media_url),
+      postedAt: m.timestamp,
+      views: null,
+      likes: m.like_count ?? null,
+      comments: m.comments_count ?? null,
+      shares: null,
+    }));
+  },
+};
+
 export const instagram: PlatformAdapter = {
   id: "instagram",
   displayName: "Instagram",
   requiredEnv: ["META_APP_ID", "META_APP_SECRET"],
+  insights: instagramInsights,
   refreshPolicy: "sweep",
   capabilities: {
     text: false, // no text-only posts on Instagram

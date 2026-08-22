@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { sweepStaleAccounts } from "@/lib/accounts/sync";
 import { refreshExpiringConnections } from "@/lib/connections/refresh";
 import { createRefreshStore, REFRESH_WINDOW_MS } from "@/lib/connections/store";
 import { drainDmEngine, type DrainSummary } from "@/lib/dm/drain";
@@ -72,6 +73,10 @@ export type TickSummary = {
   /** The DM engine's pass: events matched, DMs sent, retried, failed. */
   dm: DrainSummary | null;
   research: SweepSummary | null;
+  /** Connected accounts whose profile and recent posts were re-read for the
+   *  home screen: how many were read, and how many the platform refused. */
+  accountsSynced: number;
+  accountsFailed: number;
   autoAnalyze: AutoAnalyzeSummary | null;
   reports: PublishReport[];
 };
@@ -109,6 +114,8 @@ export async function runSchedulerTick(
     orphansPurged: 0,
     dm: null,
     research: null,
+    accountsSynced: 0,
+    accountsFailed: 0,
     autoAnalyze: null,
     reports: [],
   };
@@ -243,6 +250,21 @@ export async function runSchedulerTick(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log.error(`scheduler: research sweep failed — ${message}`);
+  }
+
+  // The home screen's cache: re-read the few connected accounts nobody has
+  // refreshed in hours. Metered platforms (X bills per request) are skipped
+  // here by sweepStaleAccounts and only ever read when somebody asks.
+  try {
+    const outcomes = await sweepStaleAccounts(supabase, { now: now() });
+    summary.accountsSynced = outcomes.filter((outcome) => outcome.ok && !outcome.skipped).length;
+    summary.accountsFailed = outcomes.filter((outcome) => outcome.error).length;
+    for (const outcome of outcomes.filter((item) => item.error)) {
+      log.warn(`scheduler: account ${outcome.connectionId} — ${outcome.error}`);
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log.error(`scheduler: account sweep failed — ${message}`);
   }
 
   // Auto-analyze rules. The only place the product spends a user's credits with

@@ -10,7 +10,7 @@
 //     anything anywhere)
 //   - the daily cap is enforced for publish-now and skipped for scheduling
 //   - the tick endpoint fails closed without the secret
-//   - the compose and posts pages render for a signed-in user
+//   - the compose and calendar pages render for a signed-in user
 // Creates two throwaway users and deletes them (cascading everything) at end.
 //
 //   npm run dev            # in one terminal, or point SMOKE_BASE at any deploy
@@ -314,10 +314,10 @@ try {
     const compose = await fetch(`${BASE}/dashboard/compose`, { headers: { cookie: a.cookie }, redirect: "manual" });
     const composeHtml = await compose.text();
     check("compose page renders", compose.status === 200 && composeHtml.includes("Post to"), `status ${compose.status}`);
-    const posts = await fetch(`${BASE}/dashboard/posts`, { headers: { cookie: a.cookie }, redirect: "manual" });
+    const posts = await fetch(`${BASE}/dashboard/calendar`, { headers: { cookie: a.cookie }, redirect: "manual" });
     const postsHtml = await posts.text();
     check(
-      "posts page lists the smoke posts with outcomes",
+      "calendar page lists the smoke posts with outcomes",
       posts.status === 200 && postsHtml.includes(`smoke scheduled ${stamp}`) && postsHtml.includes("failed"),
       `status ${posts.status}`,
     );

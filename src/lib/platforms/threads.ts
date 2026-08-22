@@ -4,6 +4,9 @@ import { PlatformApiError, PlatformAuthError } from "./errors";
 import { pollDelays, pollTotalMs } from "./polling";
 import { optionValue } from "./publish-options";
 import type {
+  AccountInsights,
+  AccountMediaItem,
+  AccountProfile,
   ConnectionTokens,
   PlatformAdapter,
   PublishResult,
@@ -86,10 +89,112 @@ async function toLongLived(shortToken: string): Promise<ConnectionTokens> {
   };
 }
 
+// Threads reads its own profile with threads_basic, which every connection
+// already holds. Follower count lives on a separate insights edge behind
+// threads_manage_insights — a permission this app does not request — so it is
+// asked for and allowed to fail rather than being made a hard requirement:
+// a profile with no follower number is still a useful card, and refusing to
+// read the account at all over one missing number is not.
+const threadsInsights: AccountInsights = {
+  primaryMetric: "likes",
+  metered: false,
+  requiredScopes: ["threads_basic"],
+
+  async readProfile({ tokens }) {
+    const me = await threads<{
+      id: string;
+      username?: string;
+      name?: string;
+      threads_profile_picture_url?: string;
+      threads_biography?: string;
+    }>("/me", {
+      searchParams: {
+        fields:
+          "id,username,name,threads_profile_picture_url,threads_biography",
+        access_token: tokens.accessToken,
+      },
+    });
+
+    let followers: number | null = null;
+    try {
+      const insights = await threads<{
+        data?: { name?: string; total_value?: { value?: number } }[];
+      }>("/me/threads_insights", {
+        searchParams: {
+          metric: "followers_count",
+          access_token: tokens.accessToken,
+        },
+      });
+      followers =
+        insights.data?.find((row) => row.name === "followers_count")
+          ?.total_value?.value ?? null;
+    } catch {
+      // Missing permission, or an account too new for insights. Neither is a
+      // reason to lose the rest of the profile.
+      followers = null;
+    }
+
+    const profile: AccountProfile = {
+      handle: me.username,
+      displayName: me.name ?? me.username,
+      avatarUrl: me.threads_profile_picture_url,
+      bio: me.threads_biography,
+      profileUrl: me.username
+        ? `https://www.threads.com/@${me.username}`
+        : undefined,
+      followers,
+      following: null,
+      postCount: null,
+    };
+    return profile;
+  },
+
+  async listMedia({ tokens, limit = 36 }) {
+    // Per-post likes are one insights call each, on a permission we do not
+    // hold — so the grid shows Threads posts without numbers rather than
+    // spending 36 requests to maybe get them.
+    const out = await threads<{
+      data?: {
+        id: string;
+        text?: string;
+        media_type?: string;
+        permalink?: string;
+        thumbnail_url?: string;
+        timestamp?: string;
+      }[];
+    }>("/me/threads", {
+      searchParams: {
+        fields: "id,text,media_type,permalink,thumbnail_url,timestamp",
+        limit: String(Math.min(Math.max(limit, 1), 50)),
+        access_token: tokens.accessToken,
+      },
+    });
+
+    return (out.data ?? []).map((post): AccountMediaItem => ({
+      externalId: post.id,
+      kind:
+        post.media_type === "VIDEO"
+          ? "video"
+          : post.media_type === "IMAGE" || post.media_type === "CAROUSEL_ALBUM"
+            ? "photo"
+            : "text",
+      caption: post.text,
+      permalink: post.permalink,
+      thumbnailUrl: post.thumbnail_url,
+      postedAt: post.timestamp,
+      views: null,
+      likes: null,
+      comments: null,
+      shares: null,
+    }));
+  },
+};
+
 export const threadsAdapter: PlatformAdapter = {
   id: "threads",
   displayName: "Threads",
   requiredEnv: ["THREADS_APP_ID", "THREADS_APP_SECRET"],
+  insights: threadsInsights,
   refreshPolicy: "sweep",
   capabilities: {
     text: true, // Threads is text-first, unlike Instagram

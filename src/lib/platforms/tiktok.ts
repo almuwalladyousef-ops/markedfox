@@ -8,7 +8,14 @@ import {
   validateTikTokOptions,
   type TikTokCreatorContext,
 } from "./tiktok-options";
-import type { ConnectionTokens, PlatformAdapter, PublishResult } from "./types";
+import type {
+  AccountInsights,
+  AccountMediaItem,
+  AccountProfile,
+  ConnectionTokens,
+  PlatformAdapter,
+  PublishResult,
+} from "./types";
 
 // TikTok Content Posting API (Direct Post).
 //
@@ -40,7 +47,18 @@ import type { ConnectionTokens, PlatformAdapter, PublishResult } from "./types";
 const AUTHORIZE = "https://www.tiktok.com/v2/auth/authorize/";
 const API = "https://open.tiktokapis.com/v2";
 
-const OAUTH_SCOPES = ["user.info.basic", "video.publish", "video.upload"];
+// user.info.profile and user.info.stats carry the avatar, bio, follower and
+// video counts the home screen shows; video.list is the connected account's
+// own videos with view counts. All four are self-serve scopes on the app —
+// none of them is part of the Content Posting audit.
+const OAUTH_SCOPES = [
+  "user.info.basic",
+  "user.info.profile",
+  "user.info.stats",
+  "video.list",
+  "video.publish",
+  "video.upload",
+];
 
 type TikTokError = {
   error?: { code?: string; message?: string; log_id?: string };
@@ -148,10 +166,100 @@ async function queryCreatorInfo(token: string): Promise<TikTokCreatorContext> {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// TikTok is the one platform that hands over real view counts for the
+// connected account: video.list returns the user's own videos with views,
+// likes, comments and shares. It cannot see anyone else's — the Research API
+// is academic-only — which is exactly why this reads "your account", not
+// "your competitors".
+const tiktokInsights: AccountInsights = {
+  primaryMetric: "views",
+  metered: false,
+  requiredScopes: ["video.list"],
+
+  async readProfile({ tokens }) {
+    const out = await tiktok<{
+      data?: {
+        user?: {
+          open_id?: string;
+          display_name?: string;
+          avatar_url?: string;
+          profile_deep_link?: string;
+          bio_description?: string;
+          follower_count?: number;
+          following_count?: number;
+          video_count?: number;
+        };
+      };
+    }>(
+      "/user/info/?fields=open_id,display_name,avatar_url,profile_deep_link," +
+        "bio_description,follower_count,following_count,video_count",
+      { method: "GET", token: tokens.accessToken },
+    );
+
+    const user = out.data?.user ?? {};
+    const profile: AccountProfile = {
+      handle: undefined, // TikTok returns a display name, not a @handle
+      displayName: user.display_name,
+      avatarUrl: user.avatar_url,
+      bio: user.bio_description,
+      profileUrl: user.profile_deep_link,
+      followers: user.follower_count ?? null,
+      following: user.following_count ?? null,
+      postCount: user.video_count ?? null,
+    };
+    return profile;
+  },
+
+  async listMedia({ tokens, limit = 20 }) {
+    const out = await tiktok<{
+      data?: {
+        videos?: {
+          id: string;
+          title?: string;
+          video_description?: string;
+          cover_image_url?: string;
+          share_url?: string;
+          create_time?: number;
+          view_count?: number;
+          like_count?: number;
+          comment_count?: number;
+          share_count?: number;
+        }[];
+      };
+    }>(
+      "/video/list/?fields=id,title,video_description,cover_image_url," +
+        "share_url,create_time,view_count,like_count,comment_count,share_count",
+      {
+        method: "POST",
+        token: tokens.accessToken,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ max_count: Math.min(Math.max(limit, 1), 20) }),
+      },
+    );
+
+    return (out.data?.videos ?? []).map((video): AccountMediaItem => ({
+      externalId: video.id,
+      kind: "video",
+      caption: video.title || video.video_description,
+      permalink: video.share_url,
+      thumbnailUrl: video.cover_image_url,
+      // create_time is unix seconds.
+      postedAt: video.create_time
+        ? new Date(video.create_time * 1000).toISOString()
+        : undefined,
+      views: video.view_count ?? null,
+      likes: video.like_count ?? null,
+      comments: video.comment_count ?? null,
+      shares: video.share_count ?? null,
+    }));
+  },
+};
+
 export const tiktokAdapter: PlatformAdapter = {
   id: "tiktok",
   displayName: "TikTok",
   requiredEnv: ["TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET"],
+  insights: tiktokInsights,
   refreshPolicy: "on-use",
   capabilities: {
     text: false, // no text-only posts

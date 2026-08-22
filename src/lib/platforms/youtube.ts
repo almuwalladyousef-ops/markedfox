@@ -4,6 +4,9 @@ import { requireEnv } from "@/lib/env";
 import { PlatformApiError, PlatformAuthError } from "./errors";
 import { optionValue } from "./publish-options";
 import type {
+  AccountInsights,
+  AccountMediaItem,
+  AccountProfile,
   ConnectionTokens,
   PlatformAdapter,
   PlatformPublishOptions,
@@ -202,10 +205,135 @@ export function classifyUploadFailure(status: number, body: GoogleError): Error 
   return new PlatformApiError("youtube", detail, retryable);
 }
 
+// The channel and its recent uploads. Three calls, not one per video:
+// channels.list gives the identity, the statistics AND the uploads playlist
+// id in a single response, playlistItems lists that playlist, and videos.list
+// takes every id at once. Quota cost is 1 + 1 + 1 units — the sweep runs this
+// for every connected channel and the daily budget is 10,000, so the shape of
+// this matters more than it looks.
+const youtubeInsights: AccountInsights = {
+  primaryMetric: "views",
+  metered: false,
+  requiredScopes: ["https://www.googleapis.com/auth/youtube.readonly"],
+
+  async readProfile({ tokens }) {
+    const out = await google<{
+      items?: {
+        id?: string;
+        snippet?: {
+          title?: string;
+          description?: string;
+          customUrl?: string;
+          thumbnails?: { medium?: { url?: string }; default?: { url?: string } };
+        };
+        statistics?: {
+          subscriberCount?: string;
+          videoCount?: string;
+        };
+      }[];
+    }>(`${API}/channels?part=snippet,statistics&mine=true`, {
+      headers: { Authorization: `Bearer ${tokens.accessToken}` },
+    });
+
+    const channel = out.items?.[0];
+    const handle = channel?.snippet?.customUrl?.replace(/^@/, "");
+    const profile: AccountProfile = {
+      handle,
+      displayName: channel?.snippet?.title,
+      avatarUrl:
+        channel?.snippet?.thumbnails?.medium?.url ??
+        channel?.snippet?.thumbnails?.default?.url,
+      bio: channel?.snippet?.description,
+      profileUrl: handle
+        ? `https://www.youtube.com/@${handle}`
+        : channel?.id
+          ? `https://www.youtube.com/channel/${channel.id}`
+          : undefined,
+      // Channels with subscriber counts hidden return nothing here, which is
+      // null — not zero.
+      followers: numberOrNull(channel?.statistics?.subscriberCount),
+      following: null,
+      postCount: numberOrNull(channel?.statistics?.videoCount),
+    };
+    return profile;
+  },
+
+  async listMedia({ tokens, limit = 24 }) {
+    const auth = { Authorization: `Bearer ${tokens.accessToken}` };
+
+    const channels = await google<{
+      items?: { contentDetails?: { relatedPlaylists?: { uploads?: string } } }[];
+    }>(`${API}/channels?part=contentDetails&mine=true`, { headers: auth });
+    const uploads =
+      channels.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+    if (!uploads) return [];
+
+    const playlist = await google<{
+      items?: { contentDetails?: { videoId?: string } }[];
+    }>(
+      `${API}/playlistItems?part=contentDetails&playlistId=${encodeURIComponent(uploads)}` +
+        `&maxResults=${Math.min(Math.max(limit, 1), 50)}`,
+      { headers: auth },
+    );
+    const ids = (playlist.items ?? [])
+      .map((item) => item.contentDetails?.videoId)
+      .filter((id): id is string => Boolean(id));
+    if (ids.length === 0) return [];
+
+    const videos = await google<{
+      items?: {
+        id?: string;
+        snippet?: {
+          title?: string;
+          publishedAt?: string;
+          thumbnails?: {
+            medium?: { url?: string };
+            high?: { url?: string };
+            default?: { url?: string };
+          };
+        };
+        statistics?: {
+          viewCount?: string;
+          likeCount?: string;
+          commentCount?: string;
+        };
+      }[];
+    }>(
+      `${API}/videos?part=snippet,statistics&id=${ids.map(encodeURIComponent).join(",")}`,
+      { headers: auth },
+    );
+
+    return (videos.items ?? []).map((video): AccountMediaItem => ({
+      externalId: video.id ?? "",
+      kind: "video",
+      caption: video.snippet?.title,
+      permalink: video.id ? `https://www.youtube.com/watch?v=${video.id}` : undefined,
+      thumbnailUrl:
+        video.snippet?.thumbnails?.medium?.url ??
+        video.snippet?.thumbnails?.high?.url ??
+        video.snippet?.thumbnails?.default?.url,
+      postedAt: video.snippet?.publishedAt,
+      views: numberOrNull(video.statistics?.viewCount),
+      likes: numberOrNull(video.statistics?.likeCount),
+      comments: numberOrNull(video.statistics?.commentCount),
+      shares: null,
+    }));
+  },
+};
+
+/** YouTube returns every count as a string, and omits the field entirely when
+ *  a channel hides it. Absent stays null so the screen can say "—". */
+function numberOrNull(value: string | undefined): number | null {
+  if (value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export const youtube: PlatformAdapter = {
   id: "youtube",
   displayName: "YouTube",
   requiredEnv: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+  insights: youtubeInsights,
   refreshPolicy: "on-use",
   capabilities: {
     text: false,

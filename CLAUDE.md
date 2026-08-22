@@ -1115,3 +1115,46 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+- **2026-08-21 (later) — the home screen, and the calendar absorbing Posts.**
+  See `sessions/2026-08-21-home-and-calendar.md`.
+
+  The app now opens on the person's own work rather than on setup.
+  `/dashboard` is **Home**: the total posts, followers and following across
+  every connected account, then a grid of their real posts — pulled from each
+  platform, including posts never published through MarkedFox — filtered by
+  platform and by All / Short videos / Photos / Text posts. The old dashboard
+  moved to `/dashboard/accounts`.
+
+  *Reading an account is one adapter file.* `PlatformAdapter` gained an
+  optional `insights` capability (`readProfile`, `listMedia`, plus a declared
+  `primaryMetric` and `metered` flag). Instagram, Facebook, Threads, TikTok,
+  YouTube and X have one; Snapchat deliberately does not, because it has no
+  API for reading an account's own posts, and the screen says so. The metric
+  is declared rather than assumed: Instagram business reads carry **likes**
+  (the media edge has no play counts), TikTok and YouTube carry **views**, and
+  a card labelling one as the other would be a lie nobody could catch.
+  TikTok's scopes grew by `user.info.profile`, `user.info.stats` and
+  `video.list` — all self-serve, none part of the posting audit.
+
+  *It is a cache, and that is the point.* Migration
+  `20260821000000_account_overview.sql` adds `account_profiles` and
+  `account_media` (applied to the hosted project). Meta and TikTok rate-limit
+  **per app** and X bills per read, so nothing on the page calls a platform:
+  the scheduler tick sweeps the five stalest accounts older than six hours and
+  never touches metered ones, Refresh forces a workspace read, a separate
+  button includes X with the cost said out loud, and a first load with an
+  empty cache fires one throttled fill after the page paints. A failed read
+  records the reason and **keeps the last good numbers** rather than blanking
+  them.
+
+  *Calendar rebuilt to the reference shape* — month/year heading, ‹ Today ›, a
+  date jump, Month/Week/Day, an account avatar filter, search, and thumbnail
+  cards that share a column when they overlap. **The Posts page is gone**: its
+  per-platform outcomes, failure reasons, Cancel and Edit time now live in the
+  detail panel on the post itself, and `/dashboard/posts` redirects to the
+  calendar.
+
+  542 tests; build, lint and typecheck green; both screens signed into and
+  clicked through at 1280px and 375px in light and dark, with Cancel proven
+  round-trip on live rows and the read-failure path proven not to crash.

@@ -53,11 +53,16 @@ export default async function DashboardLayout({
 
   const sections: NavSection[] = [
     {
+      title: "Overview",
+      items: [{ href: "/dashboard", label: "Home", icon: "⌂" }],
+    },
+    {
       title: "Publish",
       items: [
         { href: "/dashboard/compose", label: "Compose", icon: "✎" },
+        // The calendar is the whole record of what is going out and what went
+        // out, which is why there is no separate Posts list beside it.
         { href: "/dashboard/calendar", label: "Calendar", icon: "▤" },
-        { href: "/dashboard/posts", label: "Posts", icon: "◫" },
         { href: "/dashboard/drafts", label: "Drafts", icon: "☰" },
       ],
     },
@@ -105,7 +110,7 @@ export default async function DashboardLayout({
         { href: "/dashboard/research/channels", label: "Channels", icon: "◎", locked: !research.allowed },
         { href: "/dashboard/research/persona", label: "Persona", icon: "☺", locked: !research.allowed },
         { href: "/dashboard/research/rules", label: "Auto-analyze", icon: "⟳", locked: !research.allowed },
-        { href: "/dashboard", label: "Accounts", icon: "⊕" },
+        { href: "/dashboard/accounts", label: "Accounts", icon: "⊕" },
         { href: "/dashboard/settings", label: "Settings", icon: "⚙" },
       ],
     },
