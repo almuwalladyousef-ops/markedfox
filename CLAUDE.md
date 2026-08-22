@@ -1099,6 +1099,13 @@ schedule; filing early is the only lever we control.
   no data on a fresh account (the month grid with posts in it, the feed's
   cards, idea triage, the hook vault) were seen only in their empty states.
 
+  **Merged, pushed and deployed the same day: `64f00b3` is live on
+  markedfox.com** (snapshot taken, health check green). One operational
+  lesson, recorded because it cost an hour: the deploy login is `deploy@`,
+  never `root@` — root login is off by design and a single failed root attempt
+  bans the whole IP through fail2ban for about fifteen minutes, locking out
+  the owner's machine along with it. See `handoff/2026-08-21-redesign-live.md`.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
