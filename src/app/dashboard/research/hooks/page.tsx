@@ -53,7 +53,7 @@ export default async function HooksPage({
   const allowed = canUserDo(snapshot, { type: "use_research" });
   if (!allowed.allowed) {
     return (
-      <Page width="max-w-[900px]">
+      <Page width="max-w-[1080px]">
         <PageHeader title="Hooks" />
         <UpgradeCard title="Studio" reason={allowed.reason}>
           Save the opening pattern from every video you break down. The script
@@ -71,7 +71,7 @@ export default async function HooksPage({
   });
 
   return (
-    <Page width="max-w-[900px]">
+    <Page width="max-w-[1080px]">
       <PageHeader
         title="Hook vault"
         subtitle="Opening patterns lifted from videos that beat their channel's average. The script builder fills these in for your topic."
@@ -180,7 +180,7 @@ export default async function HooksPage({
             : "Break a video down, then press Save hook to vault on it. Every saved pattern makes the next script's hooks better."}
         </EmptyState>
       ) : (
-        <ul className="grid gap-3 shell:grid-cols-2">
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3.5">
           {hooks.map((hook) => (
             <li
               key={hook.id}

@@ -2,13 +2,17 @@
 
 import { useActionState, useState } from "react";
 
+import { Icon, type IconName } from "@/components/icons";
 import {
   Button,
   Card,
   Notice,
   Pill,
+  cx,
   formatCount,
   inputClass,
+  segmentedItem,
+  segmentedTrack,
 } from "@/components/ui";
 import {
   generateDraftHooksAction,
@@ -38,12 +42,12 @@ import {
 
 const EMPTY: StudioFormState = {};
 
-const STAGE_ICON: Record<ScriptStage, string> = {
-  topic: "💡",
-  research: "📖",
-  hook: "⚿",
-  style: "🖌",
-  script: "📄",
+const STAGE_ICON: Record<ScriptStage, IconName> = {
+  topic: "ideas",
+  research: "drafts",
+  hook: "hooks",
+  style: "paint",
+  script: "scripts",
 };
 
 export function ScriptBuilder({
@@ -81,29 +85,41 @@ export function ScriptBuilder({
 
   return (
     <div className="flex flex-col gap-4">
-      <nav className="flex flex-wrap items-center gap-1 rounded-lg bg-chip p-1">
-        <span className="px-2 text-[13px] text-faint">Jump to:</span>
-        {SCRIPT_STAGES.map((item) => (
-          <form key={item} action={goToStageAction}>
-            <input type="hidden" name="draft_id" value={draft.id} />
-            <input type="hidden" name="stage" value={item} />
-            <button
-              type="submit"
-              onClick={() => setStage(item)}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[14.5px] transition ${
-                stage === item
-                  ? "bg-chip font-medium text-ink"
-                  : "text-muted hover:text-ink"
-              }`}
-            >
-              <span aria-hidden>{STAGE_ICON[item]}</span>
-              {STAGE_LABELS[item]}
-              {isDone(draft, item) ? (
-                <span className="text-ok">✓</span>
-              ) : null}
-            </button>
-          </form>
-        ))}
+      <nav className="flex flex-wrap items-center gap-2.5">
+        <span className="text-[13px] font-semibold text-faint">Jump to:</span>
+        <div className={cx(segmentedTrack, "flex-wrap")}>
+          {SCRIPT_STAGES.map((item, index) => (
+            <form key={item} action={goToStageAction}>
+              <input type="hidden" name="draft_id" value={draft.id} />
+              <input type="hidden" name="stage" value={item} />
+              <button
+                type="submit"
+                onClick={() => setStage(item)}
+                aria-pressed={stage === item}
+                className={segmentedItem(
+                  stage === item,
+                  "flex items-center gap-2 px-3.5",
+                )}
+              >
+                <span
+                  aria-hidden
+                  className={cx(
+                    "font-display flex h-[18px] w-[18px] items-center justify-center rounded-full text-[10.5px] font-bold",
+                    isDone(draft, item)
+                      ? "bg-ok text-white"
+                      : stage === item
+                        ? "bg-accent-soft text-accent"
+                        : "bg-line text-faint",
+                  )}
+                >
+                  {isDone(draft, item) ? "✓" : index + 1}
+                </span>
+                <Icon name={STAGE_ICON[item]} className="h-4 w-4" />
+                {STAGE_LABELS[item]}
+              </button>
+            </form>
+          ))}
+        </div>
       </nav>
 
       {!aiEnabled ? (
@@ -164,15 +180,21 @@ function StageCard({
 }) {
   return (
     <Card className="p-0">
-      <div className="border-b border-line px-5 py-4">
-        <h2 className="text-[14.5px] font-semibold">{title}</h2>
-        {hint ? <p className="mt-1 text-[13px] text-faint">{hint}</p> : null}
+      <div className="border-b border-line px-6 py-5">
+        <h2 className="font-display text-[17px] font-bold tracking-[-0.01em] text-ink">
+          {title}
+        </h2>
+        {hint ? (
+          <p className="mt-1.5 text-[13.5px]/[20px] text-pretty text-faint">
+            {hint}
+          </p>
+        ) : null}
       </div>
-      <div className="px-5 py-4">{children}</div>
+      <div className="px-6 py-5">{children}</div>
       {next || actions ? (
-        <div className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-3">
+        <div className="flex flex-wrap items-center gap-3 border-t border-line px-6 py-4">
           {next ? (
-            <span className="text-[13px] text-faint">Next step: {next}</span>
+            <span className="text-[13.5px] text-faint">Next step: {next}</span>
           ) : null}
           <div className="ml-auto flex gap-2">{actions}</div>
         </div>
