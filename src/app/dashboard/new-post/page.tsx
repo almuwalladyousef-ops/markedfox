@@ -119,7 +119,7 @@ export default async function ComposePage({
         <Card className="p-6">
           <p className="text-[13.5px] text-muted">
             No accounts are connected in this workspace yet.{" "}
-            <Link href="/dashboard/accounts" className="text-accent underline">
+            <Link href="/dashboard/settings/accounts" className="text-accent underline">
               Connect one on the dashboard
             </Link>{" "}
             and come back.

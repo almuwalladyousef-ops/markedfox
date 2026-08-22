@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 
 import { Icon } from "@/components/icons";
-import { TwoPane, buttonClass, cx } from "@/components/ui";
+import { TwoPane, buttonClass } from "@/components/ui";
 
 // The feed's toolbar, and the two-pane it opens.
 //

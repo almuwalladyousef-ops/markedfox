@@ -37,7 +37,7 @@ export function buildSteps(facts: OnboardingFacts): OnboardingStep[] {
       title: "Connect an account",
       detail:
         "Everything else needs one. Instagram first if you plan to use the DM automations — it is the only platform that has them today.",
-      href: "/dashboard/accounts",
+      href: "/dashboard/settings/accounts",
       cta: "Connect",
       done: facts.connectedPlatforms.length > 0,
     },

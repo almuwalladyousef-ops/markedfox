@@ -14,7 +14,7 @@ export async function disconnectAccountAction(formData: FormData): Promise<void>
   await requireUser();
   const connectionId = String(formData.get("connection_id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(connectionId)) {
-    redirect("/dashboard/accounts?disconnect_error=1");
+    redirect("/dashboard/settings/accounts?disconnect_error=1");
   }
 
   const supabase = await createClient();
@@ -24,11 +24,11 @@ export async function disconnectAccountAction(formData: FormData): Promise<void>
     name = row.platform_account_name ?? row.platform;
   } catch (error) {
     if (error instanceof ConnectionNotFoundError) {
-      redirect("/dashboard/accounts?disconnect_error=1");
+      redirect("/dashboard/settings/accounts?disconnect_error=1");
     }
     throw error;
   }
 
-  revalidatePath("/dashboard/accounts");
-  redirect(`/dashboard/accounts?disconnected=${encodeURIComponent(name)}`);
+  revalidatePath("/dashboard/settings/accounts");
+  redirect(`/dashboard/settings/accounts?disconnected=${encodeURIComponent(name)}`);
 }

@@ -208,7 +208,7 @@ export default async function AutomationsPage({
         {accounts.length === 0 ? (
           <p className="mt-2.5 text-[14px]/[21px] text-pretty text-muted">
             Connect an Instagram account on the{" "}
-            <Link href="/dashboard/accounts" className="underline">
+            <Link href="/dashboard/settings/accounts" className="underline">
               dashboard
             </Link>{" "}
             first. Automation runs on Instagram today; Facebook Pages follow.

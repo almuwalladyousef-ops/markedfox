@@ -4,10 +4,10 @@ import {
   Button,
   Card,
   CardTitle,
+  Meter,
   Notice,
   Page,
-  PageHeader,
-  Stat,
+  Pill,
 } from "@/components/ui";
 import { signOut } from "@/lib/auth/actions";
 import { requireUser } from "@/lib/auth/session";
@@ -24,10 +24,11 @@ import { getActiveWorkspace } from "@/lib/workspaces/store";
 import { buildSteps, progress } from "@/lib/onboarding/steps";
 import { getOnboarding } from "@/lib/onboarding/store";
 
+import { Pane } from "../pane";
 import { OnboardingPanel } from "./onboarding-panel";
 import { PlatformToggles, type PlatformRow } from "./platform-toggles";
 
-export const metadata: Metadata = { title: "Accounts · MarkedFox" };
+export const metadata: Metadata = { title: "Connected accounts · MarkedFox" };
 
 // What each connect failure means, in words the person reading it can act on.
 // `provider_error` carries the platform's own sentence in connect_detail
@@ -223,19 +224,24 @@ export default async function AccountsPage({
   });
 
 
-  return (
-    <Page width="max-w-[980px]">
-      <PageHeader
-        title="Accounts"
-        subtitle={
-          <>
-            Connecting into <span className="text-ink">{active.name}</span>.
-            Posts, DMs and credits are shared across all your workspaces;
-            connected accounts belong to this one.
-          </>
-        }
-      />
+  const connectedCount = connections.length;
 
+  return (
+    <Pane
+      title="Connected accounts"
+      blurb={
+        <>
+          Connecting into <span className="text-ink">{active.name}</span>. Posts,
+          DMs and credits are shared across all your workspaces; connected
+          accounts belong to this one.
+        </>
+      }
+      actions={
+        <Pill tone={connectedCount > 0 ? "ok" : "neutral"}>
+          {connectedCount} of {rows.length} connected
+        </Pill>
+      }
+    >
       {params.connect_error ? (
         <Notice tone="danger">
           {CONNECT_ERRORS[params.connect_error] ??
@@ -270,73 +276,63 @@ export default async function AccountsPage({
         />
       ) : null}
 
-      <Card>
+      <Card className="px-6 py-5">
+        <PlatformToggles rows={rows} />
+      </Card>
+
+      <Card className="px-6 py-5">
         <CardTitle
           hint="pooled figures are shared across every workspace you own"
           action={
-            <span className="font-display text-[17px] font-bold capitalize">
+            <Pill tone="accent" className="capitalize">
               {snapshot.planId}
-            </span>
+            </Pill>
           }
         >
-          Plan
+          Usage
         </CardTitle>
 
-        <dl className="mt-3.5 grid grid-cols-2 gap-2.5 shell:grid-cols-3">
-          <Stat
+        {/* Meters rather than "4 / unlimited": a bar and a number mean two
+            different things, and an unlimited entry gets the chip instead,
+            because a full bar and a bar with no ceiling look identical. */}
+        <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-6">
+          <Meter
             label="Posts today"
-            value={limitText(snapshot.usage.postsToday, snapshot.limits.postsPerDay)}
-            note="pooled"
+            used={snapshot.usage.postsToday}
+            limit={snapshot.limits.postsPerDay}
+            note="Pooled across your workspaces"
           />
-          <Stat
+          <Meter
             label="X posts this month"
-            value={limitText(
-              snapshot.usage.xPostsThisMonth,
-              snapshot.limits.xPostsPerMonth,
-            )}
+            used={snapshot.usage.xPostsThisMonth}
+            limit={snapshot.limits.xPostsPerMonth}
             note="X charges per post — never unlimited"
           />
-          <Stat
+          <Meter
             label="DM sends this month"
-            value={limitText(
-              snapshot.usage.dmSendsThisMonth,
-              snapshot.limits.dmSendsPerMonth,
-            )}
-            note="pooled"
+            used={snapshot.usage.dmSendsThisMonth}
+            limit={snapshot.limits.dmSendsPerMonth}
+            note="Pooled across your workspaces"
           />
-          <Stat
+          <Meter
             label="DM rules"
-            value={limitText(snapshot.usage.dmRuleCount, snapshot.limits.dmRulesMax)}
-            note="pooled"
+            used={snapshot.usage.dmRuleCount}
+            limit={snapshot.limits.dmRulesMax}
+            note="Pooled across your workspaces"
           />
-          <Stat
+          <Meter
             label="Accounts here"
-            value={limitText(
-              snapshot.usage.connectedAccountsInWorkspace,
-              snapshot.limits.maxConnectedAccountsPerWorkspace,
-            )}
-            note="per workspace"
+            used={snapshot.usage.connectedAccountsInWorkspace}
+            limit={snapshot.limits.maxConnectedAccountsPerWorkspace}
+            note="Counted per workspace, not pooled"
           />
-          <Stat
+          <Meter
             label="Workspaces"
-            value={limitText(
-              snapshot.usage.workspaceCount,
-              snapshot.limits.maxWorkspaces,
-            )}
+            used={snapshot.usage.workspaceCount}
+            limit={snapshot.limits.maxWorkspaces}
           />
-        </dl>
+        </div>
       </Card>
-
-      <Card>
-        <CardTitle hint="one outside your plan wears a 💎 and says what upgrading buys">
-          Platforms
-        </CardTitle>
-        <PlatformToggles rows={rows} />
-      </Card>
-    </Page>
+    </Pane>
   );
-}
-
-function limitText(used: number, limit: number | null): string {
-  return limit === null ? `${used} / unlimited` : `${used} / ${limit}`;
 }

@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 
-import { Button, ButtonLink, FoxMark } from "@/components/ui";
+import { Icon, PlanDiamond } from "@/components/icons";
+import { PlatformTile } from "@/components/platform-icon";
+import { Button, ButtonLink, FoxMark, Pill, cx } from "@/components/ui";
 import { disconnectAccountAction } from "@/lib/connections/actions";
 import type { Platform } from "@/lib/platforms/types";
 
@@ -50,7 +52,7 @@ export function PlatformToggles({ rows }: { rows: PlatformRow[] }) {
 
   return (
     <>
-      <ul className="mt-3 flex flex-col">
+      <ul className="flex flex-col">
         {rows.map((row) => {
           const on = row.connected.length > 0;
           const blocked = !row.included || row.atAccountCap || !row.configured;
@@ -58,47 +60,69 @@ export function PlatformToggles({ rows }: { rows: PlatformRow[] }) {
           return (
             <li
               key={row.id}
-              className="flex items-center justify-between gap-4 border-t border-line px-1.5 py-[11px] first:border-t-0"
+              className="flex items-center gap-4 border-t border-line py-4 first:border-t-0 first:pt-0 last:pb-0"
             >
-              <span className="flex min-w-0 flex-wrap items-center gap-2">
-                <span className="text-[13.5px] font-semibold text-ink">
-                  {row.label}
+              <PlatformTile platform={row.id} size={40} />
+
+              <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="text-[15px] font-semibold text-ink">
+                    {row.label}
+                  </span>
+
+                  {on ? (
+                    <Pill tone="ok">
+                      <span
+                        aria-hidden
+                        className="h-[6px] w-[6px] rounded-full bg-ok"
+                      />
+                      Connected
+                    </Pill>
+                  ) : !row.included && row.upgradeNote ? (
+                    <Pill tone="accent" title={row.reason}>
+                      <PlanDiamond className="h-2.5 w-2.5" />
+                      {row.upgradeNote}
+                    </Pill>
+                  ) : !row.configured ? (
+                    <Pill tone="info" title={row.configReason}>
+                      Setup needed
+                    </Pill>
+                  ) : (
+                    <Pill tone="neutral">Not connected</Pill>
+                  )}
                 </span>
 
-                {row.connected.map((account) => (
-                  <span
-                    key={account.id}
-                    className="inline-flex max-w-[14rem] items-center gap-1 rounded-full bg-chip py-1 pr-1.5 pl-2.5 text-[11.5px] text-muted"
-                  >
-                    <span className="truncate">{account.name}</span>
-                    <DisconnectButton
-                      account={account}
-                      platformLabel={row.label}
-                    />
-                  </span>
-                ))}
-
-                {!row.included && row.upgradeNote ? (
-                  <span
-                    title={row.reason}
-                    className="rounded-full bg-accent-soft px-2 py-[3px] text-[11px] font-semibold text-accent"
-                  >
-                    💎 {row.upgradeNote}
+                {row.connected.length > 0 ? (
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    {row.connected.map((account) => (
+                      <span
+                        key={account.id}
+                        className="inline-flex max-w-[14rem] items-center gap-1 rounded-full bg-chip py-1 pr-1.5 pl-2.5 text-[12.5px] text-muted"
+                      >
+                        <span className="truncate">{account.name}</span>
+                        <DisconnectButton
+                          account={account}
+                          platformLabel={row.label}
+                        />
+                      </span>
+                    ))}
                   </span>
                 ) : null}
 
-                {row.included && !row.configured ? (
-                  <span
-                    title={row.configReason}
-                    className="rounded-full bg-sky-soft px-2 py-[3px] text-[11px] font-semibold text-sky"
-                  >
-                    Setup needed
-                  </span>
-                ) : null}
-
-                {row.included && row.note ? (
-                  <span className="text-[11.5px] text-faint">{row.note}</span>
-                ) : null}
+                {/* One sentence saying what this row's state actually means.
+                    A badge alone reads as a status; the sentence is what tells
+                    somebody what to do next. */}
+                <span className="text-[13px]/[19px] text-pretty text-faint">
+                  {row.included && row.note
+                    ? row.note
+                    : !row.included
+                      ? row.reason
+                      : !row.configured
+                        ? row.configReason
+                        : on
+                          ? "Posting and reading work. Toggle to add another account."
+                          : `Connect to publish to ${row.label} from the composer.`}
+                </span>
               </span>
 
               <Toggle
@@ -149,9 +173,9 @@ function DisconnectButton({
         type="submit"
         aria-label={`Disconnect ${account.name} from ${platformLabel}`}
         title="Disconnect"
-        className="rounded px-0.5 text-faint transition hover:text-danger"
+        className="rounded p-0.5 text-faint transition-[color] duration-150 hover:text-danger"
       >
-        ×
+        <Icon name="close" className="h-3 w-3" />
       </button>
     </form>
   );
@@ -170,12 +194,14 @@ function Toggle({
   onBlockedClick: () => void;
   label: string;
 }) {
-  const track = `relative inline-flex h-[22px] w-10 shrink-0 items-center rounded-full transition ${
-    on ? "bg-ok" : "bg-chip"
-  }`;
-  const knob = `inline-block h-4 w-4 rounded-full shadow-[0_1px_3px_rgba(0,0,0,.3)] transition-transform duration-150 ${
-    on ? "translate-x-[21px] bg-white" : "translate-x-[3px] bg-faint"
-  }`;
+  const track = cx(
+    "relative block h-[26px] w-[46px] shrink-0 rounded-full transition-[background-color] duration-[180ms]",
+    on ? "bg-ok" : "bg-line hover:bg-line-strong",
+  );
+  const knob = cx(
+    "absolute top-[3px] left-0 h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.22)] transition-transform duration-[180ms]",
+    on ? "translate-x-[23px]" : "translate-x-[3px]",
+  );
 
   // Blocked toggles are still buttons, not disabled controls: a disabled
   // switch tells the user nothing, whereas this one explains itself.
@@ -187,7 +213,7 @@ function Toggle({
         aria-label={label}
         className={track}
       >
-        <span className={knob} />
+        <span aria-hidden className={knob} />
       </button>
     );
   }
@@ -196,9 +222,9 @@ function Toggle({
     <a
       href={href}
       aria-label={label}
-      className={`${track} hover:brightness-[1.08]`}
+      className={track}
     >
-      <span className={knob} />
+      <span aria-hidden className={knob} />
     </a>
   );
 }
@@ -222,14 +248,14 @@ function UpgradeDialog({
         onClick={(event) => event.stopPropagation()}
       >
         <FoxMark className="h-[38px]" />
-        <h3 className="font-display mt-3 text-lg font-semibold text-ink">
+        <h3 className="font-display mt-3 text-[19px] font-bold tracking-[-0.01em] text-ink">
           {!row.included
             ? `${row.label} is on paid plans`
             : !row.configured
               ? `${row.label} is not switched on yet`
               : "You are out of slots"}
         </h3>
-        <p className="mt-2 text-[13.5px]/[20px] text-muted">
+        <p className="mt-2.5 text-[14.5px]/[22px] text-pretty text-muted">
           {!row.included
             ? row.reason
             : !row.configured
@@ -238,7 +264,7 @@ function UpgradeDialog({
         </p>
 
         {row.included && !row.configured ? (
-          <p className="mt-3 rounded-lg border border-line bg-chip px-3 py-2 text-xs text-muted">
+          <p className="mt-4 rounded-xl border border-line bg-chip px-3.5 py-3 text-[13px]/[19px] text-pretty text-muted">
             Nothing is wrong with your account — this one needs a developer app
             and its keys added to the deployment before anybody can connect it.
             Everything else on the list works today.
@@ -246,7 +272,7 @@ function UpgradeDialog({
         ) : null}
 
         {row.id === "x" ? (
-          <p className="mt-3 rounded-lg border border-line bg-chip px-3 py-2 text-xs text-muted">
+          <p className="mt-4 rounded-xl border border-line bg-chip px-3.5 py-3 text-[13px]/[19px] text-pretty text-muted">
             X charges $0.015 per post through its API — and 13x more with an
             external link — so X carries a hard monthly number on every plan
             rather than being unlimited.

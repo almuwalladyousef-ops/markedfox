@@ -15,7 +15,7 @@ export function DeleteAccountForm() {
 
   return (
     <form action={formAction} className="mt-4 flex flex-col gap-3">
-      <label htmlFor="confirm" className="text-sm text-ink">
+      <label htmlFor="confirm" className="text-[14.5px] text-ink">
         Type <span className="font-mono font-semibold">{DELETE_CONFIRMATION_WORD}</span> to
         confirm
       </label>
@@ -25,17 +25,17 @@ export function DeleteAccountForm() {
         type="text"
         autoComplete="off"
         required
-        className="max-w-xs rounded-[10px] border border-line bg-chip px-3 py-2 text-[13.5px] text-ink outline-none transition focus:border-danger"
+        className="max-w-xs rounded-[10px] border border-line bg-panel px-3.5 py-[10px] text-[14.5px] text-ink outline-none transition-[border-color] duration-150 focus:border-danger"
       />
       {state.message ? (
-        <p aria-live="polite" className="text-sm text-danger">
+        <p aria-live="polite" className="text-[14px] text-danger">
           {state.message}
         </p>
       ) : null}
       <button
         type="submit"
         disabled={pending}
-        className="w-fit rounded-[10px] border border-danger px-4 py-2 text-[13px] font-semibold text-danger transition hover:bg-danger hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+        className="w-fit rounded-[10px] border border-danger px-4 py-2.5 text-[14px] font-semibold text-danger transition-[background,color] duration-150 hover:bg-danger hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
       >
         {pending ? "Deleting…" : "Delete my account…"}
       </button>

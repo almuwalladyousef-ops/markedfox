@@ -13,6 +13,11 @@ import {
   cx,
   formatCount,
 } from "@/components/ui";
+import {
+  POST_TYPES,
+  POST_TYPE_LABELS,
+  getProfile,
+} from "@/lib/account/preferences";
 import { refreshAccountsAction } from "@/lib/accounts/actions";
 import {
   listAccountMedia,
@@ -25,7 +30,7 @@ import { requireUser } from "@/lib/auth/session";
 import { listConnections, type ConnectionRow } from "@/lib/connections/store";
 import { PLATFORM_LABELS } from "@/lib/platforms/labels";
 import { getPlatform } from "@/lib/platforms/registry";
-import type { AccountMediaKind, Platform } from "@/lib/platforms/types";
+import { PLATFORMS, type AccountMediaKind, type Platform } from "@/lib/platforms/types";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
@@ -53,12 +58,11 @@ export const metadata: Metadata = { title: "Home · MarkedFox" };
 // on X, billed per request — a page that refreshed on every load would spend
 // every user's share of one shared budget on people idly reloading.
 
-const KINDS: { id: AccountMediaKind | null; label: string; icon: IconName }[] = [
-  { id: null, label: "All", icon: "grid" },
-  { id: "video", label: "Short videos", icon: "play" },
-  { id: "photo", label: "Photos", icon: "image" },
-  { id: "text", label: "Text posts", icon: "drafts" },
-];
+const KIND_ICONS: Record<AccountMediaKind, IconName> = {
+  video: "play",
+  photo: "image",
+  text: "drafts",
+};
 
 /** Which of the four shapes a single account's posts are laid out in. */
 type GridShape = "masonry" | "square" | "vertical" | "timeline";
@@ -135,16 +139,41 @@ export default async function HomePage({
   const page = Math.max(0, Math.min(20, Number(params.page ?? 0) || 0));
 
   const supabase = await createClient();
-  const [connections, profiles] = await Promise.all([
+  const [connections, profiles, preferences] = await Promise.all([
     listConnections(supabase, active.id),
     listAccountProfiles(supabase, active.id),
+    getProfile(supabase, user.id).then((row) => row?.preferences ?? null),
   ]);
 
+  // Settings › Platform priority decides which account the arrows reach first.
+  // Within a platform the connection order is kept, so somebody with two
+  // Instagram accounts still walks them in the order they connected them.
+  const platformRank = new Map(
+    (preferences?.platformOrder ?? PLATFORMS).map((platform, index) => [
+      platform,
+      index,
+    ]),
+  );
   const byConnection = new Map(profiles.map((row) => [row.connectionId, row]));
-  const accounts: AccountEntry[] = connections.map((connection) => ({
-    connection,
-    profile: byConnection.get(connection.id) ?? null,
-  }));
+  const accounts: AccountEntry[] = connections
+    .map((connection) => ({
+      connection,
+      profile: byConnection.get(connection.id) ?? null,
+    }))
+    .sort(
+      (a, b) =>
+        (platformRank.get(a.connection.platform) ?? 99) -
+        (platformRank.get(b.connection.platform) ?? 99),
+    );
+
+  const kinds: { id: AccountMediaKind | null; label: string; icon: IconName }[] = [
+    { id: null, label: "All", icon: "grid" },
+    ...(preferences?.postTypeOrder ?? POST_TYPES).map((id) => ({
+      id,
+      label: POST_TYPE_LABELS[id],
+      icon: KIND_ICONS[id],
+    })),
+  ];
 
   // The carousel: "all" plus one stop per connected account, in the order they
   // were connected, so ‹ › always walks the same ring.
@@ -193,7 +222,7 @@ export default async function HomePage({
         <EmptyState
           title="Nothing connected yet"
           action={
-            <ButtonLink href="/dashboard/accounts" tone="primary">
+            <ButtonLink href="/dashboard/settings/accounts" tone="primary">
               Connect an account
             </ButtonLink>
           }
@@ -225,7 +254,7 @@ export default async function HomePage({
       {failed.length > 0 ? (
         <Notice tone="warn">
           {readFailureNotice(failed)}{" "}
-          <Link href="/dashboard/accounts" className="underline">
+          <Link href="/dashboard/settings/accounts" className="underline">
             Manage accounts
           </Link>
         </Notice>
@@ -322,7 +351,7 @@ export default async function HomePage({
 
       {/* ── what kind of post ────────────────────────────────────────────── */}
       <nav className="flex flex-wrap justify-center gap-1.5">
-        {KINDS.map((option) => {
+        {kinds.map((option) => {
           const on = kind === option.id;
           return (
             <Link
