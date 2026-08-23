@@ -1243,11 +1243,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 - **2026-08-22 — the second design handoff, implemented.** See
   `sessions/2026-08-22-dashboard-redesign.md`. Branch
-  `claude/handoff-completion-2d2d54`, eight commits, **not merged and not
-  deployed.**
+  `claude/handoff-completion-2d2d54`, nine commits, merged to `main`.
 
   A README with every measurement in it, one interactive HTML prototype, and a
-  screen-to-file map. The brief was "easier to read, easier to understand,
+  screen-to-file map. **Merged and deployed the same day: `b2991f5` is live.** The brief was "easier to read, easier to understand,
   less bulky", with a restructure rather than a polish pass.
 
   *Three things underneath every screen.* An **icon set** —
