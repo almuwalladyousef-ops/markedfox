@@ -337,6 +337,46 @@ Verification. Confirm on each form rather than assuming.
   yet; the scaffold keeps publish/connect/entitlement logic in route handlers
   and `lib/`, never inlined into React Server Components, so a native client
   calls the same endpoints.
+- **A public API and an MCP server: yes, both, and both after launch**
+  (owner decision 2026-08-22). Recorded so it is not re-argued.
+
+  *API keys are the substrate and the MCP server is one consumer of them.*
+  Keys are what buy Zapier, Make, n8n, agencies scripting bulk posts, and the
+  MCP server, for no per-integration work — and Buffer and ManyChat both ship
+  an API, so past some size its absence is the thing people notice. They have
+  a permanent cost: hashed at rest and never retrievable after creation,
+  scoped, revocable, audited per key, and rate-limited separately from the UI
+  because a key is a loop rather than a person. Every keyed route runs
+  `canUserDo` server-side, which the publish path already does.
+
+  Note that native does **not** need this. Supabase has native SDKs, so the
+  iOS and Android apps hold a session the way the web does. Keys stand on
+  their own merits.
+
+  *The MCP server is a thin wrapper over that same HTTP API and never its own
+  engine* — the moment it grows logic of its own it is a fourth pillar with
+  its own bugs. Its honest value is "post this everywhere" and "turn this
+  outlier into a script" from a chat client. The DM engine, which is the
+  actual differentiator, is not something anybody drives from a chat window.
+
+  **Trigger:** first paying customers, or the first customer who asks.
+  Approvals are the launch schedule and none of this touches them.
+
+  **One fork to decide then, not now:** a *local* MCP (an npx package, the
+  user pastes a key) is a weekend; a *remote* one at `markedfox.com/mcp` needs
+  OAuth 2.1 and makes MarkedFox an OAuth provider, guarding other people's
+  encrypted platform tokens. Start local; go remote only if people use it.
+- **The owner's own MCP is a separate, much smaller thing** (owner decision
+  2026-08-22), and it comes **after the data is verified against real
+  connected accounts** — an MCP over numbers nobody has checked only launders
+  wrong numbers into a chat window at speed.
+
+  It is single-user and local, so almost none of the cost above applies: no
+  OAuth provider, no key-management UI, no rate limiting for strangers, no
+  consent screens. One `.mcp.json` entry pointing at a local process holding
+  the owner's own credentials. It is a tool for running MarkedFox, not a
+  product surface, and it must not be confused with the customer-facing one
+  above or it will drag that one's requirements along with it.
 
 ---
 
