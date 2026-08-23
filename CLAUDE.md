@@ -484,6 +484,39 @@ not out-featuring either incumbent at its own game.
    other chats/assistants live in `handoff/`** (`YYYY-MM-DD-topic.md`) — a
    handoff is written for a different reader than a session log and never
    contains secrets.
+8. **Every code change ends deployed** (owner standing instruction,
+   2026-08-22). Work is not finished on a branch; it is finished on
+   `markedfox.com`. Do not stop to ask — merge to `main`, push, and deploy.
+
+   The full sequence, every time:
+
+   ```
+   npm run build && npx tsc --noEmit && npx eslint src && npx vitest run
+   git checkout main && git merge <branch> && git push
+   supabase db push --linked          # only if there are new migrations
+   ssh deploy@markedfox.com 'sudo bash /srv/markedfox/current/deploy/deploy.sh'
+   curl -sS -o /dev/null -w '%{http_code}' https://markedfox.com/
+   ```
+
+   Four things that are not optional:
+
+   - **Green first.** Rule 6 already gates the commit; this gates the deploy.
+     A red build deploys nothing, because `deploy.sh` builds on the box and
+     leaves the old release running if it fails.
+   - **Migrations before code.** Push the migration first and write it so the
+     currently-running code survives it — added nullable columns, never a
+     rename or a drop in the same release. The old release keeps serving for
+     the minute the new one takes to build.
+   - **`deploy@`, never `root@`.** Root login is off by design and one failed
+     root attempt bans the whole IP through fail2ban for about fifteen
+     minutes, locking out the owner's machine too.
+   - **Never `--skip-snapshot`.** The DigitalOcean snapshot `deploy.sh` takes
+     is the entire rollback story (rule 5).
+
+   The one exception: a change that touches only `sessions/`, `handoff/` or
+   `CLAUDE.md` still gets committed and pushed, but needs no deploy — nothing
+   the server runs has changed, and a rebuild-and-restart for a markdown file
+   is a minute of downtime risk for nothing.
 
 ---
 
