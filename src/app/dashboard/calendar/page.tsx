@@ -159,11 +159,13 @@ export default async function CalendarPage() {
       };
     });
 
+  // Full-width rather than the usual reading measure: a month grid squeezed
+  // into 1080px wastes the two-thirds of the screen a calendar is for.
   return (
-    <Page width="max-w-[1240px]">
+    <Page width="max-w-none">
       {/* The grid reads the view and date from the URL, which needs Suspense
           in an app-router page. */}
-      <Suspense fallback={<p className="text-sm text-faint">Loading…</p>}>
+      <Suspense fallback={<p className="text-[14px] text-faint">Loading…</p>}>
         <CalendarGrid posts={posts} accounts={accounts} today={now.toISOString()} />
       </Suspense>
     </Page>

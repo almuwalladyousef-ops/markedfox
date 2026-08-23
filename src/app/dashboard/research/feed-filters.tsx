@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { Button, inputClass } from "@/components/ui";
+import { Icon } from "@/components/icons";
+import { Button, Eyebrow, cx, inputClass } from "@/components/ui";
 import {
   FEED_DEFAULTS,
   SORT_LABELS,
@@ -51,19 +52,17 @@ export function FeedFilters({
   return (
     <form
       method="get"
-      className="flex flex-col gap-3.5 rounded-xl border border-line bg-panel p-3.5"
+      className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-4"
     >
       <div className="flex items-center justify-between">
-        <p className="text-[9.5px] font-bold tracking-[0.12em] text-faint uppercase">
-          Filters
-        </p>
+        <Eyebrow>Filters</Eyebrow>
         {parsed.active ? (
           // A link rather than a reset button: reset would restore the values
           // the page loaded with, which is the opposite of what "Clear" means
           // once a filter is already applied.
           <Link
             href="/dashboard/research"
-            className="text-xs text-faint transition hover:text-ink"
+            className="text-[13px] font-semibold text-faint transition hover:text-ink"
           >
             Clear
           </Link>
@@ -71,21 +70,24 @@ export function FeedFilters({
       </div>
 
       <label className="block">
-        <span className="text-xs font-semibold text-muted">Channels</span>
+        <span className="text-[13px] font-semibold text-muted">Channels</span>
         <button
           type="button"
           onClick={() => setChannelsOpen((v) => !v)}
-          className={`${inputClass} mt-1.5 flex items-center justify-between text-left`}
+          className={cx(inputClass, "mt-2 flex items-center justify-between text-left")}
         >
           <span className="truncate">{selectedLabel}</span>
-          <span className="text-faint">{channelsOpen ? "▴" : "▾"}</span>
+          <Icon
+            name={channelsOpen ? "chevronUp" : "chevronDown"}
+            className="h-3.5 w-3.5 text-faint"
+          />
         </button>
       </label>
 
       {channelsOpen ? (
-        <div className="-mt-2 max-h-64 overflow-y-auto rounded-lg border border-line">
+        <div className="-mt-2 max-h-64 overflow-y-auto rounded-xl border border-line">
           {channels.length === 0 ? (
-            <p className="px-3 py-3 text-xs text-faint">
+            <p className="px-3 py-3 text-[13px] text-faint">
               No channels yet.
             </p>
           ) : (
@@ -94,7 +96,7 @@ export function FeedFilters({
                 const checked = selected.includes(channel.id);
                 return (
                   <li key={channel.id}>
-                    <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-[12.5px] text-ink transition hover:bg-chip">
+                    <label className="flex cursor-pointer items-center gap-2.5 px-3 py-2 text-[13.5px] text-ink transition-[background] duration-150 hover:bg-chip">
                       <input
                         type="checkbox"
                         name="source"
@@ -107,12 +109,12 @@ export function FeedFilters({
                               : current.filter((id) => id !== channel.id),
                           )
                         }
-                        className="accent-accent"
+                        className="h-[15px] w-[15px] accent-[var(--accent)]"
                       />
                       <span className="min-w-0 flex-1 truncate">
                         {channel.handle ? `@${channel.handle}` : channel.title}
                       </span>
-                      <span className="shrink-0 text-[10px] text-faint uppercase">
+                      <span className="shrink-0 text-[11px] text-faint uppercase">
                         {channel.platform}
                       </span>
                     </label>
@@ -129,12 +131,12 @@ export function FeedFilters({
       )}
 
       <label className="block">
-        <span className="text-xs font-semibold text-muted">Keywords</span>
+        <span className="text-[13px] font-semibold text-muted">Keywords</span>
         <input
           name="q"
           defaultValue={form.keywords}
           placeholder="Search captions and titles"
-          className={`${inputClass} mt-1.5`}
+          className={cx(inputClass, "mt-2")}
         />
       </label>
 
@@ -174,7 +176,7 @@ export function FeedFilters({
       />
 
       <label className="block">
-        <span className="text-xs font-semibold text-muted">
+        <span className="text-[13px] font-semibold text-muted">
           Posted in last
         </span>
         <div className="mt-1.5 flex gap-2">
@@ -197,11 +199,11 @@ export function FeedFilters({
       </label>
 
       <label className="block">
-        <span className="text-xs font-semibold text-muted">Platform</span>
+        <span className="text-[13px] font-semibold text-muted">Platform</span>
         <select
           name="platform"
           defaultValue={form.platform}
-          className={`${inputClass} mt-1.5`}
+          className={cx(inputClass, "mt-2")}
         >
           <option value="">All platforms</option>
           <option value="youtube">YouTube</option>
@@ -212,15 +214,15 @@ export function FeedFilters({
       </label>
 
       <fieldset>
-        <legend className="text-xs font-semibold text-muted">Status</legend>
-        <div className="mt-1.5 flex flex-col gap-1.5 text-sm">
+        <legend className="text-[13px] font-semibold text-muted">Status</legend>
+        <div className="mt-2 flex flex-col gap-2 text-[14px]">
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
               name="status"
               value="analyzed"
               defaultChecked={form.analyzed}
-              className="accent-accent"
+              className="h-[15px] w-[15px] accent-[var(--accent)]"
             />
             Analyzed
           </label>
@@ -230,7 +232,7 @@ export function FeedFilters({
               name="status"
               value="unanalyzed"
               defaultChecked={form.unanalyzed}
-              className="accent-accent"
+              className="h-[15px] w-[15px] accent-[var(--accent)]"
             />
             Unanalyzed
           </label>
@@ -238,11 +240,11 @@ export function FeedFilters({
       </fieldset>
 
       <label className="block">
-        <span className="text-xs font-semibold text-muted">Sort by</span>
+        <span className="text-[13px] font-semibold text-muted">Sort by</span>
         <select
           name="sort"
           defaultValue={form.sort}
-          className={`${inputClass} mt-1.5`}
+          className={cx(inputClass, "mt-2")}
         >
           {(Object.keys(SORT_LABELS) as FeedSort[]).map((key) => (
             <option key={key} value={key}>
@@ -257,7 +259,7 @@ export function FeedFilters({
       </Button>
 
       {savedCount > 0 ? (
-        <p className="text-[11px] text-faint">
+        <p className="text-[12.5px] text-faint">
           {savedCount} saved {savedCount === 1 ? "filter" : "filters"} above.
         </p>
       ) : null}
@@ -285,7 +287,7 @@ function Range({
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-semibold text-muted">{label}</span>
+      <span className="text-[13px] font-semibold text-muted">{label}</span>
       <div className="mt-1.5 flex items-center gap-2">
         <input
           type="number"
@@ -295,7 +297,7 @@ function Range({
           min={0}
           className={`${inputClass} w-full`}
         />
-        <span className="text-xs text-faint">–</span>
+        <span className="text-[13px] text-faint">–</span>
         <div className="relative w-full">
           <input
             type="number"
@@ -307,7 +309,7 @@ function Range({
             className={inputClass}
           />
           {suffix ? (
-            <span className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-xs text-faint">
+            <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-[13px] text-faint">
               {suffix}
             </span>
           ) : null}

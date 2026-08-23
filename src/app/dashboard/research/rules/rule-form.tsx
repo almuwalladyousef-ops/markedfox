@@ -2,7 +2,8 @@
 
 import { useActionState, useState } from "react";
 
-import { Button, Card, Field, Notice, inputClass } from "@/components/ui";
+import { Icon } from "@/components/icons";
+import { Button, Card, Field, Notice, Toggle, inputClass } from "@/components/ui";
 import {
   saveAutomationAction,
   type StudioFormState,
@@ -28,7 +29,10 @@ export function RuleForm({
       <form action={action} className="flex flex-col gap-4">
         {rule ? <input type="hidden" name="id" value={rule.id} /> : null}
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        {/* auto-fit rather than a fixed two columns: this form is rendered
+            both full-width on the page and inside a rule card, and a hard
+            `sm:grid-cols-2` overflowed the narrower one. */}
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
           <Field label="Name">
             <input
               name="name"
@@ -109,30 +113,15 @@ export function RuleForm({
           </Field>
         </div>
 
-        <label className="flex items-center gap-3 text-sm">
-          <input
-            type="hidden"
-            name="active"
-            value={active ? "1" : "0"}
-          />
-          <button
-            type="button"
-            role="switch"
-            aria-checked={active}
-            aria-label="Active"
+        <div className="flex items-center gap-3">
+          <input type="hidden" name="active" value={active ? "1" : "0"} />
+          <Toggle
+            on={active}
+            label="Active"
             onClick={() => setActive((v) => !v)}
-            className={`relative h-5 w-10 rounded-full transition ${
-              active ? "bg-ok" : "bg-chip"
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 h-4 w-4 rounded-full bg-accent transition ${
-                active ? "translate-x-5" : "translate-x-1"
-              }`}
-            />
-          </button>
-          <span className="text-ink">Active</span>
-        </label>
+          />
+          <span className="text-[14.5px] font-semibold text-ink">Active</span>
+        </div>
 
         {state.message ? (
           <Notice tone={state.ok ? "ok" : "warn"}>{state.message}</Notice>
@@ -158,7 +147,8 @@ export function AddRule({ sources }: { sources: { id: string; label: string }[] 
   if (!open) {
     return (
       <Button tone="primary" size="sm" onClick={() => setOpen(true)}>
-        + Add rule
+        <Icon name="plus" className="h-4 w-4" strokeWidth={2.1} />
+        Add rule
       </Button>
     );
   }

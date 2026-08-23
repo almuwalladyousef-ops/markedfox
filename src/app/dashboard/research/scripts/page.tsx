@@ -35,7 +35,7 @@ export default async function ScriptsPage() {
   const allowed = canUserDo(snapshot, { type: "use_research" });
   if (!allowed.allowed) {
     return (
-      <Page width="max-w-[780px]">
+      <Page width="max-w-[980px]">
         <PageHeader title="Scripts" />
         <UpgradeCard title="Studio" reason={allowed.reason}>
           Topic, research, hook, style, script — five stages you can walk back
@@ -48,7 +48,7 @@ export default async function ScriptsPage() {
   const drafts = await listScriptDrafts(supabase, active.id);
 
   return (
-    <Page width="max-w-[780px]">
+    <Page width="max-w-[980px]">
       <PageHeader
         title="Scripts"
         subtitle="Every script is five stages you can walk back into: topic, research, hook, style, script."
@@ -76,30 +76,27 @@ export default async function ScriptsPage() {
           shape that already worked.
         </EmptyState>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3.5">
           {drafts.map((draft) => (
             <li key={draft.id}>
               <Link
                 href={`/dashboard/research/scripts/${draft.id}`}
-                className="flex items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3 transition hover:border-accent"
+                className="flex h-full flex-col gap-2.5 rounded-2xl border border-line bg-panel px-5 py-4 transition-[border-color] duration-150 hover:border-accent"
               >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] font-semibold text-ink">
+                <span className="flex items-start justify-between gap-3">
+                  <span className="font-display text-[16px]/[22px] font-bold tracking-[-0.01em] text-ink">
                     {draft.title}
                   </span>
-                  <span className="block truncate text-[11.5px] text-faint">
-                    {draft.chosen_hook
-                      ? `“${draft.chosen_hook}”`
-                      : (draft.topic ?? "No topic yet")}
-                  </span>
+                  <Pill tone={draft.script ? "ok" : "neutral"}>
+                    {draft.script ? "Written" : STAGE_LABELS[draft.stage]}
+                  </Pill>
                 </span>
-                <Pill
-                  tone={draft.script ? "ok" : "neutral"}
-                  className="text-[10.5px] font-bold"
-                >
-                  {draft.script ? "Written" : STAGE_LABELS[draft.stage]}
-                </Pill>
-                <span className="shrink-0 text-[11px] text-faint">
+                <span className="block text-[13.5px]/[20px] text-pretty text-muted">
+                  {draft.chosen_hook
+                    ? `“${draft.chosen_hook}”`
+                    : (draft.topic ?? "No topic yet")}
+                </span>
+                <span className="mt-auto pt-1 text-[13px] text-faint">
                   <LocalTime value={draft.updated_at} mode="date" />
                 </span>
               </Link>
@@ -108,7 +105,7 @@ export default async function ScriptsPage() {
         </ul>
       )}
 
-      <p className="text-[11.5px]/[17px] text-faint">
+      <p className="text-[13px]/[19px] text-faint">
         Or press <em>Create script</em> on any analysed video — the breakdown
         comes with it, so the script is built from a shape that already worked.
       </p>

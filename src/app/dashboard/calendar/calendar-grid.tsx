@@ -4,11 +4,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
 
-import { PlatformIcon } from "@/components/platform-icon";
+import { Icon } from "@/components/icons";
+import { PlatformIcon, PlatformTile } from "@/components/platform-icon";
 import {
   Button,
   ButtonLink,
+  buttonClass,
   cx,
+  iconButtonClass,
   inputClass,
   segmentedItem,
   segmentedTrack,
@@ -37,7 +40,7 @@ import {
 //
 // The posts come from the server as plain rows with ISO timestamps; every date
 // decision happens here. The view and the anchor date live in the URL so a
-// week can be linked to; the account filter and the search box are local
+// week can be linked to; the platform filter and the search box are local
 // state, because the whole window is already in memory and a round trip per
 // keystroke would be slower for no gain.
 
@@ -155,18 +158,29 @@ export function CalendarGrid({
   const anchor = fromDateParam(params.get("date") ?? undefined, new Date(today));
   const { days } = useMemo(() => rangeFor(view, anchor), [view, anchor]);
 
-  // An empty set means every account, which is what somebody who has never
-  // touched the filter expects — not an empty calendar.
-  const [onlyAccounts, setOnlyAccounts] = useState<Set<string>>(new Set());
+  // An empty set means every platform, which is what somebody who has never
+  // touched the filter expects — not an empty calendar. Several selected
+  // combine: Instagram and TikTok shows both.
+  const [onlyPlatforms, setOnlyPlatforms] = useState<Set<Platform>>(new Set());
   const [query, setQuery] = useState("");
   const [openPostId, setOpenPostId] = useState<string | null>(null);
+
+  // Only the platforms this workspace actually posts to. A filter row offering
+  // Pinterest to somebody with two Instagram accounts is six controls that do
+  // nothing, and it makes the two that matter harder to find.
+  const platforms = useMemo(
+    () => [...new Set(accounts.map((account) => account.platform))],
+    [accounts],
+  );
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return posts.filter((post) => {
       if (
-        onlyAccounts.size > 0 &&
-        !post.targets.some((target) => onlyAccounts.has(target.connectionId))
+        onlyPlatforms.size > 0 &&
+        !post.targets.some(
+          (target) => target.platform && onlyPlatforms.has(target.platform),
+        )
       ) {
         return false;
       }
@@ -176,7 +190,7 @@ export function CalendarGrid({
         post.targets.some((target) => target.name.toLowerCase().includes(needle))
       );
     });
-  }, [posts, onlyAccounts, query]);
+  }, [posts, onlyPlatforms, query]);
 
   const byDay = useMemo(() => {
     const map = new Map<string, CalendarPost[]>();
@@ -201,11 +215,11 @@ export function CalendarGrid({
     router.push(`/dashboard/calendar?${search.toString()}`);
   };
 
-  const toggleAccount = (id: string) => {
-    setOnlyAccounts((current) => {
+  const togglePlatform = (platform: Platform) => {
+    setOnlyPlatforms((current) => {
       const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(platform)) next.delete(platform);
+      else next.add(platform);
       return next;
     });
   };
@@ -213,25 +227,25 @@ export function CalendarGrid({
   const { month, year } = monthYearParts(anchor);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-display text-[26px]/[32px] font-bold tracking-[-0.02em] text-ink">
+        <h1 className="font-display text-[22px] font-bold tracking-[-0.02em] text-ink">
           {month} <span className="font-medium text-muted">{year}</span>
         </h1>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             aria-label="Previous"
             onClick={() => go({ date: shift(view, anchor, -1) })}
-            className={STEP_BUTTON}
+            className={iconButtonClass}
           >
-            ‹
+            <Icon name="chevronLeft" className="h-4 w-4" />
           </button>
           <button
             type="button"
             onClick={() => go({ date: now ?? new Date() })}
-            className={cx(STEP_BUTTON, "font-semibold")}
+            className={buttonClass("secondary", "xs", "rounded-[9px]")}
           >
             Today
           </button>
@@ -239,15 +253,18 @@ export function CalendarGrid({
             type="button"
             aria-label="Next"
             onClick={() => go({ date: shift(view, anchor, 1) })}
-            className={STEP_BUTTON}
+            className={iconButtonClass}
           >
-            ›
+            <Icon name="chevronRight" className="h-4 w-4" />
           </button>
           {/* Jumping to an arbitrary date without paging there one week at a
               time. A plain date input, because the browser already has a date
               picker and it is the one the person knows. */}
-          <label className={cx(STEP_BUTTON, "cursor-pointer")} title="Jump to a date">
-            <span aria-hidden>▤</span>
+          <label
+            className={cx(iconButtonClass, "cursor-pointer")}
+            title="Jump to a date"
+          >
+            <Icon name="calendar" className="h-4 w-4" />
             <span className="sr-only">Jump to a date</span>
             <input
               type="date"
@@ -259,87 +276,78 @@ export function CalendarGrid({
               className="sr-only"
             />
           </label>
-          <Link
-            href="/dashboard/new-post"
-            title="New post"
-            aria-label="New post"
-            className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-ink text-[15px] text-panel transition hover:brightness-110"
-          >
-            +
-          </Link>
         </div>
 
-        <div className={segmentedTrack}>
-          {(["month", "week", "day"] as CalendarView[]).map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => go({ view: item })}
-              aria-pressed={view === item}
-              className={segmentedItem(view === item, "capitalize")}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-
-        {accounts.length > 0 ? (
-          <div className="flex items-center -space-x-2">
-            {accounts.map((account) => {
-              const on = onlyAccounts.size === 0 || onlyAccounts.has(account.id);
-              return (
-                <button
-                  key={account.id}
-                  type="button"
-                  onClick={() => toggleAccount(account.id)}
-                  aria-pressed={onlyAccounts.has(account.id)}
-                  title={`${PLATFORM_LABELS[account.platform]} · ${account.name}`}
-                  className={cx(
-                    "relative inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 transition",
-                    on
-                      ? "border-panel opacity-100"
-                      : "border-panel opacity-35 grayscale",
-                  )}
-                >
-                  {account.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={account.avatarUrl} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center bg-chip">
-                      <PlatformIcon platform={account.platform} className="h-3.5 w-3.5" />
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-            {onlyAccounts.size > 0 ? (
-              <button
-                type="button"
-                onClick={() => setOnlyAccounts(new Set())}
-                className="pl-4 text-[11.5px] text-muted underline-offset-2 hover:text-ink hover:underline"
-              >
-                All accounts
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="ml-auto">
+        <div className="ml-auto flex flex-wrap items-center gap-2.5">
           <input
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search posts"
             aria-label="Search posts"
-            className={cx(
-              inputClass,
-              "w-[190px] rounded-full py-2 text-[12.5px]",
-            )}
+            className={cx(inputClass, "w-[190px] rounded-full py-2 text-[13px]")}
           />
+          <div className={segmentedTrack}>
+            {(["month", "week", "day"] as CalendarView[]).map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => go({ view: item })}
+                aria-pressed={view === item}
+                className={segmentedItem(view === item, "px-4 capitalize")}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <p className="-mt-1 text-[12px] text-faint">{rangeLabel(view, anchor)}</p>
+      {/* The platform filter, centred over the grid rather than tucked into a
+          toolbar: it is the control people reach for most, and it combines —
+          Instagram plus TikTok shows both, not neither. */}
+      {platforms.length > 1 ? (
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => setOnlyPlatforms(new Set())}
+            aria-pressed={onlyPlatforms.size === 0}
+            className={cx(
+              "inline-flex h-10 items-center justify-center rounded-[13px] border px-4 text-[13px] font-semibold transition-[background,color,border-color,opacity] duration-150",
+              onlyPlatforms.size === 0
+                ? "border-ink bg-ink text-panel"
+                : "border-line bg-panel text-muted opacity-55 hover:opacity-100",
+            )}
+          >
+            All
+          </button>
+          {platforms.map((platform) => {
+            const on = onlyPlatforms.has(platform);
+            return (
+              <button
+                key={platform}
+                type="button"
+                onClick={() => togglePlatform(platform)}
+                aria-pressed={on}
+                title={PLATFORM_LABELS[platform]}
+                className={cx(
+                  "inline-flex h-10 w-10 items-center justify-center rounded-[13px] border transition-[background,border-color,opacity] duration-150",
+                  on
+                    ? "border-ink bg-ink"
+                    : "border-line bg-panel opacity-55 hover:opacity-100",
+                )}
+              >
+                <PlatformTile platform={platform} size={24} />
+                <span className="sr-only">{PLATFORM_LABELS[platform]}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <p className="-mt-1 text-center text-[12.5px] text-faint">
+        {rangeLabel(view, anchor)}
+      </p>
 
       {view === "month" ? (
         <MonthGrid
@@ -353,10 +361,10 @@ export function CalendarGrid({
         <TimeGrid days={days} byDay={byDay} now={now} onOpen={setOpenPostId} />
       )}
 
-      <ul className="flex flex-wrap items-center gap-4 text-[11px] text-faint">
+      <ul className="flex flex-wrap items-center gap-5 text-[12.5px] text-faint">
         {LEGEND.map((item) => (
-          <li key={item.label} className="flex items-center gap-1.5">
-            <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${item.dot}`} />
+          <li key={item.label} className="flex items-center gap-2">
+            <span aria-hidden className={`h-[7px] w-[7px] rounded-full ${item.dot}`} />
             {item.label}
           </li>
         ))}
@@ -369,8 +377,6 @@ export function CalendarGrid({
   );
 }
 
-const STEP_BUTTON =
-  "inline-flex items-center gap-1 rounded-full border border-line-strong bg-panel px-3 py-1.5 text-[13px] font-medium text-ink transition hover:border-accent hover:text-accent";
 
 function MonthGrid({
   days,
@@ -397,12 +403,12 @@ function MonthGrid({
   );
 
   return (
-    <div className="overflow-hidden rounded-[18px] border border-line bg-panel">
+    <div className="overflow-hidden rounded-2xl border border-line bg-panel">
       <div className="grid grid-cols-7 bg-chip">
         {DAY_NAMES.map((name) => (
           <div
             key={name}
-            className="px-2 py-[7px] text-center text-[9.5px] font-bold tracking-[0.1em] text-faint uppercase"
+            className="px-2 py-2 text-center text-[10.5px] font-bold tracking-[0.1em] text-faint uppercase"
           >
             {name}
           </div>
@@ -416,31 +422,38 @@ function MonthGrid({
           return (
             <div
               key={day.toISOString()}
-              className={`min-h-24 border-r border-b border-line p-1.5 last:border-r-0 ${
-                outside ? "bg-chip" : ""
-              }`}
+              // The cell height is derived from the viewport rather than fixed,
+              // so a month fills the screen it is being read on instead of
+              // leaving a band of empty page under a squat grid — or, on a
+              // laptop, pushing the last week below the fold.
+              style={{ minHeight: `max(6rem, calc((100vh - 300px) / ${shown.length}))` }}
+              className={cx(
+                "border-r border-b border-line p-2 last:border-r-0",
+                outside && "bg-bg",
+              )}
             >
               <p>
                 <span
-                  className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full text-[11px] ${
+                  className={cx(
+                    "font-display inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-full text-[12.5px] font-semibold",
                     isToday
                       ? "bg-accent font-bold text-accent-ink"
                       : outside
-                        ? "text-faint"
-                        : "text-muted"
-                  }`}
+                        ? "text-line-strong"
+                        : "text-muted",
+                  )}
                 >
                   {day.getDate()}
                 </span>
               </p>
-              <ul className="mt-1 flex flex-col gap-[3px]">
+              <ul className="mt-1.5 flex flex-col gap-1">
                 {posts.slice(0, 3).map((post) => (
                   <li key={post.id}>
                     <PostChip post={post} mounted={now !== null} onOpen={onOpen} />
                   </li>
                 ))}
                 {posts.length > 3 ? (
-                  <li className="text-[10px] text-faint">
+                  <li className="px-1 text-[11.5px] text-faint">
                     +{posts.length - 3} more
                   </li>
                 ) : null}
@@ -740,24 +753,40 @@ function PostChip({
     ),
   ];
 
+  // Two lines rather than one: the time and where it goes are the scanning
+  // information and belong on their own row, and cramming them in front of the
+  // caption left about four words of it visible.
   return (
     <button
       type="button"
       onClick={() => onOpen(post.id)}
       title={`${time ? `${time} · ` : ""}${post.caption}`}
-      className="flex w-full items-center gap-1 overflow-hidden rounded-md border border-line bg-chip px-1.5 py-[3px] text-left transition hover:border-accent"
+      className="block w-full overflow-hidden rounded-lg bg-bg px-[7px] py-[5px] text-left transition-[background] duration-150 hover:bg-chip"
     >
-      <span
-        aria-hidden
-        className={`h-[5px] w-[5px] shrink-0 rounded-full ${STATUS_DOT[post.status] ?? "bg-faint"}`}
-      />
-      {time ? (
-        <span className="text-[9.5px] whitespace-nowrap text-faint">{time}</span>
-      ) : null}
-      {platforms.slice(0, 2).map((platform) => (
-        <PlatformIcon key={platform} platform={platform} className="h-2.5 w-2.5 text-faint" />
-      ))}
-      <span className="truncate text-[10.5px] text-ink">
+      <span className="flex items-center gap-1.5">
+        <span
+          aria-hidden
+          className={`h-[5px] w-[5px] shrink-0 rounded-full ${STATUS_DOT[post.status] ?? "bg-faint"}`}
+        />
+        {time ? (
+          <span className="text-[11px] font-semibold whitespace-nowrap text-muted">
+            {time}
+          </span>
+        ) : null}
+        <span className="ml-auto flex items-center gap-0.5 text-faint">
+          {platforms.slice(0, 3).map((platform) => (
+            <PlatformIcon
+              key={platform}
+              platform={platform}
+              className="h-2.5 w-2.5"
+            />
+          ))}
+          {platforms.length > 3 ? (
+            <span className="text-[9.5px]">+{platforms.length - 3}</span>
+          ) : null}
+        </span>
+      </span>
+      <span className="mt-px block truncate text-[11.5px] text-ink">
         {post.caption || "No caption"}
       </span>
     </button>
@@ -788,7 +817,7 @@ function PostDetail({
       onClick={onClose}
     >
       <div
-        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-[18px] border border-line bg-panel p-5 shell:rounded-[18px]"
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-line bg-panel p-6 shell:rounded-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
@@ -801,12 +830,12 @@ function PostDetail({
             >
               {post.status}
             </span>
-            <p className="mt-2 text-[13.5px]/[20px] text-ink">
+            <p className="mt-2.5 text-[15px]/[23px] text-pretty text-ink">
               {post.caption.trim() || (
                 <span className="text-faint italic">(no caption)</span>
               )}
             </p>
-            <p className="mt-1 text-[11.5px] text-faint">
+            <p className="mt-1.5 text-[13px] text-faint">
               {post.status === "published" || post.status === "partial"
                 ? "Published"
                 : post.status === "draft"

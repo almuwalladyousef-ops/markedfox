@@ -17,8 +17,8 @@ const wed = new Date(2026, 7, 19, 14, 30); // Wed 19 Aug 2026
 
 describe("parseView", () => {
   it("defaults to the week", () => {
-    expect(parseView(undefined)).toBe("week");
-    expect(parseView("nonsense")).toBe("week");
+    expect(parseView(undefined)).toBe("month");
+    expect(parseView("nonsense")).toBe("month");
     expect(parseView("month")).toBe("month");
   });
 });

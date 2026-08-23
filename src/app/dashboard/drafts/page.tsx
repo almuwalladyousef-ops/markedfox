@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { Icon } from "@/components/icons";
 import { LocalTime } from "@/components/local-time";
 import { PlatformBadge } from "@/components/platform-icon";
 import {
@@ -78,19 +79,20 @@ export default async function DraftsPage({
   );
 
   return (
-    <Page width="max-w-[1080px]">
-      <header className="flex flex-wrap items-center gap-3 pt-2">
-        <h1 className="font-display text-[26px]/[32px] font-bold tracking-[-0.02em] text-ink">
+    <Page>
+      <header className="flex flex-wrap items-center gap-3">
+        <h1 className="font-display text-[30px]/[36px] font-bold tracking-[-0.025em] text-ink">
           Drafts{" "}
           {drafts.length > 0 ? (
             <span className="font-medium text-muted">{drafts.length}</span>
           ) : null}
         </h1>
-        <p className="w-full text-[12.5px] text-muted shell:w-auto shell:flex-1">
+        <p className="w-full text-[14px] text-muted shell:w-auto shell:flex-1">
           Started and not sent. Nothing here is checked until you publish it.
         </p>
         <ButtonLink href="/dashboard/new-post" tone="primary" size="sm">
-          + New post
+          <Icon name="plus" className="h-4 w-4" strokeWidth={2.1} />
+          New post
         </ButtonLink>
       </header>
 
@@ -124,7 +126,7 @@ export default async function DraftsPage({
             return (
               <div
                 key={draft.id}
-                className="group relative break-inside-avoid overflow-hidden rounded-[10px] border border-line bg-chip"
+                className="group relative break-inside-avoid overflow-hidden rounded-xl border border-line bg-chip"
               >
                 <Link
                   href={`/dashboard/new-post?draft=${draft.id}`}
@@ -146,7 +148,7 @@ export default async function DraftsPage({
                     // No media yet is the common draft, so its words are the
                     // tile — an empty grey rectangle says nothing about which
                     // draft this is.
-                    <p className="px-3.5 pt-6 pr-10 pb-10 text-[13px]/[19px] text-ink">
+                    <p className="px-3.5 pt-6 pr-10 pb-10 text-[14px]/[21px] text-pretty text-ink">
                       {draft.caption.trim() || (
                         <span className="text-faint italic">No caption yet</span>
                       )}
@@ -162,7 +164,7 @@ export default async function DraftsPage({
 
                   <div className="absolute right-2 bottom-2 left-2 flex flex-col gap-1">
                     {cover && draft.caption.trim() ? (
-                      <p className="line-clamp-2 text-[11.5px]/[16px] text-white">
+                      <p className="line-clamp-2 text-[12.5px]/[18px] text-white">
                         {draft.caption}
                       </p>
                     ) : null}
@@ -173,7 +175,7 @@ export default async function DraftsPage({
                       {targets.length === 0 ? (
                         <span
                           className={cx(
-                            "rounded-full px-2 py-[3px] text-[10.5px] font-semibold",
+                            "rounded-full px-2 py-[3px] text-[11.5px] font-bold",
                             // Over a photo the soft warn tint disappears into
                             // the scrim, and this is the one line on the tile
                             // that has to be read.
@@ -186,7 +188,7 @@ export default async function DraftsPage({
                       {draft.scheduled_for ? (
                         <span
                           className={cx(
-                            "rounded-full px-2 py-[3px] text-[10.5px] font-semibold",
+                            "rounded-full px-2 py-[3px] text-[11.5px] font-bold",
                             cover
                               ? "bg-black/55 text-white"
                               : "bg-accent-soft text-accent",
@@ -197,7 +199,7 @@ export default async function DraftsPage({
                       ) : (
                         <span
                           className={cx(
-                            "rounded-full px-2 py-[3px] text-[10.5px] font-semibold",
+                            "rounded-full px-2 py-[3px] text-[11.5px] font-bold",
                             cover ? "bg-black/55 text-white" : "bg-chip text-muted",
                           )}
                         >
@@ -207,7 +209,7 @@ export default async function DraftsPage({
                       {draft.media.length > 1 ? (
                         <span
                           className={cx(
-                            "rounded-full px-2 py-[3px] text-[10.5px] font-semibold",
+                            "rounded-full px-2 py-[3px] text-[11.5px] font-bold",
                             cover ? "bg-black/55 text-white" : "bg-chip text-muted",
                           )}
                         >
@@ -241,9 +243,9 @@ export default async function DraftsPage({
                     type="submit"
                     aria-label="Delete this draft"
                     title="Delete this draft"
-                    className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-[11px] text-white transition hover:bg-danger"
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white transition-[background] duration-150 hover:bg-danger"
                   >
-                    ✕
+                    <Icon name="close" className="h-3 w-3" strokeWidth={2.4} />
                   </button>
                 </form>
               </div>

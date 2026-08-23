@@ -1,16 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+import { Icon } from "@/components/icons";
 import { FoxMark, cx } from "@/components/ui";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { signOut } from "@/lib/auth/actions";
 import { SIDEBAR_COOKIE, type SidebarState } from "@/lib/sidebar";
-import type { Theme } from "@/lib/theme";
 import type { Workspace } from "@/lib/workspaces/store";
 
-import { SidebarNav, type NavSection } from "./sidebar-nav";
+import { NavRow, SidebarNav, type NavSection } from "./sidebar-nav";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 // The sidebar as a floating panel rather than a wall: its own rounded card
@@ -18,24 +17,11 @@ import { WorkspaceSwitcher } from "./workspace-switcher";
 //
 // It is a client component so collapsing is instant — the width is state here
 // and a cookie for the next request, which is what keeps the server's first
-// paint the same width the person left it at. The server action for signing
-// out is imported directly; a form in a client component may post to one.
-
-function MenuIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      className="h-[15px] w-[15px]"
-      aria-hidden
-    >
-      <path d="M4 7h16M4 12h16M4 17h16" />
-    </svg>
-  );
-}
+// paint the same width the person left it at.
+//
+// One thing that was got wrong once and is worth keeping right: the collapse
+// toggle stays visible when collapsed. An earlier version hid it at 92px, on
+// the theory that the rail was already minimal, which left no way back out.
 
 export function Sidebar({
   sections,
@@ -46,7 +32,6 @@ export function Sidebar({
   remaining,
   email,
   planId,
-  theme,
   initial,
 }: {
   sections: NavSection[];
@@ -57,11 +42,12 @@ export function Sidebar({
   remaining?: number | null;
   email: string | null;
   planId: string;
-  theme: Theme;
   initial: SidebarState;
 }) {
   const [state, setState] = useState<SidebarState>(initial);
   const collapsed = state === "collapsed";
+  const pathname = usePathname();
+  const onSettings = pathname.startsWith("/dashboard/settings");
 
   const toggle = () => {
     const next: SidebarState = collapsed ? "open" : "collapsed";
@@ -69,31 +55,57 @@ export function Sidebar({
     document.cookie = `${SIDEBAR_COOKIE}=${next};path=/;max-age=31536000;samesite=lax`;
   };
 
+  const collapseButton = (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-expanded={!collapsed}
+      title={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
+      aria-label={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
+      className={cx(
+        "flex shrink-0 items-center justify-center text-muted transition-[background,color] duration-150 hover:text-ink",
+        collapsed
+          ? "h-[34px] w-[34px] rounded-[10px] bg-chip"
+          : "h-7 w-7 rounded-lg hover:bg-chip",
+      )}
+    >
+      <Icon name="panel" className="h-[17px] w-[17px]" />
+    </button>
+  );
+
   return (
     <aside
       className={cx(
-        "sticky top-0 hidden h-screen shrink-0 flex-col gap-4 py-3 pl-3 shell:flex",
+        "sticky top-0 hidden h-screen shrink-0 flex-col py-3.5 pl-3.5 shell:flex",
         // A width transition rather than a jump: the page beside it reflows
         // either way, and a jump reads as a reload.
-        "transition-[width] duration-200",
-        collapsed ? "w-[86px]" : "w-[264px]",
+        "transition-[width] duration-[180ms] ease-out",
+        collapsed ? "w-[92px]" : "w-[262px]",
       )}
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-[22px] border border-line bg-panel px-2.5 py-4">
-        <Link
-          href="/dashboard"
-          className={cx(
-            "flex items-center gap-2",
-            collapsed ? "justify-center" : "px-2",
-          )}
-        >
-          <FoxMark className="h-7 shrink-0" />
-          {collapsed ? null : (
-            <span className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink">
-              MarkedFox
-            </span>
-          )}
-        </Link>
+      <div className="flex min-h-0 flex-1 flex-col gap-3.5 rounded-3xl border border-line bg-panel px-3 pt-5 pb-3">
+        {collapsed ? (
+          <div className="flex flex-col items-center gap-2.5">
+            <Link href="/dashboard" aria-label="MarkedFox home">
+              <FoxMark className="h-[30px]" />
+            </Link>
+            {collapseButton}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2.5 px-2">
+            <Link href="/dashboard" className="flex items-center gap-2.5">
+              <FoxMark className="h-[30px] shrink-0" />
+              {/* No truncation on the wordmark: the rail is a fixed 262px and
+                  the name fits, so a `truncate` here only ever fires when
+                  something else is mis-sized — and it hides that fact by
+                  quietly rendering "Marke…". */}
+              <span className="font-display text-[18px] font-bold tracking-[-0.02em] whitespace-nowrap text-ink">
+                MarkedFox
+              </span>
+            </Link>
+            <span className="ml-auto">{collapseButton}</span>
+          </div>
+        )}
 
         {/* The one control that starts work rather than reviewing it, so it
             sits above the nav and wears the app's only solid button. */}
@@ -101,82 +113,71 @@ export function Sidebar({
           href="/dashboard/new-post"
           title={collapsed ? "New post" : undefined}
           className={cx(
-            "flex items-center gap-2.5 rounded-[14px] bg-ink text-panel transition hover:brightness-110",
-            collapsed ? "justify-center p-1.5" : "px-2 py-1.5",
+            "flex items-center justify-center gap-2 rounded-[14px] bg-ink text-panel transition-[filter] duration-150 hover:brightness-[1.45]",
+            collapsed ? "py-[13px]" : "px-3.5 py-[11px]",
           )}
         >
-          <span
-            aria-hidden
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[11px] bg-panel/15 text-[15px]"
-          >
-            +
-          </span>
+          <Icon
+            name="plus"
+            className={collapsed ? "h-[22px] w-[22px]" : "h-[17px] w-[17px]"}
+            strokeWidth={2.1}
+          />
           {collapsed ? (
             <span className="sr-only">New post</span>
           ) : (
-            <span className="text-[13.5px] font-semibold">New post</span>
+            <span className="text-[14.5px] font-semibold">New post</span>
           )}
         </Link>
 
-        {collapsed ? null : (
-          <WorkspaceSwitcher
-            workspaces={workspaces}
-            activeId={activeId}
-            canCreate={canCreate}
-            createBlockedReason={createBlockedReason}
-            remaining={remaining}
-          />
-        )}
+        <WorkspaceSwitcher
+          workspaces={workspaces}
+          activeId={activeId}
+          canCreate={canCreate}
+          createBlockedReason={createBlockedReason}
+          remaining={remaining}
+          variant={collapsed ? "collapsed" : "full"}
+        />
 
         <SidebarNav sections={sections} collapsed={collapsed} />
 
-        <div
-          className={cx(
-            "flex flex-col gap-2 border-t border-line pt-3",
-            collapsed ? "items-center px-0" : "px-2",
-          )}
-        >
-          <div
+        <div className="flex flex-col gap-1 border-t border-line pt-3">
+          <NavRow
+            href="/dashboard/settings"
+            label="Settings"
+            icon="settings"
+            collapsed={collapsed}
+            active={onSettings}
+          />
+          <Link
+            href="/dashboard/settings"
+            title={collapsed ? (email ?? "Account") : undefined}
             className={cx(
-              "flex w-full items-center gap-2",
-              collapsed ? "justify-center" : "justify-between",
+              "flex items-center gap-2.5 rounded-[13px] transition-[background] duration-150 hover:bg-chip",
+              collapsed ? "justify-center py-2" : "px-3 py-2",
             )}
           >
-            <button
-              type="button"
-              onClick={toggle}
-              aria-expanded={!collapsed}
-              title={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
-              aria-label={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
-              className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border border-line text-muted transition hover:border-line-strong hover:text-ink"
+            <span
+              aria-hidden
+              className="font-display flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-ink text-[13px] font-bold text-panel uppercase"
             >
-              <MenuIcon />
-            </button>
-            {collapsed ? null : <ThemeToggle initial={theme} />}
-          </div>
-
-          {collapsed ? (
-            <ThemeToggle initial={theme} />
-          ) : (
-            <>
-              <div className="min-w-0">
-                <p className="truncate text-[11.5px] text-muted" title={email ?? undefined}>
-                  {email}
-                </p>
-                <p className="mt-0.5 text-[11px] text-faint capitalize">
-                  {planId} plan
-                </p>
-              </div>
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  className="text-left text-[11.5px] text-faint transition hover:text-ink"
+              {(email ?? "?").trim().charAt(0)}
+            </span>
+            {collapsed ? (
+              <span className="sr-only">{email ?? "Account"}</span>
+            ) : (
+              <span className="min-w-0">
+                <span
+                  className="block truncate text-[12.5px] font-semibold text-ink"
+                  title={email ?? undefined}
                 >
-                  Sign out
-                </button>
-              </form>
-            </>
-          )}
+                  {email}
+                </span>
+                <span className="block text-[11.5px] text-muted capitalize">
+                  {planId} plan
+                </span>
+              </span>
+            )}
+          </Link>
         </div>
       </div>
     </aside>

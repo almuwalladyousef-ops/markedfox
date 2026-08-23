@@ -578,6 +578,28 @@ export async function getBreakdown(
   return (data as unknown as BreakdownRow) ?? null;
 }
 
+/**
+ * Breakdowns for a set of videos, in one query.
+ *
+ * The Ideas screen shows why each video worked beside the idea it produced,
+ * and there is no point fetching that one row at a time for a list of thirty.
+ * Videos with no breakdown are simply absent from the map.
+ */
+export async function listBreakdowns(
+  supabase: SupabaseClient,
+  videoIds: string[],
+): Promise<Map<string, BreakdownRow>> {
+  if (videoIds.length === 0) return new Map();
+  const { data, error } = await supabase
+    .from("research_breakdowns")
+    .select(BREAKDOWN_COLUMNS)
+    .in("video_id", videoIds);
+  if (error) throw error;
+  return new Map(
+    ((data ?? []) as unknown as BreakdownRow[]).map((row) => [row.video_id, row]),
+  );
+}
+
 export async function saveBreakdown(
   supabase: SupabaseClient,
   input: {

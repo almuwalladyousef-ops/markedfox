@@ -17,10 +17,10 @@ import { NONCE_COOKIE } from "../start/route";
 // exchange the code, store one encrypted connection per account, land on the
 // dashboard.
 //
-// Failure modes all land on /dashboard/accounts?connect_error=<reason> — a user mid-
+// Failure modes all land on /dashboard/settings/accounts?connect_error=<reason> — a user mid-
 // OAuth has no use for a JSON error body.
 
-function bounce(base: string, query: Record<string, string>, path = "/dashboard/accounts") {
+function bounce(base: string, query: Record<string, string>, path = "/dashboard/settings/accounts") {
   const url = new URL(path, base);
   for (const [key, value] of Object.entries(query)) {
     url.searchParams.set(key, value);
@@ -137,7 +137,7 @@ export async function GET(
         accounts: String(result.accounts.length),
         ...(messaging ? { subscribed: String(subscribed) } : {}),
       },
-      messaging ? "/dashboard/automations" : "/dashboard/accounts",
+      messaging ? "/dashboard/automations" : "/dashboard/settings/accounts",
     );
   } catch (error) {
     console.error(`connect ${platform} failed:`, error);

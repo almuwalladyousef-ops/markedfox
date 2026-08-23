@@ -71,7 +71,7 @@ export default async function ResearchToolsPage() {
 
       {transcripts.length > 0 ? (
         <section>
-          <h2 className="text-sm font-semibold">Recent transcripts</h2>
+          <h2 className="text-[14.5px] font-semibold">Recent transcripts</h2>
           <ul className="mt-3 flex flex-col gap-2">
             {transcripts.map((transcript) => (
               <li
@@ -82,11 +82,11 @@ export default async function ResearchToolsPage() {
                   href={transcript.url}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="text-xs text-faint underline hover:text-ink"
+                  className="text-[13px] text-faint underline hover:text-ink"
                 >
                   {transcript.url}
                 </a>
-                <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-muted">
+                <p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap text-[13px] leading-relaxed text-muted">
                   {transcript.text}
                 </p>
               </li>
@@ -97,19 +97,19 @@ export default async function ResearchToolsPage() {
 
       {standalone.length > 0 ? (
         <section>
-          <h2 className="text-sm font-semibold">Recent output</h2>
+          <h2 className="text-[14.5px] font-semibold">Recent output</h2>
           <ul className="mt-3 flex flex-col gap-3">
             {standalone.map((script) => (
               <li
                 key={script.id}
                 className="rounded-lg border border-line bg-panel p-4"
               >
-                <p className="text-xs text-faint">
+                <p className="text-[13px] text-faint">
                   {script.kind}
                   {script.topic ? ` · ${script.topic}` : ""} ·{" "}
                   <LocalTime value={script.created_at} />
                 </p>
-                <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-ink">
+                <pre className="mt-2 whitespace-pre-wrap font-sans text-[14.5px] leading-relaxed text-ink">
                   {script.output}
                 </pre>
               </li>

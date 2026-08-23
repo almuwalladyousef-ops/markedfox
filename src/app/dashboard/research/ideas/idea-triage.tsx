@@ -3,15 +3,19 @@
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 
+import { Icon } from "@/components/icons";
 import {
   Button,
   Card,
   CardTitle,
   EmptyState,
+  Eyebrow,
   Kbd,
   MetricPills,
-
   Pill,
+  StickyPane,
+  TwoPane,
+  cx,
   inputClass,
 } from "@/components/ui";
 import {
@@ -31,12 +35,23 @@ import type { IdeaWithVideo } from "@/lib/research/studio-types";
 
 const EMPTY: StudioFormState = {};
 
+/** Label/text pairs per section, or null where the model said nothing. */
+export type IdeaAnalysis = {
+  positioning: [string, string | null][];
+  format: [string, string | null][];
+  contrast: [string, string | null][];
+  hook: [string, string | null][];
+};
+
 export function IdeaTriage({
   ideas,
   status,
+  analyses,
 }: {
   ideas: IdeaWithVideo[];
   status: "inbox" | "shortlisted";
+  /** Keyed by video id; absent for a video that has not been broken down. */
+  analyses: Record<string, IdeaAnalysis>;
 }) {
   const [index, setIndex] = useState(0);
   const shortlistRef = useRef<HTMLButtonElement>(null);
@@ -111,7 +126,16 @@ export function IdeaTriage({
   }
 
   return (
-    <div className="grid items-start gap-4 wide:grid-cols-[330px_1fr]">
+    // A wrapping flex row with a floor on each pane, not a grid: at around
+    // 920px a `330px 1fr` grid let the detail column shrink under its own
+    // minimum and spill its title sideways.
+    <TwoPane>
+      {/* The bases are what decide whether this wraps, not the floors: a
+          wrapping flex row breaks the line on base sizes and only then
+          shrinks. 360 + 480 + the gap clears the ~920px a 1280px window
+          leaves beside the rail, so the two panes hold at a laptop width and
+          still stack honestly below it. */}
+      <StickyPane className="min-w-[340px] flex-[0_1_360px]">
       <ul className="flex max-h-[70vh] flex-col gap-2 overflow-y-auto pr-1">
         {ideas.map((idea, position) => {
           const active = idea.id === selected?.id;
@@ -120,15 +144,16 @@ export function IdeaTriage({
               <button
                 type="button"
                 onClick={() => setIndex(position)}
-                className={`flex w-full gap-2.5 rounded-xl border p-2.5 text-left transition ${
+                className={cx(
+                  "flex w-full gap-3 rounded-xl border p-3 text-left transition-[background,border-color] duration-150",
                   active
                     ? "border-accent bg-accent-soft"
-                    : "border-line bg-panel hover:border-line-strong"
-                }`}
+                    : "border-line bg-panel hover:border-line-strong",
+                )}
               >
                 <Thumb url={idea.video.thumbnail_url} />
                 <span className="min-w-0 flex-1">
-                  <span className="line-clamp-2 text-[12.5px]/[17px] font-semibold text-ink">
+                  <span className="line-clamp-2 text-[14px]/[20px] font-semibold text-ink">
                     {idea.title}
                   </span>
                   <span className="mt-1.5 block">
@@ -146,7 +171,7 @@ export function IdeaTriage({
                       }
                     />
                   </span>
-                  <span className="mt-1 block truncate text-[10.5px] text-faint">
+                  <span className="mt-1.5 block truncate text-[12.5px] text-faint">
                     {idea.video.source.handle
                       ? `@${idea.video.source.handle}`
                       : idea.video.source.title}
@@ -158,9 +183,20 @@ export function IdeaTriage({
           );
         })}
       </ul>
+      </StickyPane>
 
       {selected ? (
-        <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex min-w-[min(100%,440px)] flex-[1_1_480px] flex-col gap-4">
+          {/* The keys are documented where they are used, not in a help page
+              nobody opens. */}
+          <p className="flex flex-wrap items-center gap-2 text-[12.5px] text-faint">
+            <Kbd>Esc</Kbd>
+            <span>clears focus</span>
+            <span aria-hidden>·</span>
+            <Kbd>↑</Kbd>
+            <Kbd>↓</Kbd>
+            <span>move through the queue</span>
+          </p>
           <div className="flex flex-wrap items-center gap-2">
             <form action={setIdeaStatusAction}>
               <input type="hidden" name="idea_id" value={selected.id} />
@@ -172,7 +208,7 @@ export function IdeaTriage({
               <button
                 ref={shortlistRef}
                 type="submit"
-                className={"flex items-center gap-2 rounded-[10px] border border-line px-[13px] py-2 text-[12.5px] font-medium text-muted transition hover:border-line-strong hover:text-ink"}
+                className={ACTION_BUTTON}
               >
                 {status === "inbox" ? "Shortlist" : "Back to inbox"}
                 <Kbd>S</Kbd>
@@ -185,7 +221,7 @@ export function IdeaTriage({
               <button
                 ref={discardRef}
                 type="submit"
-                className="flex items-center gap-2 rounded-[10px] border border-line px-[13px] py-2 text-[12.5px] font-medium text-muted transition hover:border-danger hover:text-danger"
+                className="flex items-center gap-2 rounded-[10px] border border-line px-3.5 py-2 text-[13px] font-semibold text-muted transition-[border-color,color] duration-150 hover:border-danger hover:text-danger"
               >
                 Discard
                 <Kbd>D</Kbd>
@@ -195,7 +231,7 @@ export function IdeaTriage({
             <Link
               ref={analysisRef}
               href={`/dashboard/research/${selected.video_id}`}
-              className={"flex items-center gap-2 rounded-[10px] border border-line px-[13px] py-2 text-[12.5px] font-medium text-muted transition hover:border-line-strong hover:text-ink"}
+              className={ACTION_BUTTON}
             >
               Go to analysis
               <Kbd>A</Kbd>
@@ -208,7 +244,7 @@ export function IdeaTriage({
               <button
                 ref={scriptRef}
                 type="submit"
-                className="flex items-center gap-2 rounded-[10px] bg-accent px-[13px] py-2 text-[12.5px] font-semibold text-accent-ink transition hover:brightness-[1.08]"
+                className="flex items-center gap-2 rounded-[10px] bg-accent px-3.5 py-2 text-[13px] font-semibold text-accent-ink transition-[filter] duration-150 hover:brightness-[1.08]"
               >
                 Create script
                 <Kbd className="border-accent-ink/40 bg-transparent text-accent-ink">
@@ -219,40 +255,56 @@ export function IdeaTriage({
           </div>
 
           <Card>
-            <div className="flex items-start justify-between gap-4">
-              <h2 className="font-display text-[17px]/[23px] font-semibold text-ink">
-                {selected.title}
-              </h2>
+            <div className="flex flex-wrap items-start gap-5">
+              <div className="min-w-[240px] flex-1">
+                <h2 className="font-display text-[22px]/[30px] font-bold tracking-[-0.02em] text-ink">
+                  {selected.title}
+                </h2>
+                {selected.summary ? (
+                  <p className="mt-3 text-[14.5px]/[22px] text-pretty text-muted">
+                    {selected.summary}
+                  </p>
+                ) : (
+                  <p className="mt-3 text-[14px] text-faint">
+                    No summary — this idea came from a video whose breakdown did
+                    not produce one.
+                  </p>
+                )}
+                <p className="mt-4 flex flex-wrap items-center gap-2 text-[13px] text-faint">
+                  <Pill>{selected.video.source.platform}</Pill>
+                  <span>
+                    from{" "}
+                    {selected.video.source.handle
+                      ? `@${selected.video.source.handle}`
+                      : selected.video.source.title}
+                  </span>
+                  <span aria-hidden>·</span>
+                  <span className="truncate">{selected.video.title}</span>
+                </p>
+              </div>
               <a
                 href={selected.video.url}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="shrink-0 text-xs text-accent transition hover:brightness-[1.08]"
+                title="Watch the original"
+                className="group relative block w-[180px] shrink-0 overflow-hidden rounded-xl bg-chip"
               >
-                Watch ↗
+                {selected.video.thumbnail_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={selected.video.thumbnail_url}
+                    alt=""
+                    className="aspect-[9/16] w-full object-cover"
+                  />
+                ) : (
+                  <span className="block aspect-[9/16] w-full" />
+                )}
+                <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 bg-gradient-to-t from-black/80 to-transparent py-2.5 text-[12.5px] font-semibold text-white">
+                  <Icon name="external" className="h-3.5 w-3.5" />
+                  Watch
+                </span>
               </a>
             </div>
-            {selected.summary ? (
-              <p className="mt-3 text-[13px]/[20px] text-muted">
-                {selected.summary}
-              </p>
-            ) : (
-              <p className="mt-3 text-sm text-faint">
-                No summary — this idea came from a video whose breakdown did not
-                produce one.
-              </p>
-            )}
-            <p className="mt-4 flex flex-wrap items-center gap-2 text-xs text-faint">
-              <Pill>{selected.video.source.platform}</Pill>
-              <span>
-                from{" "}
-                {selected.video.source.handle
-                  ? `@${selected.video.source.handle}`
-                  : selected.video.source.title}
-              </span>
-              <span className="text-faint">·</span>
-              <span className="truncate">{selected.video.title}</span>
-            </p>
           </Card>
 
           {/* Keyed by the idea: the save confirmation lives in this
@@ -260,9 +312,70 @@ export function IdeaTriage({
               "Saved." after arrowing to the next idea, about a note that one
               does not have. */}
           <NoteCard key={selected.id} ideaId={selected.id} note={selected.note} />
+
+          {/* Why the original worked, in the same four sections everywhere it
+              appears. Absent rather than empty when the video has no
+              breakdown — a screenful of headings over nothing reads as a
+              failure, not as "not analyzed yet". */}
+          {analyses[selected.video_id] ? (
+            <Card>
+              <CardTitle hint="from the breakdown of the original">
+                Why it worked
+              </CardTitle>
+              <div className="mt-5 flex flex-col gap-6">
+                <AnalysisBlock
+                  title="Content positioning"
+                  rows={analyses[selected.video_id].positioning}
+                />
+                <AnalysisBlock
+                  title="Storytelling format"
+                  rows={analyses[selected.video_id].format}
+                />
+                <AnalysisBlock
+                  title="Contrast mechanism"
+                  rows={analyses[selected.video_id].contrast}
+                />
+                <AnalysisBlock
+                  title="Hook alignment"
+                  rows={analyses[selected.video_id].hook}
+                />
+              </div>
+            </Card>
+          ) : null}
         </div>
       ) : null}
-    </div>
+    </TwoPane>
+  );
+}
+
+const ACTION_BUTTON =
+  "flex items-center gap-2 rounded-[10px] border border-line px-3.5 py-2 text-[13px] font-semibold text-muted transition-[border-color,color] duration-150 hover:border-line-strong hover:text-ink";
+
+function AnalysisBlock({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: [string, string | null][];
+}) {
+  const filled = rows.filter(([, value]) => value);
+  if (filled.length === 0) return null;
+  return (
+    <section className="border-l-2 border-line pl-4">
+      <h3 className="font-display text-[15.5px] font-bold tracking-[-0.01em] text-ink">
+        {title}
+      </h3>
+      <dl className="mt-3 flex flex-col gap-3">
+        {filled.map(([label, value]) => (
+          <div key={label}>
+            <Eyebrow>{label}</Eyebrow>
+            <dd className="mt-1 text-[14.5px]/[22px] text-pretty text-muted">
+              {value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 
@@ -280,7 +393,7 @@ function NoteCard({ ideaId, note }: { ideaId: string; note: string | null }) {
           key={ideaId}
           defaultValue={note ?? ""}
           placeholder="Add your notes about this idea"
-          className={`${inputClass} resize-y`}
+          className={cx(inputClass, "resize-y")}
         />
         <div className="flex items-center gap-3">
           <Button type="submit" size="sm" disabled={pending}>
@@ -289,7 +402,7 @@ function NoteCard({ ideaId, note }: { ideaId: string; note: string | null }) {
           {state.message ? (
             <span
               aria-live="polite"
-              className={`text-xs ${state.ok ? "text-ok" : "text-danger"}`}
+              className={cx("text-[13px]", state.ok ? "text-ok" : "text-danger")}
             >
               {state.message}
             </span>
@@ -300,9 +413,11 @@ function NoteCard({ ideaId, note }: { ideaId: string; note: string | null }) {
   );
 }
 
+/** 9:16, because every video in this queue is. The old landscape crop cut the
+ *  top and bottom off every thumbnail in the list. */
 function Thumb({ url }: { url: string | null }) {
   if (!url) {
-    return <span className="block h-16 w-11 shrink-0 rounded-md bg-chip" />;
+    return <span className="block h-[60px] w-[34px] shrink-0 rounded-lg bg-chip" />;
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -310,7 +425,7 @@ function Thumb({ url }: { url: string | null }) {
       src={url}
       alt=""
       loading="lazy"
-      className="h-[42px] w-[60px] shrink-0 rounded-lg object-cover"
+      className="h-[60px] w-[34px] shrink-0 rounded-lg object-cover"
     />
   );
 }

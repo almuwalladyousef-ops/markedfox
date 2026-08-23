@@ -3,7 +3,21 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 
-import { Card, Pill, chipToggle } from "@/components/ui";
+import { Icon } from "@/components/icons";
+import {
+  Button,
+  Card,
+  Eyebrow,
+  Notice,
+  StickyPane,
+  TwoPane,
+  chipToggle,
+  cx,
+  destructiveButtonClass,
+  segmentedItem,
+  segmentedTrack,
+  textButtonClass,
+} from "@/components/ui";
 import { saveRuleAction, type RuleFormState } from "@/lib/dm/actions";
 import type { BuilderAccount } from "@/lib/dm/builder-accounts";
 import type { RuleTemplate } from "@/lib/dm/templates";
@@ -51,10 +65,15 @@ const DELAY_CHOICES: { label: string; minutes: number }[] = [
 ];
 
 const TRIGGERS: [DmTriggerType, string][] = [
-  ["comment", "comments on a post or reel"],
-  ["dm_keyword", "sends a DM"],
-  ["story_reply", "replies to a story"],
+  ["comment", "Comment"],
+  ["dm_keyword", "DM"],
+  ["story_reply", "Story reply"],
 ];
+
+/** What a usable button link looks like. The same shape the DM worker needs,
+ *  checked here so the person finds out while they are typing rather than when
+ *  the save comes back. */
+const URL_SHAPE = /^https?:\/\/\S+$/;
 
 /** The section heading: a numeral in an accent disc beside an eyebrow. The
  *  builder reads as a numbered sentence, so the steps are numbered. */
@@ -159,6 +178,29 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
   const [nextKey, setNextKey] = useState(
     Math.max(existingFollowUps.length, seed?.followUps?.length ?? 0),
   );
+  // The keyword being typed, kept separate from the committed list so Enter
+  // means "that is a keyword" and a half-typed word never counts as one.
+  const [keywordDraft, setKeywordDraft] = useState("");
+  const [folder, setFolder] = useState(
+    (rule as (DmRule & { folder?: string | null }) | undefined)?.folder ?? "",
+  );
+  const [exactMatch, setExactMatch] = useState(
+    rule?.config.keyword_match === "exact",
+  );
+  const [oncePerContact, setOncePerContact] = useState(
+    rule
+      ? (rule.config.once_per_contact ?? rule.trigger_type === "comment")
+      : (seed?.oncePerContact ?? true),
+  );
+  // Opened on load when it is already holding something, so a rule that does
+  // three things does not look like a rule that does one.
+  const [moreOpen, setMoreOpen] = useState(
+    () =>
+      Boolean(emailStep) ||
+      Boolean(seed?.collectEmail) ||
+      existingFollowUps.length > 0 ||
+      (seed?.followUps?.length ?? 0) > 0,
+  );
 
   const loadPosts = async (forConnection: string) => {
     setPosts(null);
@@ -189,18 +231,27 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
   };
 
   const input =
-    "mt-1.5 w-full rounded-[10px] border border-line bg-chip px-3 py-[9px] text-[13.5px] text-ink outline-none transition placeholder:text-faint focus:border-accent";
-  const label = "text-xs font-semibold text-muted";
-  const help = "mt-1.5 text-[11.5px]/[17px] text-faint";
+    "mt-2 w-full rounded-[10px] border border-line bg-chip px-3.5 py-[10px] text-[14.5px] text-ink outline-none transition-[border-color] duration-150 placeholder:text-faint focus:border-accent";
+  const label = "text-[13px] font-semibold text-muted";
+  const help = "mt-2 text-[12.5px]/[18px] text-pretty text-faint";
   const err = (key: string) =>
     errors[key] ? (
-      <p className="mt-1 text-xs text-danger">{errors[key]}</p>
+      <p className="mt-1.5 text-[12.5px] text-danger">{errors[key]}</p>
     ) : null;
 
   const keywordList = keywords
     .split(",")
     .map((k) => k.trim())
     .filter(Boolean);
+
+  const commitKeyword = () => {
+    const word = keywordDraft.trim().replace(/,/g, "");
+    setKeywordDraft("");
+    if (!word || keywordList.includes(word)) return;
+    setKeywords([...keywordList, word].join(","));
+  };
+  const removeKeyword = (word: string) =>
+    setKeywords(keywordList.filter((k) => k !== word).join(","));
 
   // The conversation, in the order it will actually happen.
   const preview: PreviewMessage[] = [];
@@ -223,34 +274,50 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
   }
 
   const account = accounts.find((a) => a.id === connectionId);
+  // What the closed "More options" row says it is holding. A disclosure whose
+  // summary is only the word "More" is a disclosure nobody opens, and these
+  // are the settings people forget they turned on.
+  const moreSummary = [
+    folder ? `in ${folder}` : null,
+    exactMatch ? "exact match" : null,
+    oncePerContact ? "once per person" : null,
+    collectEmail ? "asks for their email" : null,
+    followUps.length > 0
+      ? `${followUps.length} follow-up${followUps.length === 1 ? "" : "s"}`
+      : null,
+  ].filter(Boolean);
+
+  const buttonUrlBad = showLink && buttonUrl.trim() !== "" && !URL_SHAPE.test(buttonUrl.trim());
 
   return (
-    <div className="grid items-start gap-4 wide:grid-cols-[1fr_320px]">
-      <form action={formAction} className="flex min-w-0 flex-col gap-3.5">
+    <TwoPane>
+      <form
+        action={formAction}
+        className="flex min-w-[min(100%,400px)] flex-[1_1_460px] flex-col gap-4"
+      >
         {rule ? <input type="hidden" name="rule_id" value={rule.id} /> : null}
         {template && !rule ? (
           <input type="hidden" name="template_id" value={template.id} />
         ) : null}
+        {/* The chips are the control; this is what the action actually reads,
+            so the server contract did not change when the input did. */}
+        <input type="hidden" name="keywords" value={keywords} />
 
         {state.message ? (
-          <p
-            aria-live="polite"
-            className="rounded-lg border border-danger bg-danger-soft px-3 py-2 text-sm text-danger"
-          >
+          <Notice tone="danger" aria-live="polite">
             {state.message}
-          </p>
+          </Notice>
         ) : null}
 
         {template && !rule ? (
-          <p className="rounded-lg border border-line bg-chip px-3 py-2 text-sm text-muted">
+          <Notice>
             Started from <span className="text-ink">{template.name}</span>.
             Change anything — nothing here is fixed.
-          </p>
+          </Notice>
         ) : null}
 
         <Card>
-          <Step n={1}>Name and account</Step>
-          <label htmlFor="name" className={`${label} mt-3 block`}>
+          <label htmlFor="name" className={label}>
             Name this rule
           </label>
           <input
@@ -262,57 +329,57 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
             className={input}
           />
           {err("name")}
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="connection_id" className={label}>
-                Which account
-              </label>
-              <select
-                id="connection_id"
-                name="connection_id"
-                value={connectionId}
-                onChange={(e) => {
-                  setConnectionId(e.target.value);
-                  setSelectedPosts([]);
-                  setPosts(null);
-                }}
-                className={input}
-              >
-                <option value="">Choose an account…</option>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id} disabled={!a.ready}>
-                    {a.name} · {a.platformLabel}
-                    {a.ready ? "" : " — turn on automation first"}
-                  </option>
-                ))}
-              </select>
-              {err("connection_id")}
-            </div>
-            <div>
-              <label htmlFor="folder" className={label}>
-                Folder <span className="font-normal text-faint">(optional)</span>
-              </label>
-              <input
-                id="folder"
-                name="folder"
-                defaultValue={rule ? undefined : ""}
-                placeholder="Launch"
-                maxLength={60}
-                className={input}
-              />
-            </div>
-          </div>
         </Card>
 
+        {/* ── 1. when this happens ──────────────────────────────────────── */}
         <Card>
-          <Step n={2}>When this happens</Step>
-          <p className={`${label} mt-3`}>When someone</p>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <Step n={1}>When this happens</Step>
+
+          <p className={`${label} mt-4`}>On which account</p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {accounts.map((a) => (
+              <label
+                key={a.id}
+                title={a.ready ? a.platformLabel : "Turn on automation for this account first"}
+                className={cx(
+                  chipToggle(connectionId === a.id),
+                  a.ready ? "cursor-pointer" : "cursor-not-allowed opacity-45",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="connection_id"
+                  value={a.id}
+                  checked={connectionId === a.id}
+                  disabled={!a.ready}
+                  onChange={() => {
+                    setConnectionId(a.id);
+                    setSelectedPosts([]);
+                    setPosts(null);
+                  }}
+                  className="sr-only"
+                />
+                {a.name}
+              </label>
+            ))}
+          </div>
+          {accounts.length === 0 ? (
+            <p className={help}>
+              No account has automation turned on yet.{" "}
+              <Link href="/dashboard/automations" className="underline">
+                Turn it on
+              </Link>{" "}
+              and come back — a rule needs an account to run on.
+            </p>
+          ) : null}
+          {err("connection_id")}
+
+          <p className={`${label} mt-5`}>When someone</p>
+          <div className={cx(segmentedTrack, "mt-2.5 flex-wrap")}>
             {TRIGGERS.map(([value, text]) => (
               <label
                 key={value}
-                className={`${chipToggle(trigger === value)} cursor-pointer`}
+                className={cx(segmentedItem(trigger === value), "cursor-pointer")}
               >
                 <input
                   type="radio"
@@ -335,169 +402,98 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
             ))}
           </div>
 
-          {trigger === "comment" ? (
-            <div className="mt-4">
-              <p className={label}>On which posts</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <label
-                  className={`${chipToggle(postScope === "any")} cursor-pointer`}
-                >
-                  <input
-                    type="radio"
-                    name="post_scope"
-                    value="any"
-                    checked={postScope === "any"}
-                    onChange={() => setPostScope("any")}
-                    className="sr-only"
-                  />
-                  Any post or reel
-                </label>
-                <label
-                  className={`${chipToggle(postScope === "specific")} cursor-pointer`}
-                >
-                  <input
-                    type="radio"
-                    name="post_scope"
-                    value="specific"
-                    checked={postScope === "specific"}
-                    onChange={chooseSpecific}
-                    className="sr-only"
-                  />
-                  Specific posts
-                </label>
-              </div>
-              {postScope === "specific" ? (
-                <div className="mt-3">
-                  {selectedPosts.map((id) => (
-                    <input key={id} type="hidden" name="post_ids" value={id} />
-                  ))}
-                  {posts === null && !postsError ? (
-                    <p className={help}>Loading recent posts…</p>
-                  ) : postsError ? (
-                    <p className="mt-1 text-xs text-danger">{postsError}</p>
-                  ) : posts && posts.length === 0 ? (
-                    <p className={help}>No recent posts found on this account.</p>
-                  ) : (
-                    <ul className="grid grid-cols-2 gap-2 shell:grid-cols-4">
-                      {(posts ?? []).map((post) => {
-                        const on = selectedPosts.includes(post.id);
-                        return (
-                          <li key={post.id}>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setSelectedPosts((prev) =>
-                                  on
-                                    ? prev.filter((p) => p !== post.id)
-                                    : [...prev, post.id],
-                                )
-                              }
-                              aria-pressed={on}
-                              className={`block w-full overflow-hidden rounded-[10px] border-2 text-left transition ${on ? "border-accent" : "border-line hover:border-line-strong"}`}
-                            >
-                              {post.thumbnailUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element -- Instagram CDN thumbnails
-                                <img
-                                  src={post.thumbnailUrl}
-                                  alt=""
-                                  className="aspect-square w-full object-cover"
-                                />
-                              ) : (
-                                <span className="block aspect-square w-full bg-chip" />
-                              )}
-                              <span className="block truncate px-2 py-1 text-[10.5px] text-muted">
-                                {post.caption?.slice(0, 40) ||
-                                  post.mediaType ||
-                                  post.id}
-                              </span>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                  {err("post_ids")}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div className="mt-4">
-            <p className={label}>
-              And what they wrote
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {trigger !== "dm_keyword" ? (
-                <label
-                  className={`${chipToggle(keywordMode === "any")} cursor-pointer`}
-                >
-                  <input
-                    type="radio"
-                    name="keyword_mode"
-                    value="any"
-                    checked={keywordMode === "any"}
-                    onChange={() => setKeywordMode("any")}
-                    className="sr-only"
-                  />
-                  Anything at all
-                </label>
-              ) : (
-                <input type="hidden" name="keyword_mode" value="keywords" />
-              )}
-              <label
-                className={`${chipToggle(keywordMode === "keywords")} cursor-pointer`}
-              >
+          <p className={`${label} mt-5`}>And what they wrote</p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {trigger !== "dm_keyword" ? (
+              <label className={cx(chipToggle(keywordMode === "any"), "cursor-pointer")}>
                 <input
                   type="radio"
                   name="keyword_mode"
-                  value="keywords"
-                  checked={keywordMode === "keywords"}
-                  onChange={() => setKeywordMode("keywords")}
+                  value="any"
+                  checked={keywordMode === "any"}
+                  onChange={() => setKeywordMode("any")}
                   className="sr-only"
                 />
-                A specific word or words
+                Any comment
               </label>
-            </div>
-            {keywordMode === "keywords" ? (
-              <div className="mt-2">
-                <input
-                  name="keywords"
-                  value={keywords}
-                  onChange={(e) => setKeywords(e.target.value)}
-                  placeholder="LINK, guide, send it"
-                  aria-label="Keywords, separated by commas"
-                  className={input}
-                />
-                <p className={help}>
-                  Separate keywords with commas. Matching ignores capitals.
-                  Leave empty to match any comment.
-                </p>
-                {keywordList.length > 0 ? (
-                  <p className="mt-2 flex flex-wrap gap-1">
-                    {keywordList.map((word) => (
-                      <Pill key={word}>{word}</Pill>
-                    ))}
-                  </p>
-                ) : null}
-                <label className="mt-2 flex items-center gap-2 text-xs text-muted">
-                  <input
-                    type="checkbox"
-                    name="keyword_match"
-                    value="exact"
-                    defaultChecked={rule?.config.keyword_match === "exact"}
-                    className="accent-accent"
-                  />
-                  Only when the whole message is exactly one of these words
-                </label>
-                {err("keywords")}
-              </div>
-            ) : null}
+            ) : (
+              <input type="hidden" name="keyword_mode" value="keywords" />
+            )}
+            <label
+              className={cx(chipToggle(keywordMode === "keywords"), "cursor-pointer")}
+            >
+              <input
+                type="radio"
+                name="keyword_mode"
+                value="keywords"
+                checked={keywordMode === "keywords"}
+                onChange={() => setKeywordMode("keywords")}
+                className="sr-only"
+              />
+              These keywords
+            </label>
           </div>
+
+          {keywordMode === "keywords" ? (
+            <div className="mt-3">
+              {/* Chips rather than a comma-separated string. The old field
+                  meant a keyword containing a comma was silently two, and it
+                  gave no feedback that "LINK ,guide" had a stray space. */}
+              <ul className="flex flex-wrap items-center gap-2">
+                {keywordList.map((word) => (
+                  <li key={word}>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-accent bg-accent-soft py-[5px] pr-2 pl-3.5 text-[13px] font-semibold text-ink">
+                      {word}
+                      <button
+                        type="button"
+                        onClick={() => removeKeyword(word)}
+                        aria-label={`Remove ${word}`}
+                        className="text-faint transition-[color] duration-150 hover:text-danger"
+                      >
+                        <Icon name="close" className="h-3 w-3" strokeWidth={2.4} />
+                      </button>
+                    </span>
+                  </li>
+                ))}
+                <li className="min-w-[9rem] flex-1">
+                  <input
+                    value={keywordDraft}
+                    onChange={(e) => setKeywordDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        commitKeyword();
+                      } else if (
+                        e.key === "Backspace" &&
+                        keywordDraft === "" &&
+                        keywordList.length > 0
+                      ) {
+                        removeKeyword(keywordList[keywordList.length - 1]);
+                      }
+                    }}
+                    onBlur={commitKeyword}
+                    placeholder={keywordList.length ? "Add another…" : "LINK"}
+                    aria-label="Add a keyword"
+                    className="w-full rounded-full border border-line bg-panel px-3.5 py-[7px] text-[13px] text-ink outline-none transition-[border-color] duration-150 placeholder:text-faint focus:border-accent"
+                  />
+                </li>
+              </ul>
+              <p className={help}>
+                {exactMatch
+                  ? "Only fires when the whole message is exactly one of these words."
+                  : "Fires when the message contains one of these words. Capitals are ignored."}{" "}
+                Press Enter to add.
+              </p>
+              {err("keywords")}
+            </div>
+          ) : null}
         </Card>
 
+        {/* ── 2. then send this ─────────────────────────────────────────── */}
         <Card>
-          <Step n={3}>Send this DM</Step>
-          <label htmlFor="dm_text" className={`${label} mt-3 block`}>
+          <Step n={2}>Then send this</Step>
+
+          <label htmlFor="dm_text" className={`${label} mt-4 block`}>
             They get this DM
           </label>
           <textarea
@@ -517,7 +513,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           {err("dm_text")}
 
           {showLink ? (
-            <div className="mt-3 grid gap-2 shell:grid-cols-[1fr_2fr]">
+            <div className="mt-4 grid gap-3 shell:grid-cols-[1fr_2fr]">
               <div>
                 <label htmlFor="button_title" className={label}>
                   Button label
@@ -535,7 +531,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
               </div>
               <div>
                 <label htmlFor="button_url" className={label}>
-                  Link
+                  Where it goes
                 </label>
                 <input
                   id="button_url"
@@ -544,11 +540,17 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                   value={buttonUrl}
                   onChange={(e) => setButtonUrl(e.target.value)}
                   placeholder="https://…"
-                  className={input}
+                  aria-invalid={buttonUrlBad}
+                  className={cx(input, buttonUrlBad && "border-danger")}
                 />
+                {buttonUrlBad ? (
+                  <p className="mt-1.5 text-[12.5px] text-danger">
+                    That button needs a full link, starting with https://
+                  </p>
+                ) : null}
                 {err("button_url")}
               </div>
-              <p className="text-xs text-faint sm:col-span-2">
+              <p className="text-[12.5px] text-faint sm:col-span-2">
                 Clicks on this link are counted on the rule.
               </p>
             </div>
@@ -556,7 +558,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
             <button
               type="button"
               onClick={() => setShowLink(true)}
-              className="mt-3 text-xs font-semibold text-accent transition hover:brightness-[1.08]"
+              className={cx(textButtonClass, "mt-4 block")}
             >
               + Add a link
             </button>
@@ -584,218 +586,361 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           ) : null}
         </Card>
 
-        <Card>
-          <label className="flex items-start gap-2.5 text-[13px] text-ink">
-            <input
-              type="checkbox"
-              name="collect_email"
-              value="on"
-              checked={collectEmail}
-              onChange={(e) => setCollectEmail(e.target.checked)}
-              className="mt-0.5 accent-accent"
+        {/* ── more options ─────────────────────────────────────────────── */}
+        <details
+          open={moreOpen}
+          onToggle={(e) => setMoreOpen((e.target as HTMLDetailsElement).open)}
+          className="rounded-2xl border border-line bg-panel"
+        >
+          <summary className="flex cursor-pointer list-none items-center gap-2.5 px-6 py-4">
+            <Icon
+              name={moreOpen ? "chevronUp" : "chevronDown"}
+              className="h-4 w-4 text-faint"
             />
-            <span>
-              And then ask for their email
-              <span className="block text-xs text-faint">
-                Their next message is read as the answer and stored on the
-                contact. If it is not an address, we stop waiting rather than
-                swallowing everything else they say.
-              </span>
+            <span className="text-[14.5px] font-semibold text-ink">
+              More options
             </span>
-          </label>
-          {collectEmail && trigger === "comment" ? (
-            <p className="mt-2 rounded-lg border border-warn bg-warn-soft px-3 py-2 text-xs text-warn">
-              Instagram only lets an automation send a second message to
-              somebody who has messaged you. On a comment rule, the question
-              reaches the people who reply to your first DM and nobody else — so
-              a keyword-in-a-DM trigger collects far more addresses.
-            </p>
-          ) : null}
-          {collectEmail ? (
-            <input
-              name="email_prompt"
-              value={emailPrompt}
-              onChange={(e) => setEmailPrompt(e.target.value)}
-              maxLength={200}
-              className={`${input} mt-3`}
-            />
-          ) : null}
-        </Card>
+            {!moreOpen && moreSummary.length > 0 ? (
+              <span className="truncate text-[13px] text-faint">
+                {moreSummary.join(" · ")}
+              </span>
+            ) : null}
+          </summary>
 
-        <Card>
-          <Step n={4}>Follow-ups</Step>
-          <p className={`${label} mt-3`}>
-            Follow-ups{" "}
-            <span className="font-normal text-faint">(optional)</span>
-          </p>
-          <p className={help}>
-            Extra DMs sent later. Instagram only allows them within 24 hours of
-            the person&apos;s last message to you — a follow-up outside that
-            window is skipped, not sent.
-          </p>
-          {trigger === "comment" && followUps.length > 0 ? (
-            <p className="mt-2 rounded-lg border border-warn bg-warn-soft px-3 py-2 text-xs text-warn">
-              Answering a comment does not open that window, and neither does
-              tapping your link. These follow-ups reach the people who write
-              back to your first DM, and are skipped for everyone else — you
-              will see them counted as &ldquo;not sent&rdquo;.
-            </p>
-          ) : null}
-          <ul className="mt-2 flex flex-col gap-3">
-            {followUps.map((f, index) => (
-              <li key={f.key} className="rounded-[10px] bg-chip p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <label className="text-xs text-muted">
-                    Wait{" "}
-                    <select
-                      name={`followup_delay_${index}`}
-                      value={f.delayMinutes}
-                      onChange={(e) =>
-                        setFollowUps((prev) =>
-                          prev.map((x) =>
-                            x.key === f.key
-                              ? { ...x, delayMinutes: Number(e.target.value) }
-                              : x,
-                          ),
-                        )
-                      }
-                      className="rounded-lg border border-line bg-panel px-2 py-1 text-xs text-ink"
-                    >
-                      {DELAY_CHOICES.map((d) => (
-                        <option key={d.minutes} value={d.minutes}>
-                          {d.label}
-                        </option>
-                      ))}
-                      {!DELAY_CHOICES.some((d) => d.minutes === f.delayMinutes) ? (
-                        <option value={f.delayMinutes}>
-                          {f.delayMinutes} minutes
-                        </option>
-                      ) : null}
-                    </select>{" "}
-                    then send
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFollowUps((prev) => prev.filter((x) => x.key !== f.key))
-                    }
-                    className="text-xs text-faint hover:text-danger"
-                  >
-                    Remove
-                  </button>
-                </div>
-                <textarea
-                  name={`followup_text_${index}`}
-                  rows={2}
-                  value={f.text}
-                  onChange={(e) =>
-                    setFollowUps((prev) =>
-                      prev.map((x) =>
-                        x.key === f.key ? { ...x, text: e.target.value } : x,
-                      ),
-                    )
-                  }
-                  placeholder="Did the link work for you?"
+          <div className="flex flex-col gap-5 border-t border-line px-6 py-5">
+            <div>
+              <label htmlFor="folder" className={label}>
+                Folder <span className="font-normal text-faint">(optional)</span>
+              </label>
+              <input
+                id="folder"
+                name="folder"
+                value={folder}
+                onChange={(e) => setFolder(e.target.value)}
+                placeholder="Launch"
+                maxLength={60}
+                className={input}
+              />
+            </div>
+
+            {keywordMode === "keywords" ? (
+              <label className="flex items-start gap-2.5 text-[14px] text-ink">
+                <input
+                  type="checkbox"
+                  name="keyword_match"
+                  value="exact"
+                  checked={exactMatch}
+                  onChange={(e) => setExactMatch(e.target.checked)}
+                  className="mt-0.5 h-[15px] w-[15px] accent-[var(--accent)]"
+                />
+                <span>
+                  Only when the whole message is exactly one of these words
+                  <span className="mt-0.5 block text-[13px] text-faint">
+                    Off, a comment that merely contains the word counts.
+                  </span>
+                </span>
+              </label>
+            ) : null}
+
+            <label className="flex items-start gap-2.5 text-[14px] text-ink">
+              <input
+                type="checkbox"
+                name="once_per_contact"
+                value="on"
+                checked={oncePerContact}
+                onChange={(e) => setOncePerContact(e.target.checked)}
+                className="mt-0.5 h-[15px] w-[15px] accent-[var(--accent)]"
+              />
+              <span>
+                Answer each person only once
+                <span className="mt-0.5 block text-[13px] text-faint">
+                  Off means the same person gets the DM again every time they
+                  trigger the rule.
+                </span>
+              </span>
+            </label>
+
+            <div>
+              <label className="flex items-start gap-2.5 text-[14px] text-ink">
+                <input
+                  type="checkbox"
+                  name="collect_email"
+                  value="on"
+                  checked={collectEmail}
+                  onChange={(e) => setCollectEmail(e.target.checked)}
+                  className="mt-0.5 h-[15px] w-[15px] accent-[var(--accent)]"
+                />
+                <span>
+                  And then ask for their email
+                  <span className="mt-0.5 block text-[13px] text-faint">
+                    Their next message is read as the answer and stored on the
+                    contact. If it is not an address, we stop waiting rather
+                    than swallowing everything else they say.
+                  </span>
+                </span>
+              </label>
+              {collectEmail && trigger === "comment" ? (
+                <Notice tone="warn" className="mt-3">
+                  Instagram only lets an automation send a second message to
+                  somebody who has messaged you. On a comment rule, the question
+                  reaches the people who reply to your first DM and nobody else
+                  — so a keyword-in-a-DM trigger collects far more addresses.
+                </Notice>
+              ) : null}
+              {collectEmail ? (
+                <input
+                  name="email_prompt"
+                  value={emailPrompt}
+                  onChange={(e) => setEmailPrompt(e.target.value)}
+                  maxLength={200}
+                  aria-label="What to ask"
                   className={input}
                 />
-                {showLink && buttonTitle ? (
-                  <label className="mt-2 flex items-start gap-2 text-xs text-muted">
-                    <input
-                      type="checkbox"
-                      name={`followup_skip_${index}`}
-                      value="on"
-                      checked={f.skipIfClicked}
+              ) : null}
+            </div>
+
+            <div>
+              <p className={label}>
+                Follow-ups{" "}
+                <span className="font-normal text-faint">(optional)</span>
+              </p>
+              <p className={help}>
+                Extra DMs sent later. Instagram only allows them within 24 hours
+                of the person&apos;s last message to you — a follow-up outside
+                that window is skipped, not sent.
+              </p>
+              {trigger === "comment" && followUps.length > 0 ? (
+                <Notice tone="warn" className="mt-3">
+                  Answering a comment does not open that window, and neither
+                  does tapping your link. These follow-ups reach the people who
+                  write back to your first DM, and are skipped for everyone else
+                  — you will see them counted as &ldquo;not sent&rdquo;.
+                </Notice>
+              ) : null}
+              <ul className="mt-3 flex flex-col gap-3">
+                {followUps.map((f, index) => (
+                  <li key={f.key} className="rounded-xl bg-chip p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="text-[13px] text-muted">
+                        Wait{" "}
+                        <select
+                          name={`followup_delay_${index}`}
+                          value={f.delayMinutes}
+                          onChange={(e) =>
+                            setFollowUps((prev) =>
+                              prev.map((x) =>
+                                x.key === f.key
+                                  ? { ...x, delayMinutes: Number(e.target.value) }
+                                  : x,
+                              ),
+                            )
+                          }
+                          className="rounded-[9px] border border-line bg-panel px-2.5 py-1.5 text-[13px] text-ink"
+                        >
+                          {DELAY_CHOICES.map((d) => (
+                            <option key={d.minutes} value={d.minutes}>
+                              {d.label}
+                            </option>
+                          ))}
+                          {!DELAY_CHOICES.some((d) => d.minutes === f.delayMinutes) ? (
+                            <option value={f.delayMinutes}>
+                              {f.delayMinutes} minutes
+                            </option>
+                          ) : null}
+                        </select>{" "}
+                        then send
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFollowUps((prev) => prev.filter((x) => x.key !== f.key))
+                        }
+                        className={destructiveButtonClass}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <textarea
+                      name={`followup_text_${index}`}
+                      rows={2}
+                      value={f.text}
                       onChange={(e) =>
                         setFollowUps((prev) =>
                           prev.map((x) =>
-                            x.key === f.key
-                              ? { ...x, skipIfClicked: e.target.checked }
-                              : x,
+                            x.key === f.key ? { ...x, text: e.target.value } : x,
                           ),
                         )
                       }
-                      className="mt-0.5 accent-accent"
+                      placeholder="Did the link work for you?"
+                      className={input}
                     />
-                    <span>
-                      Only send this to people who never tapped the link
-                      <span className="block text-faint">
-                        Chasing somebody who already did the thing is the
-                        fastest way to be muted.
-                      </span>
-                    </span>
-                  </label>
-                ) : null}
-                {err(`followup_delay_${index}`)}
-              </li>
-            ))}
-          </ul>
-          {followUps.length < 5 ? (
-            <button
-              type="button"
-              onClick={() => {
-                setFollowUps((prev) => [
-                  ...prev,
-                  {
-                    key: nextKey,
-                    text: "",
-                    delayMinutes: 1440,
-                    skipIfClicked: Boolean(showLink && buttonTitle),
-                  },
-                ]);
-                setNextKey((k) => k + 1);
-              }}
-              className="mt-2 text-xs font-semibold text-accent transition hover:brightness-[1.08]"
-            >
-              + Add a follow-up
-            </button>
-          ) : null}
-        </Card>
+                    {showLink && buttonTitle ? (
+                      <label className="mt-3 flex items-start gap-2.5 text-[13px] text-muted">
+                        <input
+                          type="checkbox"
+                          name={`followup_skip_${index}`}
+                          value="on"
+                          checked={f.skipIfClicked}
+                          onChange={(e) =>
+                            setFollowUps((prev) =>
+                              prev.map((x) =>
+                                x.key === f.key
+                                  ? { ...x, skipIfClicked: e.target.checked }
+                                  : x,
+                              ),
+                            )
+                          }
+                          className="mt-0.5 h-[15px] w-[15px] accent-[var(--accent)]"
+                        />
+                        <span>
+                          Only send this to people who never tapped the link
+                          <span className="mt-0.5 block text-faint">
+                            Chasing somebody who already did the thing is the
+                            fastest way to be muted.
+                          </span>
+                        </span>
+                      </label>
+                    ) : null}
+                    {err(`followup_delay_${index}`)}
+                  </li>
+                ))}
+              </ul>
+              {followUps.length < 5 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFollowUps((prev) => [
+                      ...prev,
+                      {
+                        key: nextKey,
+                        text: "",
+                        delayMinutes: 1440,
+                        skipIfClicked: Boolean(showLink && buttonTitle),
+                      },
+                    ]);
+                    setNextKey((k) => k + 1);
+                  }}
+                  className={cx(textButtonClass, "mt-3 block")}
+                >
+                  + Add a follow-up
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </details>
 
-        <Card>
-          <label className="flex items-start gap-2.5 text-[13px] text-ink">
-            <input
-              type="checkbox"
-              name="once_per_contact"
-              value="on"
-              defaultChecked={
-                rule
-                  ? (rule.config.once_per_contact ??
-                    rule.trigger_type === "comment")
-                  : (seed?.oncePerContact ?? true)
-              }
-              className="mt-0.5 accent-accent"
-            />
-            <span>
-              Answer each person only once
-              <span className="block text-xs text-faint">
-                Off means the same person gets the DM again every time they
-                trigger the rule.
-              </span>
-            </span>
-          </label>
-        </Card>
+        {/* ── 3. on which posts ─────────────────────────────────────────── */}
+        {trigger === "comment" ? (
+          <Card>
+            <Step n={3}>On which posts</Step>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <label className={cx(chipToggle(postScope === "any"), "cursor-pointer")}>
+                <input
+                  type="radio"
+                  name="post_scope"
+                  value="any"
+                  checked={postScope === "any"}
+                  onChange={() => setPostScope("any")}
+                  className="sr-only"
+                />
+                Any post or reel
+              </label>
+              <label
+                className={cx(chipToggle(postScope === "specific"), "cursor-pointer")}
+              >
+                <input
+                  type="radio"
+                  name="post_scope"
+                  value="specific"
+                  checked={postScope === "specific"}
+                  onChange={chooseSpecific}
+                  className="sr-only"
+                />
+                Chosen posts
+              </label>
+            </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-[10px] bg-accent px-5 py-[11px] text-sm font-semibold text-accent-ink transition hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-45"
-          >
+            {postScope === "specific" ? (
+              <div className="mt-4">
+                {selectedPosts.map((id) => (
+                  <input key={id} type="hidden" name="post_ids" value={id} />
+                ))}
+                {posts === null && !postsError ? (
+                  <p className={help}>Loading recent posts…</p>
+                ) : postsError ? (
+                  <p className="mt-1.5 text-[13px] text-danger">{postsError}</p>
+                ) : posts && posts.length === 0 ? (
+                  <p className={help}>No recent posts found on this account.</p>
+                ) : (
+                  <>
+                    {selectedPosts.length === 0 ? (
+                      <Notice tone="warn" className="mb-3">
+                        Pick at least one — a rule scoped to nothing never runs.
+                      </Notice>
+                    ) : null}
+                    <ul className="grid grid-cols-2 gap-2.5 shell:grid-cols-4">
+                      {(posts ?? []).map((post) => {
+                        const on = selectedPosts.includes(post.id);
+                        return (
+                          <li key={post.id}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedPosts((prev) =>
+                                  on
+                                    ? prev.filter((p) => p !== post.id)
+                                    : [...prev, post.id],
+                                )
+                              }
+                              aria-pressed={on}
+                              className={cx(
+                                "block w-full overflow-hidden rounded-xl border-2 text-left transition-[border-color] duration-150",
+                                on ? "border-accent" : "border-line hover:border-line-strong",
+                              )}
+                            >
+                              {post.thumbnailUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element -- Instagram CDN thumbnails
+                                <img
+                                  src={post.thumbnailUrl}
+                                  alt=""
+                                  className="aspect-square w-full object-cover"
+                                />
+                              ) : (
+                                <span className="block aspect-square w-full bg-chip" />
+                              )}
+                              <span className="block truncate px-2.5 py-1.5 text-[12px] text-muted">
+                                {post.caption?.slice(0, 40) ||
+                                  post.mediaType ||
+                                  post.id}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                )}
+                {err("post_ids")}
+              </div>
+            ) : null}
+          </Card>
+        ) : null}
+
+        <div className="flex items-center gap-4">
+          <Button type="submit" tone="primary" disabled={pending}>
             {pending ? "Saving…" : rule ? "Save changes" : "Turn it on"}
-          </button>
+          </Button>
           <Link
             href="/dashboard/automations"
-            className="text-[13px] text-muted transition hover:text-ink"
+            className="text-[14px] text-muted transition hover:text-ink"
           >
             Cancel
           </Link>
         </div>
       </form>
 
-      <div className="wide:sticky wide:top-6 wide:self-start">
-        <p className="mb-3 text-[11px] font-semibold tracking-[0.06em] text-faint uppercase">
-          Preview
-        </p>
+      <StickyPane className="min-w-[280px] flex-[0_1_320px]">
+        <Eyebrow className="mb-3">Preview</Eyebrow>
         <PhonePreview
           accountName={account?.name ?? "your account"}
           trigger={
@@ -807,7 +952,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
           commentReply={commentReply}
           messages={preview}
         />
-      </div>
-    </div>
+      </StickyPane>
+    </TwoPane>
   );
 }

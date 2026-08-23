@@ -40,8 +40,8 @@ export function GeneratePanel({
 
   return (
     <section className="rounded-xl border border-line bg-panel p-5">
-      <h2 className="text-sm font-semibold">Write from this video</h2>
-      <p className="mt-1 text-xs text-faint">
+      <h2 className="text-[14.5px] font-semibold">Write from this video</h2>
+      <p className="mt-1 text-[13px] text-faint">
         {hasBreakdown
           ? "Works from the breakdown above — the structure carries over, the wording cannot, because the model never sees it."
           : "No breakdown yet, so this works from the raw video and may echo its phrasing. Break it down first for a genuine remix."}{" "}
@@ -50,7 +50,7 @@ export function GeneratePanel({
       </p>
 
       {!enabled ? (
-        <p className="mt-4 rounded-lg border border-line bg-chip px-4 py-3 text-xs text-faint">
+        <p className="mt-4 rounded-lg border border-line bg-chip px-4 py-3 text-[13px] text-faint">
           Generation turns on once an AI key is configured on this deployment.
           Channel tracking and outlier scoring already work.
         </p>
@@ -58,14 +58,14 @@ export function GeneratePanel({
         <form action={action} className="mt-4 flex flex-col gap-3">
           <input type="hidden" name="video_id" value={videoId} />
 
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-xs font-medium text-muted">
+          <label className="flex flex-col gap-1 text-[14.5px]">
+            <span className="text-[13px] font-medium text-muted">
               Your angle (optional)
             </span>
             <input
               name="topic"
               placeholder="Same structure, but about home espresso"
-              className="rounded-lg border border-line bg-chip px-3 py-2 text-sm outline-none transition focus:border-line-strong"
+              className="rounded-lg border border-line bg-chip px-3 py-2 text-[14.5px] outline-none transition focus:border-line-strong"
             />
           </label>
 
@@ -78,7 +78,7 @@ export function GeneratePanel({
                 value={kind.id}
                 disabled={pending || out}
                 title={kind.hint}
-                className="rounded-lg border border-line-strong px-3 py-2 text-xs font-medium transition hover:bg-chip disabled:opacity-50"
+                className="rounded-lg border border-line-strong px-3 py-2 text-[13px] font-medium transition hover:bg-chip disabled:opacity-50"
               >
                 {kind.label}
               </button>
@@ -86,16 +86,16 @@ export function GeneratePanel({
           </div>
 
           {out ? (
-            <p className="text-xs text-warn">
+            <p className="text-[13px] text-warn">
               No research credits left this month.
             </p>
           ) : null}
           {pending ? (
-            <p className="text-xs text-faint">Writing…</p>
+            <p className="text-[13px] text-faint">Writing…</p>
           ) : null}
           {state.message ? (
             <p
-              className={`text-xs ${state.ok ? "text-ok" : "text-danger"}`}
+              className={`text-[13px] ${state.ok ? "text-ok" : "text-danger"}`}
             >
               {state.message}
             </p>
