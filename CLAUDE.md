@@ -644,8 +644,29 @@ removes all data; the app installs to a phone home screen and works.
 A hard gate. Answer reviewer follow-ups, resubmit rejections, close any gap a
 reviewer names, and cleanly remove any platform that is not approved.
 
+Also the security pass, because this is the last gate before strangers hand the
+product OAuth access to their own accounts. Run `/security-review` on the branch,
+then a pentest sweep with **Strix** (`github.com/usestrix/strix`, Apache 2.0 — an
+autonomous AI pentester: Docker plus our own LLM key, no account or service
+signup). Rules for that run, decided 2026-08-21:
+
+- **Install it at Phase 7, not before.** The tool changes fast and the installer is
+  a `curl … | bash`, so it is read (`curl -sSL https://strix.ai/install | less`)
+  and run at the moment it is used, never saved for later.
+- **Point it at a local checkout, never at `markedfox.com`.** Production is a
+  1 vCPU / 2GB box holding other users' encrypted OAuth tokens, and a scan against
+  it would trip fail2ban and Cloudflare besides.
+- **Scope it to the routes that carry the real surface:** the OAuth connect and
+  callback handlers, the Stripe webhook, the Meta webhook signature check, the
+  `/r/<token>` tracked-link redirect (open redirect), and the server-side media
+  fetches (SSRF).
+- **It does not replace `scripts/rls-smoke.mjs`.** Cross-tenant isolation is
+  proven deterministically by that smoke plus RLS in the database; a generic
+  scanner reasons about row ownership badly and its silence is not evidence.
+
 **Exit:** approvals granted for every platform shipping at launch; any unapproved
-platform fully removed.
+platform fully removed; `/security-review` clean and the Strix run triaged, with
+every finding either fixed or written down with the reason it was dismissed.
 
 > Do not show the app to the audience before this passes. A hundred people hitting
 > "Connect Instagram" and failing burns the launch and the credibility of the exact
