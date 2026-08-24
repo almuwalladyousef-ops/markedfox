@@ -12,9 +12,13 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "meta": "node scripts/meta.mjs"
+    "meta": "node scripts/meta.mjs",
+    "prebuild": "node scripts/copy-ffmpeg.mjs",
+    "predev": "node scripts/copy-ffmpeg.mjs"
   },
   "dependencies": {
+    "@ffmpeg/core": "^0.12.10",
+    "@ffmpeg/ffmpeg": "^0.12.15",
     "@supabase/ssr": "0.12.4",
     "@supabase/supabase-js": "2.112.3",
     "next": "16.3.0",

@@ -34,3 +34,6 @@ next-env.d.ts
 # session logs and handoffs — LOCAL ONLY, may contain sensitive account detail
 sessions/
 handoff/
+
+# ffmpeg core, copied from node_modules by scripts/copy-ffmpeg.mjs (31MB)
+/public/ffmpeg/

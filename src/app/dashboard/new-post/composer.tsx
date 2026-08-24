@@ -24,6 +24,7 @@ import {
   type TikTokCreatorContext,
   type TikTokPublishOptions,
 } from "@/lib/platforms/tiktok-options";
+import { NO_EDIT, hasEdits, type MediaEdit } from "@/lib/media/edit";
 import { checkUpload } from "@/lib/media/policy";
 import { validatePublishOptions } from "@/lib/platforms/publish-options";
 import type { OptionSpecs } from "@/lib/publish/specs";
@@ -37,6 +38,7 @@ import type { ContentSpecs } from "@/lib/publish/specs";
 import type { TargetOutcome } from "@/lib/publish/types";
 import { captionLength, validateContent } from "@/lib/publish/validate";
 
+import { MediaEdits } from "./media-edits";
 import { PlatformOptionsPanel } from "./platform-options-panel";
 import { PostPreview } from "./post-preview";
 import { TikTokOptionsPanel, type ContextState } from "./tiktok-options-panel";
@@ -119,6 +121,12 @@ type MediaRow = {
   /** A `blob:` URL for the preview frame, so the post can be looked at without
    *  a byte leaving the machine. Revoked when the row goes. */
   previewUrl?: string;
+  /** Trim and volume, applied in the browser at commit — see lib/media/edit. */
+  edit?: MediaEdit;
+  /** Seconds, read off the preview element once it has its metadata. */
+  durationSec?: number;
+  /** What the edit pass is doing, while it is doing it. */
+  editing?: string;
 };
 
 /**
@@ -410,6 +418,8 @@ export function Composer({
   );
   /** Bytes are in flight. Only true during a commit now, never while editing. */
   const uploading = media.some((m) => m.progress !== undefined);
+  /** ffmpeg is running on one of the clips. */
+  const editingMedia = media.some((m) => m.editing);
   /** Files chosen but not yet in storage — what a commit has to upload, and
    *  what would be lost by closing the tab. */
   const pendingCount = media.filter((m) => m.file && !m.url.trim()).length;
@@ -763,7 +773,31 @@ export function Composer({
         continue;
       }
       if (!row.file) continue;
-      refs.push(await uploadOne(row, row.file));
+
+      // The edit happens here, not when the handle moved: dragging a slider
+      // must not spend thirty seconds of somebody's battery on a file they
+      // are still deciding about. `applyMediaEdits` hands back the original
+      // untouched when the edit amounts to nothing, so an unedited clip
+      // never loads ffmpeg at all.
+      let file = row.file;
+      const edit = row.edit;
+      if (edit && hasEdits(edit, row.durationSec ?? 0)) {
+        updateMedia(row.key, { editing: "Trimming…", error: undefined });
+        try {
+          const { applyMediaEdits } = await import("@/lib/media/ffmpeg-client");
+          file = await applyMediaEdits(
+            row.file,
+            edit,
+            row.durationSec ?? 0,
+            (percent) =>
+              updateMedia(row.key, { editing: `Trimming… ${percent}%` }),
+          );
+        } finally {
+          updateMedia(row.key, { editing: undefined });
+        }
+      }
+
+      refs.push(await uploadOne(row, file));
     }
     return refs;
   };
@@ -1005,6 +1039,8 @@ export function Composer({
   // a reopened draft has only its stored URL, and uses that.
   const previewRow =
     media.find((m) => m.previewUrl || m.url.trim()) ?? null;
+  /** The row the edit rail acts on — the same one the frame is showing. */
+  const firstRow = previewRow;
   const preview = previewRow
     ? {
         url: previewRow.previewUrl ?? previewRow.url.trim(),
@@ -1018,6 +1054,14 @@ export function Composer({
   // this the bar reads "Working…" for however long a 300MB video takes and
   // gives no sign anything is happening.
   const uploadNote = (() => {
+    // The clip being trimmed says so first: ffmpeg runs before the upload
+    // starts, and a bar reading "Working…" for a minute looks like a hang.
+    const editingRow = media.find((m) => m.editing);
+    if (editingRow) {
+      return media.filter((m) => m.file).length > 1 && editingRow.name
+        ? `${editingRow.editing} (${editingRow.name})`
+        : (editingRow.editing ?? null);
+    }
     if (!uploading) return null;
     const files = media.filter((m) => m.file);
     const active = files.find((m) => m.progress !== undefined);
@@ -1127,6 +1171,20 @@ export function Composer({
                 muted
                 controls
                 playsInline
+                // The only place the clip's length is known without decoding
+                // it ourselves, and the trim handles cannot be drawn until it
+                // is. Guarded because a browser reports Infinity for a stream
+                // it has not finished fetching.
+                onLoadedMetadata={(event) => {
+                  const seconds = event.currentTarget.duration;
+                  if (!previewRow || !Number.isFinite(seconds) || seconds <= 0) {
+                    return;
+                  }
+                  updateMedia(previewRow.key, {
+                    durationSec: seconds,
+                    edit: previewRow.edit ?? { ...NO_EDIT, endSec: seconds },
+                  });
+                }}
               />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
@@ -1179,7 +1237,9 @@ export function Composer({
                 {isUpload ? (
                   <span className="min-w-0 flex-1 truncate text-[13px] text-muted">
                     {row.name ?? "Uploaded file"}
-                    {row.progress !== undefined ? (
+                    {row.editing ? (
+                      <span className="ml-2 text-faint">{row.editing}</span>
+                    ) : row.progress !== undefined ? (
                       <span className="ml-2 text-faint">{row.progress}%</span>
                     ) : row.url ? (
                       <span className="ml-2 text-ok">uploaded</span>
@@ -1398,7 +1458,18 @@ export function Composer({
             /* Once there is a file, it is the page: playing, centred, lifted
                off the background, with its two edits beside it. */
             <div className="flex min-h-[52vh] flex-col items-center gap-5">
-              {mediaFrame}
+              <div className="flex items-start gap-5">
+                {mediaFrame}
+                {wantsVideo && firstRow ? (
+                  <MediaEdits
+                    edit={firstRow.edit ?? NO_EDIT}
+                    duration={firstRow.durationSec ?? 0}
+                    onChange={(next) =>
+                      updateMedia(firstRow.key, { edit: next })
+                    }
+                  />
+                ) : null}
+              </div>
               {mediaList}
             </div>
           )
@@ -1875,9 +1946,11 @@ export function Composer({
                   disabled={busy || !contentReady}
                 >
                   {submitting && mode === "schedule"
-                    ? uploading
-                      ? "Uploading…"
-                      : "Working…"
+                    ? editingMedia
+                      ? "Trimming…"
+                      : uploading
+                        ? "Uploading…"
+                        : "Working…"
                     : "Schedule"}
                 </Button>
                 <Button
@@ -1890,9 +1963,11 @@ export function Composer({
                   disabled={!canSubmitNow}
                 >
                   {submitting && mode === "now"
-                    ? uploading
-                      ? "Uploading…"
-                      : "Working…"
+                    ? editingMedia
+                      ? "Trimming…"
+                      : uploading
+                        ? "Uploading…"
+                        : "Working…"
                     : "Post"}
                 </Button>
               </>
