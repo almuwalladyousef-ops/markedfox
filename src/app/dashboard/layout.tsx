@@ -1,34 +1,86 @@
-import Link from "next/link";
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 
-import { FoxMark } from "@/components/ui";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
+import type { EntitlementSnapshot } from "@/lib/entitlements/types";
 import { countInboxIdeas } from "@/lib/research/studio-store";
+import { isRowItem, SHELL_SPACES, type ShellSpace } from "@/lib/shell";
 import { createClient } from "@/lib/supabase/server";
-import { normalizeSidebar, SIDEBAR_COOKIE } from "@/lib/sidebar";
 import { normalizeTheme, THEME_COOKIE } from "@/lib/theme";
 import { getActiveWorkspace, listWorkspaces } from "@/lib/workspaces/store";
 
+import { MobileShell } from "./mobile-shell";
 import { MobileTabs } from "./mobile-tabs";
+import type { DecoratedSpace, SpaceMeter } from "./shell-types";
 import { Sidebar } from "./sidebar";
-import type { NavSection } from "./sidebar-nav";
-import { WorkspaceSwitcher } from "./workspace-switcher";
 
-// One shell for the whole dashboard. Until this existed every page drew its own
-// header, its own back-link to /dashboard, and its own max-width, which is why
-// moving between the publisher and the research pages felt like moving between
-// two products.
+// One shell for the whole dashboard: the icon dock, the contextual rail, and
+// their mobile equivalents. The space map itself is static data in lib/shell;
+// this layout decorates it with what only the server knows — plan locks, the
+// idea-inbox badge, and each space's usage meter — and hands the result to
+// the client components.
 //
-// The nav is grouped by what the person is doing rather than by which pillar
-// the code belongs to: publishing, automating, researching, writing, and the
-// setup that feeds all three. Settings sits in the rail's footer rather than
-// in a group, because it is not one of those things — and connected accounts
-// moved inside it, since "which accounts am I posting from" is setup a person
-// visits twice and then forgets.
+// Settings is not a space: it lives behind the dock's own bottom button, and
+// the user row and plan label that used to sit in the sidebar footer live
+// inside it.
+
+function pct(used: number, limit: number): number {
+  return Math.min(100, Math.round((used / Math.max(1, limit)) * 100));
+}
+
+const fmt = (n: number) => n.toLocaleString("en-US");
+
+// Each space's meter, real numbers from the entitlement snapshot. The X
+// caveat travels with the word "unlimited" wherever it appears — house rule.
+function meterFor(
+  id: ShellSpace["id"],
+  snapshot: EntitlementSnapshot,
+): SpaceMeter {
+  const planName =
+    snapshot.planId.charAt(0).toUpperCase() + snapshot.planId.slice(1);
+  const { limits, usage } = snapshot;
+
+  if (id === "home") {
+    if (limits.postsPerDay === null) {
+      return {
+        title: "Posts today",
+        note:
+          limits.xPostsPerMonth > 0
+            ? `Unlimited on ${planName}. X capped at ${fmt(limits.xPostsPerMonth)}/mo.`
+            : `Unlimited on ${planName}. X is not included.`,
+        pct: null,
+      };
+    }
+    return {
+      title: "Posts today",
+      note: `${fmt(usage.postsToday)} of ${fmt(limits.postsPerDay)} in the last 24 hours.`,
+      pct: pct(usage.postsToday, limits.postsPerDay),
+    };
+  }
+
+  if (id === "automate") {
+    return {
+      title: "DM sends",
+      note: `${fmt(usage.dmSendsThisMonth)} of ${fmt(limits.dmSendsPerMonth)} this month across all rules.`,
+      pct: pct(usage.dmSendsThisMonth, limits.dmSendsPerMonth),
+    };
+  }
+
+  if (limits.researchCreditsPerMonth === 0) {
+    return {
+      title: "Research credits",
+      note: "On Studio — credits are pooled across workspaces.",
+      pct: null,
+    };
+  }
+  return {
+    title: "Research credits",
+    note: `${fmt(usage.researchCreditsThisMonth)} of ${fmt(limits.researchCreditsPerMonth)} used this cycle. Pooled across workspaces.`,
+    pct: pct(usage.researchCreditsThisMonth, limits.researchCreditsPerMonth),
+  };
+}
 
 export default async function DashboardLayout({
   children,
@@ -55,96 +107,31 @@ export default async function DashboardLayout({
   // can see the depth of is a queue nobody empties.
   const inbox = research.allowed ? await countInboxIdeas(supabase, active.id) : 0;
 
-  const sections: NavSection[] = [
-    {
-      title: "Overview",
-      items: [{ href: "/dashboard", label: "Home", icon: "home" }],
-    },
-    {
-      title: "Publish",
-      items: [
-        // The calendar is the whole record of what is going out and what went
-        // out, which is why there is no separate Posts list beside it.
-        { href: "/dashboard/calendar", label: "Calendar", icon: "calendar" },
-        { href: "/dashboard/drafts", label: "Drafts", icon: "drafts" },
-      ],
-    },
-    {
-      title: "Automate",
-      items: [
-        { href: "/dashboard/automations", label: "Automations", icon: "automations" },
-        {
-          href: "/dashboard/automations/templates",
-          label: "Templates",
-          icon: "templates",
-        },
-      ],
-    },
-    {
-      title: "Research",
-      items: [
-        {
-          href: "/dashboard/research",
-          label: "Videos",
-          icon: "videos",
-          locked: !research.allowed,
-        },
-        {
-          href: "/dashboard/research/ideas",
-          label: "Ideas",
-          icon: "ideas",
-          badge: inbox,
-          locked: !research.allowed,
-        },
-      ],
-    },
-    {
-      title: "Create",
-      items: [
-        {
-          href: "/dashboard/research/scripts",
-          label: "Scripts",
-          icon: "scripts",
-          locked: !research.allowed,
-        },
-        {
-          href: "/dashboard/research/projects",
-          label: "Projects",
-          icon: "projects",
-          locked: !research.allowed,
-        },
-        {
-          href: "/dashboard/research/hooks",
-          label: "Hooks",
-          icon: "hooks",
-          locked: !research.allowed,
-        },
-      ],
-    },
-    {
-      title: "Setup",
-      items: [
-        {
-          href: "/dashboard/research/channels",
-          label: "Channels",
-          icon: "channels",
-          locked: !research.allowed,
-        },
-        {
-          href: "/dashboard/research/persona",
-          label: "Persona",
-          icon: "persona",
-          locked: !research.allowed,
-        },
-        {
-          href: "/dashboard/research/rules",
-          label: "Auto-analyze",
-          icon: "autoanalyze",
-          locked: !research.allowed,
-        },
-      ],
-    },
-  ];
+  const spaces: DecoratedSpace[] = SHELL_SPACES.map((space) => {
+    const firstHref = space.rows.filter(isRowItem)[0].href;
+    return {
+      id: space.id,
+      label: space.label,
+      icon: space.icon,
+      tip: space.tip,
+      title: space.title,
+      sub: space.sub,
+      firstHref,
+      meter: meterFor(space.id, snapshot),
+      rows: space.rows.map((row) =>
+        isRowItem(row)
+          ? {
+              ...row,
+              locked: space.id === "studio" && !research.allowed,
+              badge:
+                row.href === "/dashboard/research/ideas" && inbox
+                  ? inbox
+                  : undefined,
+            }
+          : row,
+      ),
+    };
+  });
 
   const workspaceDecision = canUserDo(snapshot, { type: "create_workspace" });
   const workspacesLeft =
@@ -155,56 +142,25 @@ export default async function DashboardLayout({
           snapshot.limits.maxWorkspaces - snapshot.usage.workspaceCount,
         );
   const theme = normalizeTheme(cookieStore.get(THEME_COOKIE)?.value);
-  // Read here rather than in the client, so the very first paint is already
-  // the width this person chose last time.
-  const sidebar = normalizeSidebar(cookieStore.get(SIDEBAR_COOKIE)?.value);
+
+  const workspaceProps = {
+    workspaces,
+    activeId: active.id,
+    canCreate: workspaceDecision.allowed,
+    createBlockedReason: workspaceDecision.allowed
+      ? undefined
+      : workspaceDecision.reason,
+    remaining: workspacesLeft,
+  };
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar
-        sections={sections}
-        workspaces={workspaces}
-        activeId={active.id}
-        canCreate={workspaceDecision.allowed}
-        createBlockedReason={
-          workspaceDecision.allowed ? undefined : workspaceDecision.reason
-        }
-        remaining={workspacesLeft}
-        email={user.email ?? null}
-        planId={snapshot.planId}
-        initial={sidebar}
-      />
+      <Sidebar spaces={spaces} {...workspaceProps} />
 
-      {/* Below 880px the sidebar is replaced by a fixed bottom tab bar; this
-          strip keeps the brand, the workspace switcher and the theme within
-          reach, since none of the three belongs in a four-item tab bar. */}
       <div className="min-w-0 flex-1">
-        <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-panel px-[18px] py-3.5 shell:hidden">
-          <Link href="/dashboard" className="flex min-w-0 items-center gap-2.5">
-            <FoxMark className="h-[26px] shrink-0" />
-            {/* The wordmark is the first thing to go on a narrow phone: the
-                mark alone still says whose app this is, and the workspace
-                switcher beside it is the control people actually press. */}
-            <span className="font-display hidden text-[16px] font-bold tracking-[-0.02em] min-[420px]:inline">
-              MarkedFox
-            </span>
-          </Link>
-          <div className="flex shrink-0 items-center gap-2">
-            <WorkspaceSwitcher
-              workspaces={workspaces}
-              activeId={active.id}
-              canCreate={workspaceDecision.allowed}
-              createBlockedReason={
-                workspaceDecision.allowed ? undefined : workspaceDecision.reason
-              }
-              remaining={workspacesLeft}
-              variant="compact"
-            />
-            <ThemeToggle initial={theme} />
-          </div>
-        </div>
+        <MobileShell spaces={spaces} {...workspaceProps} theme={theme} />
 
-        <main className="mx-auto flex w-full flex-col gap-[22px] px-[18px] pt-7 pb-[120px] shell:px-12 shell:pt-11 shell:pb-[72px]">
+        <main className="mx-auto flex w-full flex-col gap-[22px] px-[18px] pt-5 pb-[120px] shell:px-10 shell:pt-9 shell:pb-16">
           {children}
         </main>
 

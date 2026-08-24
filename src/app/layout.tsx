@@ -1,17 +1,23 @@
 import type { Metadata } from "next";
-import { Space_Grotesk } from "next/font/google";
+import { Bricolage_Grotesque, Public_Sans } from "next/font/google";
 import { cookies } from "next/headers";
 
 import { normalizeTheme, THEME_BOOTSTRAP, THEME_COOKIE } from "@/lib/theme";
 
 import "./globals.css";
 
-// Display face for headings and numerals. Body copy stays on the system stack,
-// so this is the only webfont the product loads.
-const spaceGrotesk = Space_Grotesk({
+// Display face for headings and numerals, body face for everything else —
+// the pairing the redesign handoff specifies.
+const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-space-grotesk",
+  weight: ["500", "600", "700", "800"],
+  variable: "--font-bricolage",
+  display: "swap",
+});
+const publicSans = Public_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-public-sans",
   display: "swap",
 });
 
@@ -30,7 +36,7 @@ export default async function RootLayout({
   const theme = normalizeTheme((await cookies()).get(THEME_COOKIE)?.value);
 
   return (
-    <html lang="en" data-theme={theme} className={spaceGrotesk.variable}>
+    <html lang="en" data-theme={theme} className={`${bricolage.variable} ${publicSans.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
       </head>
