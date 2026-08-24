@@ -1137,11 +1137,11 @@ export function Composer({
                     <span
                       key={account.id}
                       title={`${labels[account.platform]} · ${account.name}`}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-panel bg-chip"
+                      className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-panel bg-chip"
                     >
                       <PlatformIcon
                         platform={account.platform}
-                        className="h-4 w-4 text-muted"
+                        className="h-full w-full"
                       />
                     </span>
                   ))}

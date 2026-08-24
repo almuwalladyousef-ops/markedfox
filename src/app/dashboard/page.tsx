@@ -509,7 +509,7 @@ function Avatar({
       ) : (
         <PlatformIcon
           platform={connection.platform}
-          className="h-1/4 w-1/4 text-muted"
+          className="h-full w-full"
         />
       )}
     </span>
