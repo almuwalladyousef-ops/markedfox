@@ -16,8 +16,6 @@ import {
   cx,
   iconButtonClass,
   inputClass,
-  segmentedItem,
-  segmentedTrack,
 } from "@/components/ui";
 
 import {
@@ -169,7 +167,7 @@ const STEPS = [
 
 type Step = (typeof STEPS)[number]["id"];
 
-type PostKind = "video" | "photo" | "text";
+type PostKind = "video" | "longVideo" | "photo" | "story" | "text";
 
 const KINDS: { id: PostKind; label: string; note: string; icon: IconName }[] = [
   {
@@ -179,10 +177,22 @@ const KINDS: { id: PostKind; label: string; note: string; icon: IconName }[] = [
     icon: "play",
   },
   {
+    id: "longVideo",
+    label: "Long video",
+    note: "Full length — a YouTube upload rather than a Short, and a video on Instagram rather than a reel.",
+    icon: "videos",
+  },
+  {
     id: "photo",
     label: "Photo or carousel",
     note: "One image, or several in the order you add them.",
     icon: "image",
+  },
+  {
+    id: "story",
+    label: "Story",
+    note: "Twenty-four hours on Instagram, Facebook or Snapchat.",
+    icon: "spark",
   },
   {
     id: "text",
@@ -191,6 +201,64 @@ const KINDS: { id: PostKind; label: string; note: string; icon: IconName }[] = [
     icon: "drafts",
   },
 ];
+
+/**
+ * What each platform calls this post, per kind — and, by omission, which
+ * platforms can take the kind at all.
+ *
+ * The word is not decoration: a video going to Instagram is a reel and to
+ * YouTube a short, the same footage as a long video is neither, and a story is
+ * a different surface again. Absent means the platform has no such thing —
+ * YouTube has no photo post, TikTok has no story — which is a fact about the
+ * platform rather than a plan limit, so it reads as "not somewhere this can
+ * go" rather than as a locked feature.
+ */
+const DESTINATION: Record<PostKind, Partial<Record<Platform, string>>> = {
+  video: {
+    instagram: "Reels",
+    tiktok: "TikTok",
+    youtube: "Shorts",
+    facebook: "Reels",
+    snapchat: "Spotlight",
+    x: "Post",
+    threads: "Thread",
+    linkedin: "Post",
+    pinterest: "Pin",
+  },
+  longVideo: {
+    instagram: "Video",
+    tiktok: "TikTok",
+    youtube: "Video",
+    facebook: "Video",
+    x: "Post",
+    threads: "Thread",
+    linkedin: "Post",
+  },
+  photo: {
+    instagram: "Post",
+    tiktok: "Photo",
+    facebook: "Post",
+    threads: "Thread",
+    x: "Post",
+    linkedin: "Post",
+    pinterest: "Pin",
+    snapchat: "Snap",
+  },
+  story: {
+    instagram: "Story",
+    facebook: "Story",
+    snapchat: "Story",
+  },
+  text: {
+    x: "Post",
+    threads: "Thread",
+    facebook: "Post",
+    linkedin: "Post",
+  },
+};
+
+/** Kinds that carry a video file, so the file step asks for one. */
+const VIDEO_KINDS: PostKind[] = ["video", "longVideo", "story"];
 
 // datetime-local wants "YYYY-MM-DDTHH:MM" in local time.
 function toLocalInputValue(date: Date): string {
@@ -511,11 +579,18 @@ export function Composer({
         });
       }
     }
-    if (mode === "schedule" && !scheduledFor) {
-      out.push({ platform: null, message: "Pick a date and time." });
-    }
     for (const row of media) {
       if (row.error) out.push({ platform: null, message: row.error });
+    }
+    if (kind === "story") {
+      // The kind is real and the flow is real; the publish call per platform
+      // is not written yet. Blocking here is the only honest place — the
+      // alternative is posting somebody's story to their feed.
+      out.push({
+        platform: null,
+        message:
+          "Stories are not switched on yet — Instagram, Facebook and Snapchat each need their own story call, and Instagram's needs a permission that is still to be requested. Everything else about this post is saved if you keep it as a draft.",
+      });
     }
     return out;
   }, [
@@ -525,8 +600,8 @@ export function Composer({
     overrides,
     mediaRefs,
     media,
+    kind,
     mode,
-    scheduledFor,
     xLinksAllowed,
     usage,
     planId,
@@ -537,7 +612,11 @@ export function Composer({
     hasVideo,
   ]);
 
-  const canSubmit = selected.length > 0 && issues.length === 0 && !submitting;
+  const contentReady = selected.length > 0 && issues.length === 0;
+  const busy = submitting || savingDraft;
+  /** Post now needs no time; Schedule does. */
+  const canSubmitNow = contentReady && !busy;
+  const canSchedule = contentReady && Boolean(scheduledFor) && !busy;
 
   // ── handlers ───────────────────────────────────────────────────────────
   const toggleAccount = (id: string) => {
@@ -799,9 +878,9 @@ export function Composer({
     }
   };
 
-  const submit = async () => {
-    if (!canSubmit) return;
-    if (mode === "schedule" && new Date(scheduledFor).getTime() <= Date.now()) {
+  const submit = async (when: "now" | "schedule") => {
+    if (when === "now" ? !canSubmitNow : !canSchedule) return;
+    if (when === "schedule" && new Date(scheduledFor).getTime() <= Date.now()) {
       setOutcome({
         kind: "error",
         message: "That time has already passed. Pick a later one.",
@@ -826,7 +905,7 @@ export function Composer({
         setOutcome({
           kind: "error",
           message:
-            mode === "now"
+            when === "now"
               ? "The files were not uploaded, so nothing was posted."
               : "The files were not uploaded, so nothing was scheduled.",
           details: [error instanceof Error ? error.message : String(error)],
@@ -846,7 +925,7 @@ export function Composer({
           platformOverrides,
           draftId: draft?.id,
           scheduledFor:
-            mode === "schedule" ? new Date(scheduledFor).toISOString() : null,
+            when === "schedule" ? new Date(scheduledFor).toISOString() : null,
         }),
       });
       const body = (await response.json().catch(() => ({}))) as Record<
@@ -947,18 +1026,25 @@ export function Composer({
     return `Uploading ${which} — ${active.progress ?? 0}%`;
   })();
 
-  // What this post will be called where it lands. A video going to Instagram
-  // is a reel and to YouTube a short; the same post made of photos is neither,
-  // so the word changes with the media rather than being decoration.
-  const destination = (platform: Platform): string => {
-    if (hasVideo) {
-      if (platform === "instagram") return "Reel";
-      if (platform === "youtube") return "Short";
-      if (platform === "tiktok") return "TikTok";
-    }
-    if (platform === "threads") return "Thread";
-    return labels[platform];
-  };
+  // What this post will be called where it lands, and whether it can land
+  // there at all. Both come from one table keyed by the kind — see DESTINATION.
+  const kindLabel = KINDS.find((k) => k.id === kind)?.label ?? "post";
+  /** "Instagram, Facebook and Snapchat have them." — named rather than
+   *  implied, so a refusal tells you where to go instead. */
+  const kindHomes = (() => {
+    const homes = (Object.keys(DESTINATION[kind ?? "photo"]) as Platform[]).map(
+      (p) => labels[p],
+    );
+    if (homes.length === 0) return "";
+    const last = homes[homes.length - 1];
+    return homes.length === 1
+      ? `${last} has them.`
+      : `${homes.slice(0, -1).join(", ")} and ${last} have them.`;
+  })();
+  const destination = (platform: Platform): string =>
+    DESTINATION[kind ?? "photo"][platform] ?? labels[platform];
+  const supportsKind = (platform: Platform): boolean =>
+    DESTINATION[kind ?? "photo"][platform] !== undefined;
 
   const togglePlatform = (platform: Platform, list: ComposerAccount[]) => {
     const usable = list.filter(
@@ -1139,14 +1225,19 @@ export function Composer({
       </ul>
     ) : null;
 
+  const wantsVideo = kind !== null && VIDEO_KINDS.includes(kind);
   const filePicker = uploadsEnabled ? (
     <label className={cx(buttonClass("ink", "md"), "cursor-pointer")}>
       <Icon name="plus" className="h-4 w-4" strokeWidth={2.1} />
       Select from computer
       <input
         type="file"
-        multiple
-        accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime"
+        multiple={kind === "photo"}
+        accept={
+          wantsVideo
+            ? "video/mp4,video/quicktime"
+            : "image/jpeg,image/png,image/webp"
+        }
         className="sr-only"
         onChange={(event) => {
           addFiles(Array.from(event.target.files ?? []));
@@ -1180,7 +1271,11 @@ export function Composer({
   return (
     <div className="pb-2">
       <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-6">
-        <div className="flex flex-wrap items-center gap-3">
+        {/* One title for the whole flow, as the reference has it. The
+            numbered rail that used to sit here named five steps before the
+            person had done anything, which made a short flow read as a form.
+            Which step you are on is said by the screen itself. */}
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={back}
@@ -1190,49 +1285,8 @@ export function Composer({
             <Icon name="chevronLeft" className="h-4 w-4" />
           </button>
           <h1 className="font-display text-[30px]/[36px] font-bold tracking-[-0.025em] text-ink">
-            {steps[stepIndex]?.title ?? "New post"}
+            New post
           </h1>
-
-          {/* The step rail. Steps already passed are links back; steps ahead
-              are not, because arriving on "per-platform settings" before there
-              is a platform selected is a screen with nothing on it. */}
-          <ol className="ml-auto flex items-center gap-1.5">
-            {steps.map((item, index) => {
-              const done = index < stepIndex;
-              const here = index === stepIndex;
-              return (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    disabled={index > stepIndex}
-                    onClick={() => goTo(item.id)}
-                    title={item.title}
-                    className={cx(
-                      "flex h-8 items-center gap-2 rounded-full px-3 text-[12.5px] font-bold transition-[background,color] duration-150",
-                      here
-                        ? "bg-ink text-panel"
-                        : done
-                          ? "bg-chip text-muted hover:text-ink"
-                          : "text-faint",
-                    )}
-                  >
-                    <span
-                      aria-hidden
-                      className={cx(
-                        "flex h-[18px] w-[18px] items-center justify-center rounded-full text-[10.5px]",
-                        here ? "bg-white/20" : "bg-line",
-                      )}
-                    >
-                      {index + 1}
-                    </span>
-                    <span className={here ? "" : "hidden wide:inline"}>
-                      {item.short}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
         </div>
 
         {step === "kind" ? (
@@ -1255,6 +1309,23 @@ export function Composer({
                         // publish that file; dropping it here is the honest
                         // reading of the press.
                         if (option.id === "text") setMedia([]);
+                        // The accounts follow the kind. Switching to a story
+                        // with YouTube and X still ticked would open the next
+                        // screen already showing problems the person did not
+                        // cause, so the selection is re-taken against what the
+                        // new kind can actually go to.
+                        setSelected(
+                          accounts
+                            .filter(
+                              (account) =>
+                                account.status === "active" &&
+                                account.publishable &&
+                                !gates[account.platform] &&
+                                DESTINATION[option.id][account.platform] !==
+                                  undefined,
+                            )
+                            .map((account) => account.id),
+                        );
                         goTo(option.id === "text" ? "caption" : "file");
                       }}
                       aria-pressed={on}
@@ -1306,7 +1377,9 @@ export function Composer({
                 </Button>
               </div>
               <p className="mt-3 text-[13px] text-faint">
-                MP4 or MOV up to 300MB · JPEG, PNG or WebP up to 8MB
+                {wantsVideo
+                  ? "MP4 or MOV up to 300MB"
+                  : "JPEG, PNG or WebP up to 8MB"}
               </p>
 
               {mediaList}
@@ -1483,7 +1556,13 @@ export function Composer({
                       ? gate.message
                       : usable.length === 0
                         ? "Reconnect this account in Settings first."
-                        : null;
+                        : !supportsKind(platform)
+                          ? // Not a plan limit and not a missing feature of
+                            // ours — the platform has no such surface, so it
+                            // says which ones do rather than sitting there
+                            // looking switchable.
+                            `${labels[platform]} has no ${kindLabel.toLowerCase()}. ${kindHomes}`
+                          : null;
                     return (
                       <li key={platform} className="w-[76px]">
                         <button
@@ -1697,37 +1776,14 @@ export function Composer({
                 )}
               />
 
-              <Card>
-                <Eyebrow>When</Eyebrow>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <div className={segmentedTrack}>
-                    <button
-                      type="button"
-                      onClick={() => setMode("now")}
-                      aria-pressed={mode === "now"}
-                      className={segmentedItem(mode === "now")}
-                    >
-                      Publish now
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode("schedule");
-                        const now = new Date();
-                        setMinSchedule(toLocalInputValue(now));
-                        if (!scheduledFor) {
-                          setScheduledFor(
-                            toLocalInputValue(new Date(now.getTime() + 60 * 60 * 1000)),
-                          );
-                        }
-                      }}
-                      aria-pressed={mode === "schedule"}
-                      className={segmentedItem(mode === "schedule")}
-                    >
-                      Schedule
-                    </button>
-                  </div>
-                  {mode === "schedule" ? (
+              {/* No mode switch here any more: Schedule and Post at the
+                  bottom of the page ARE the choice, and a segmented control
+                  saying the same thing a foot below them was two ways to
+                  answer one question. Pressing Schedule opens this. */}
+              {mode === "schedule" ? (
+                <Card>
+                  <Eyebrow>When</Eyebrow>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
                     <input
                       type="datetime-local"
                       value={scheduledFor}
@@ -1736,21 +1792,28 @@ export function Composer({
                       aria-label="Scheduled time"
                       className={cx(inputClass, "w-auto")}
                     />
-                  ) : null}
-                </div>
-                {mode === "schedule" ? (
+                    <button
+                      type="button"
+                      onClick={() => setMode("now")}
+                      className="text-[13px] font-semibold text-muted underline underline-offset-2 hover:text-ink"
+                    >
+                      Post now instead
+                    </button>
+                  </div>
                   <p className="mt-3 text-[13px]/[19px] text-faint">
-                    It publishes on the server — no tab open, no reminder needed.
+                    It publishes on the server — no tab open, no reminder
+                    needed. Press Schedule again to set it.
                   </p>
-                ) : null}
-                <p className="mt-2.5 text-[13px] text-faint">
-                  Posts today: {usage.postsToday}
-                  {usage.postsPerDay === null ? "" : ` / ${usage.postsPerDay}`}
-                  {selectedPlatforms.includes("x")
-                    ? ` · X this month: ${usage.xPostsThisMonth} / ${usage.xPostsPerMonth}`
-                    : ""}
-                </p>
-              </Card>
+                </Card>
+              ) : null}
+
+              <p className="text-[13px] text-faint">
+                Posts today: {usage.postsToday}
+                {usage.postsPerDay === null ? "" : ` / ${usage.postsPerDay}`}
+                {selectedPlatforms.includes("x")
+                  ? ` · X this month: ${usage.xPostsThisMonth} / ${usage.xPostsPerMonth}`
+                  : ""}
+              </p>
 
               {outcome ? <OutcomePanel outcome={outcome} labels={labels} /> : null}
 
@@ -1779,20 +1842,53 @@ export function Composer({
               {savingDraft ? "Saving…" : "Save draft"}
             </Button>
             {isLast ? (
-              <Button
-                type="button"
-                tone="primary"
-                onClick={submit}
-                disabled={!canSubmit}
-              >
-                {submitting
-                  ? uploading
-                    ? "Uploading…"
-                    : "Working…"
-                  : mode === "now"
-                    ? "Publish now"
-                    : "Schedule post"}
-              </Button>
+              <>
+                {/* Two buttons rather than one button and a mode switch. The
+                    first press of Schedule opens the picker; the second, with
+                    a time in it, is the commit. */}
+                <Button
+                  type="button"
+                  tone="ink"
+                  onClick={() => {
+                    if (mode !== "schedule" || !scheduledFor) {
+                      const now = new Date();
+                      setMinSchedule(toLocalInputValue(now));
+                      if (!scheduledFor) {
+                        setScheduledFor(
+                          toLocalInputValue(
+                            new Date(now.getTime() + 60 * 60 * 1000),
+                          ),
+                        );
+                      }
+                      setMode("schedule");
+                      return;
+                    }
+                    void submit("schedule");
+                  }}
+                  disabled={busy || !contentReady}
+                >
+                  {submitting && mode === "schedule"
+                    ? uploading
+                      ? "Uploading…"
+                      : "Working…"
+                    : "Schedule"}
+                </Button>
+                <Button
+                  type="button"
+                  tone="primary"
+                  onClick={() => {
+                    setMode("now");
+                    void submit("now");
+                  }}
+                  disabled={!canSubmitNow}
+                >
+                  {submitting && mode === "now"
+                    ? uploading
+                      ? "Uploading…"
+                      : "Working…"
+                    : "Post"}
+                </Button>
+              </>
             ) : (
               <Button
                 type="button"
