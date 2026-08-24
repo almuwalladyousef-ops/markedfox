@@ -53,7 +53,7 @@ export function Sidebar({
             aria-label="MarkedFox home"
             className="mb-1.5 flex w-11 justify-center"
           >
-            <FoxMark className="h-10" />
+            <FoxMark className="w-11" />
           </Link>
 
           {/* The app's one accent button. */}
@@ -61,7 +61,7 @@ export function Sidebar({
             href="/dashboard/new-post"
             title="New post — the composer"
             aria-label="New post"
-            className="mb-1.5 flex h-11 w-11 items-center justify-center rounded-[16px] bg-accent text-accent-ink shadow-[0_8px_20px_rgba(232,80,14,.35)] transition-transform duration-150 hover:scale-[1.06]"
+            className="mb-1.5 flex h-11 w-11 items-center justify-center rounded-[16px] bg-accent text-accent-ink shadow-[0_8px_20px_var(--accent-glow)] transition-transform duration-150 hover:scale-[1.06]"
           >
             <Icon name="plus" className="h-5 w-5" strokeWidth={2.2} />
           </Link>
