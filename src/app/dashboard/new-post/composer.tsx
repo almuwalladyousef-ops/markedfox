@@ -58,6 +58,10 @@ export type ComposerAccount = {
   status: "active" | "expired" | "revoked" | "error";
   /** An adapter exists for this platform. */
   publishable: boolean;
+  /** The account's own picture, from the profile cache. The row of faces above
+   *  the caption is the people this is going out as — their pictures say that
+   *  where a row of identical app icons only repeats which apps are involved. */
+  avatarUrl?: string | null;
 };
 
 export type PlatformGate = { code: string; message: string };
@@ -433,8 +437,6 @@ export function Composer({
     },
     [],
   );
-
-  const captionFor = (platform: Platform) => overrides[platform] ?? caption;
 
   const selectedTikTok = useMemo(
     () =>
@@ -1106,29 +1108,41 @@ export function Composer({
   // The media frame, shown on every step that has a post to look at.
   const mediaFrame = (
     <div className="wide:sticky wide:top-8">
-      <div className="relative overflow-hidden rounded-2xl border border-line bg-chip">
+      {/* Lifted off the page rather than outlined on it: a shadow and a black
+          ground make the clip the thing you are looking at, where a bordered
+          box made it one more panel among the panels. */}
+      <div className="relative mx-auto w-full max-w-[300px] overflow-hidden rounded-[20px] bg-black shadow-[0_24px_60px_rgba(0,0,0,.28)]">
         <div className="aspect-[9/16] w-full">
           {preview ? (
             preview.type === "video" ? (
               <video
+                // Plays the moment it is picked. The file is already on the
+                // machine, so there is nothing to wait for — and muted is what
+                // lets a browser autoplay at all.
+                key={preview.url}
                 src={preview.url}
                 className="h-full w-full object-cover"
+                autoPlay
+                loop
+                muted
                 controls
                 playsInline
               />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={preview.url} alt="" className="h-full w-full object-cover" />
+              <img
+                src={preview.url}
+                alt=""
+                className="h-full w-full object-cover"
+              />
             )
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2.5 px-6 text-center">
               <FoxMark className="h-7 opacity-70" />
-              <p className="text-[13px] text-pretty text-faint">
+              <p className="text-[13px] text-pretty text-white/55">
                 {kind === "text"
-                  ? "A text post has no media. It previews on the last step."
-                  : uploadsEnabled
-                    ? "Add a video or an image and it previews here."
-                    : "Paste a public link to a video or image and it previews here."}
+                  ? "A text post has no media."
+                  : "Nothing picked yet."}
               </p>
             </div>
           )}
@@ -1291,21 +1305,24 @@ export function Composer({
 
         {step === "kind" ? (
           /* ── 1. what kind of post ─────────────────────────────────────── */
-          <div>
-            <p className="max-w-lg text-[15px]/[24px] text-pretty text-muted">
-              This decides what MarkedFox calls the post on each platform, and
-              which settings it has to ask you about.
-            </p>
-            <ul className="mt-6 grid gap-3.5 sm:grid-cols-3">
+          /* No paragraph explaining the question: the five answers explain it
+             faster than a sentence above them does. No cards either — a box
+             per option, each with its own border and its own two lines of
+             description, made five short choices look like a form. The
+             description now lives on the hover title, where it is there when
+             somebody wants it and silent when they do not. */
+          <div className="flex min-h-[46vh] flex-col items-center justify-center">
+            <ul className="flex flex-wrap justify-center gap-2.5">
               {KINDS.map((option) => {
                 const on = kind === option.id;
                 return (
                   <li key={option.id}>
                     <button
                       type="button"
+                      title={option.note}
                       onClick={() => {
                         setKind(option.id);
-                        // Choosing "text" after uploading a file would silently
+                        // Choosing "text" after picking a file would silently
                         // publish that file; dropping it here is the honest
                         // reading of the press.
                         if (option.id === "text") setMedia([]);
@@ -1330,26 +1347,17 @@ export function Composer({
                       }}
                       aria-pressed={on}
                       className={cx(
-                        "flex h-full w-full flex-col items-start gap-2.5 rounded-2xl border-[1.5px] px-6 py-6 text-left transition-[background,border-color] duration-150",
+                        "flex items-center gap-2.5 rounded-full border-[1.5px] px-[18px] py-[11px] text-[14.5px] font-semibold whitespace-nowrap transition-[background,border-color,color] duration-150",
                         on
-                          ? "border-accent bg-accent-soft"
-                          : "border-line bg-panel hover:border-line-strong",
+                          ? "border-accent bg-accent-soft text-ink"
+                          : "border-line bg-panel text-muted hover:border-line-strong hover:text-ink",
                       )}
                     >
-                      <span
-                        className={cx(
-                          "flex h-11 w-11 items-center justify-center rounded-[14px]",
-                          on ? "bg-accent text-accent-ink" : "bg-chip text-muted",
-                        )}
-                      >
-                        <Icon name={option.icon} className="h-5 w-5" />
-                      </span>
-                      <span className="font-display text-[16.5px] font-bold text-ink">
-                        {option.label}
-                      </span>
-                      <span className="text-[13.5px]/[20px] text-pretty text-muted">
-                        {option.note}
-                      </span>
+                      <Icon
+                        name={option.icon}
+                        className="h-[18px] w-[18px] shrink-0"
+                      />
+                      {option.label}
                     </button>
                   </li>
                 );
@@ -1358,61 +1366,87 @@ export function Composer({
           </div>
         ) : step === "file" ? (
           /* ── 2. the file ──────────────────────────────────────────────── */
-          <div className="grid items-start gap-9 wide:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
-            {mediaFrame}
-            <div className="min-w-0">
-              <SectionHeading>
-                {kind === "photo" ? "Add your photos" : "Add your video"}
-              </SectionHeading>
-              <p className="mt-2 max-w-md text-[15px]/[24px] text-pretty text-muted">
-                {kind === "photo"
-                  ? "Pick one image, or several for a carousel. They post in the order you add them."
-                  : "One file. It stays on your machine while you build the post, and uploads straight to storage when you publish — the bytes never pass through our server."}
-              </p>
-
-              <div className="mt-5 flex flex-wrap items-center gap-2.5">
+          /* Before a file is chosen this is the only thing on the page: two
+             buttons in the middle, the limit under them, and nothing else. It
+             used to carry a heading, a paragraph, and an empty 9:16 preview
+             frame saying a file would appear there — three pieces of furniture
+             around one decision. */
+          media.length === 0 ? (
+            <div className="flex min-h-[52vh] flex-col items-center justify-center gap-4">
+              <span
+                aria-hidden
+                className="flex h-16 w-16 items-center justify-center rounded-2xl bg-chip text-faint"
+              >
+                <Icon
+                  name={wantsVideo ? "play" : "image"}
+                  className="h-7 w-7"
+                />
+              </span>
+              <div className="flex flex-col items-center gap-2.5">
                 {filePicker}
                 <Button type="button" onClick={addMedia} tone="quiet">
                   Paste a link
                 </Button>
               </div>
-              <p className="mt-3 text-[13px] text-faint">
+              <p className="text-[13px] text-faint">
                 {wantsVideo
                   ? "MP4 or MOV up to 300MB"
                   : "JPEG, PNG or WebP up to 8MB"}
               </p>
-
+            </div>
+          ) : (
+            /* Once there is a file, it is the page: playing, centred, lifted
+               off the background, with its two edits beside it. */
+            <div className="flex min-h-[52vh] flex-col items-center gap-5">
+              {mediaFrame}
               {mediaList}
             </div>
-          </div>
+          )
         ) : step === "caption" ? (
           /* ── 3. caption and platforms ─────────────────────────────────── */
           <div className="grid items-start gap-9 wide:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
             {mediaFrame}
             <div className="min-w-0">
-              <div className="flex items-center gap-2.5">
-                <div className="flex items-center -space-x-2">
-                  {selectedAccounts.slice(0, 3).map((account) => (
+              {/* The accounts this goes out as, wearing their own pictures.
+                  A row of platform icons only repeated which apps were
+                  involved — the tiles below already say that. They overlap
+                  hard so eight of them still read as one group, and the name
+                  is on the hover title rather than printed beside each one. */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center -space-x-3">
+                  {selectedAccounts.slice(0, 5).map((account) => (
                     <span
                       key={account.id}
-                      title={`${labels[account.platform]} · ${account.name}`}
-                      className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-panel bg-chip"
+                      title={`${account.name} · ${labels[account.platform]}`}
+                      className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-panel bg-chip shadow-[0_2px_6px_rgba(0,0,0,.16)]"
                     >
-                      <PlatformIcon
-                        platform={account.platform}
-                        className="h-full w-full"
-                      />
+                      {account.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={account.avatarUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        // No cached picture yet — the platform's own mark is a
+                        // better stand-in than an empty circle.
+                        <PlatformIcon
+                          platform={account.platform}
+                          className="h-full w-full"
+                        />
+                      )}
                     </span>
                   ))}
                 </div>
-                {selectedAccounts.length > 3 ? (
-                  <span className="rounded-full bg-chip px-2.5 py-1 text-[12.5px] font-bold text-muted">
-                    +{selectedAccounts.length - 3}
-                  </span>
-                ) : null}
-                {selectedAccounts.length === 0 ? (
-                  <span className="text-[13.5px] text-faint">
-                    Pick where this goes below.
+                {selectedAccounts.length > 5 ? (
+                  <span
+                    title={selectedAccounts
+                      .slice(5)
+                      .map((a) => a.name)
+                      .join(", ")}
+                    className="rounded-full bg-chip px-2.5 py-1 text-[12.5px] font-bold text-muted"
+                  >
+                    +{selectedAccounts.length - 5}
                   </span>
                 ) : null}
               </div>
@@ -1458,92 +1492,60 @@ export function Composer({
               ) : null}
 
               {perPlatform && selectedPlatforms.length > 1 ? (
-                <ul className="mt-4 flex flex-col gap-3">
+                /* Rows, not cards. One bordered box per platform stacked five
+                   deep was five boxes inside the box the step already draws;
+                   a divider does the same separating with none of the weight.
+                   The count only appears once it matters. */
+                <ul className="mt-4 flex flex-col divide-y divide-line border-y border-line">
                   {selectedPlatforms.map((platform) => {
                     const spec = specs[platform];
                     const value = overrides[platform] ?? caption;
                     const length = captionLength(value);
                     const max = spec?.rules.captionMaxChars ?? Infinity;
                     const over = length > max;
+                    const close = length > max * 0.8;
                     return (
-                      <li key={platform}>
-                        <div
-                          className={cx(
-                            "rounded-2xl border bg-panel px-5 py-4",
-                            over ? "border-danger" : "border-line",
-                          )}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <PlatformTile platform={platform} size={26} />
-                            <span className="text-[14px] font-semibold text-ink">
-                              {labels[platform]}
-                            </span>
-                            <span
-                              className={cx(
-                                "ml-auto text-[12.5px]",
-                                over ? "font-bold text-danger" : "text-faint",
-                              )}
-                            >
-                              {length.toLocaleString()}/
-                              {Number.isFinite(max) ? max.toLocaleString() : "∞"}
-                            </span>
-                          </div>
-                          <textarea
-                            value={value}
-                            onChange={(e) =>
-                              setOverrides((prev) => ({
-                                ...prev,
-                                [platform]: e.target.value,
-                              }))
-                            }
-                            rows={3}
-                            aria-label={`Caption for ${labels[platform]}`}
-                            className="mt-2.5 w-full resize-y border-0 bg-transparent px-0 text-[14.5px]/[22px] text-ink outline-none placeholder:text-faint"
-                          />
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : selectedPlatforms.length > 0 ? (
-                <ul className="flex flex-wrap gap-x-5 gap-y-1.5 text-[12.5px]">
-                  {selectedPlatforms.map((platform) => {
-                    const spec = specs[platform];
-                    if (!spec) return null;
-                    const length = captionLength(captionFor(platform));
-                    const over = length > spec.rules.captionMaxChars;
-                    return (
-                      <li
-                        key={platform}
-                        className={over ? "font-bold text-danger" : "text-faint"}
-                      >
-                        {labels[platform]} {length.toLocaleString()}/
-                        {spec.rules.captionMaxChars.toLocaleString()}
+                      <li key={platform} className="flex gap-3 py-3.5">
+                        <PlatformTile
+                          platform={platform}
+                          size={26}
+                          className="mt-1 shadow-[0_2px_6px_rgba(0,0,0,.14)]"
+                          title={labels[platform]}
+                        />
+                        <textarea
+                          value={value}
+                          onChange={(e) =>
+                            setOverrides((prev) => ({
+                              ...prev,
+                              [platform]: e.target.value,
+                            }))
+                          }
+                          rows={2}
+                          placeholder={`Caption for ${labels[platform]}`}
+                          aria-label={`Caption for ${labels[platform]}`}
+                          className="min-w-0 flex-1 resize-y border-0 bg-transparent px-0 text-[14.5px]/[22px] text-ink outline-none placeholder:text-faint"
+                        />
+                        {over || close ? (
+                          <span
+                            className={cx(
+                              "mt-1 shrink-0 text-[12px] tabular-nums",
+                              over ? "font-bold text-danger" : "text-faint",
+                            )}
+                          >
+                            {length.toLocaleString()}/{max.toLocaleString()}
+                          </span>
+                        ) : null}
                       </li>
                     );
                   })}
                 </ul>
               ) : null}
 
-              {/* Tagging is a platform-side feature we do not call yet. Saying
-                  so is better than a control that looks live and is not. */}
-              <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-panel px-5 py-4">
-                <Icon name="people" className="h-[18px] w-[18px] text-muted" />
-                <span className="text-[14px] font-semibold text-ink">
-                  Tag people
-                </span>
-                <span className="text-[13px] text-faint">
-                  Add @handles to the caption — MarkedFox passes them through as
-                  written, and each platform links its own.
-                </span>
-              </div>
-
-              <div className="mt-7 border-t border-line pt-7">
+              <div
+                className="mt-7 border-t border-line pt-7"
+                title="Everything selected here publishes at the same time."
+              >
                 <SectionHeading>Choose platforms</SectionHeading>
-                <p className="mt-2 max-w-md text-[14px]/[21px] text-pretty text-muted">
-                  Select the accounts this goes to. Everything selected here
-                  publishes at the same time.
-                </p>
 
                 <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-6">
                   {grouped.map(([platform, list]) => {
@@ -1583,7 +1585,12 @@ export function Composer({
                               : "hover:-translate-y-0.5",
                           )}
                         >
-                          <PlatformTile platform={platform} size={64} radius={19} />
+                          <PlatformTile
+                            platform={platform}
+                            size={64}
+                            radius={19}
+                            className="shadow-[0_3px_10px_rgba(0,0,0,.16)]"
+                          />
                           <span className="mt-2.5 flex items-center justify-center gap-1.5">
                             <span
                               aria-hidden
@@ -1667,7 +1674,7 @@ export function Composer({
                           platform={item.platform}
                           size={64}
                           radius={19}
-                          className="opacity-45"
+                          className="opacity-45 shadow-[0_3px_10px_rgba(0,0,0,.12)]"
                         />
                         <span className="mt-2.5 flex items-center justify-center gap-1.5">
                           <span
@@ -1694,11 +1701,9 @@ export function Composer({
           <div className="grid items-start gap-9 wide:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
             {mediaFrame}
             <div className="min-w-0">
-              <SectionHeading>Settings for each platform</SectionHeading>
-              <p className="mt-2 max-w-md text-[14px]/[21px] text-pretty text-muted">
-                Only what the platform&apos;s own API accepts appears here. A toggle
-                that looks right and does nothing is worse than no toggle.
-              </p>
+              <SectionHeading title="Only what the platform's own API accepts appears here — a toggle that looks right and does nothing is worse than no toggle.">
+                Settings for each platform
+              </SectionHeading>
 
               <div className="mt-5">
                 {selectedPlatforms.map((platform) => {
@@ -1823,14 +1828,16 @@ export function Composer({
         )}
       </div>
 
-      {/* ── the bar that follows you down the page ──────────────────────── */}
+      {/* ── the actions ─────────────────────────────────────────────────── */}
       {/* Sticky inside the column rather than fixed to the viewport: the
           sidebar changes width when it collapses, and a bar pinned to the
           window would have to guess which width it is. */}
       {/* Held clear of the mobile tab bar, which is fixed to the viewport
-          bottom: at `bottom-0` this bar sat underneath it and the primary
-          action was unreachable on a phone. */}
-      <div className="sticky bottom-[calc(70px+env(safe-area-inset-bottom))] z-40 -mx-[18px] mt-8 border-t border-line bg-panel/95 px-[18px] py-3.5 backdrop-blur shell:bottom-0 shell:-mx-12 shell:px-12">
+          bottom: at `bottom-0` this sat underneath it and the primary action
+          was unreachable on a phone. */}
+      {/* No panel, no border, no backdrop — the buttons are the bar. A filled
+          strip drawn under two buttons was a box around a box. */}
+      <div className="sticky bottom-[calc(70px+env(safe-area-inset-bottom))] z-40 mt-8 py-3.5 shell:bottom-0">
         <div className="mx-auto flex max-w-[1000px] flex-col items-center gap-1.5">
           <div className="flex items-center gap-3">
             <Button

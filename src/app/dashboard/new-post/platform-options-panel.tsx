@@ -1,7 +1,7 @@
 "use client";
 
 import { PlatformBadge } from "@/components/platform-icon";
-import { Card, CardTitle } from "@/components/ui";
+import { Card, CardTitle, Toggle } from "@/components/ui";
 import type { PlatformOptionSpec } from "@/lib/platforms/publish-options";
 import type { Platform, PlatformPublishOptions } from "@/lib/platforms/types";
 
@@ -49,32 +49,30 @@ export function PlatformOptionsPanel({
                 ? (values[field.key] as boolean)
                 : field.default;
             return (
-              <div key={field.key} className="flex items-start justify-between gap-4">
+              /* The shared Toggle, not a hand-rolled one. This file used to
+                 draw its own — a green track with an orange knob, which is
+                 where "the toggle looks orange green" came from. Three
+                 switches in one app is two too many. */
+              <div
+                key={field.key}
+                title={field.showHelp ? undefined : field.help}
+                className="flex items-start justify-between gap-4"
+              >
                 <label htmlFor={id} className="min-w-0">
                   <span className="text-sm text-ink">{field.label}</span>
-                  {field.help ? (
+                  {field.help && field.showHelp ? (
                     <span className="mt-0.5 block text-xs text-faint">
                       {field.help}
                     </span>
                   ) : null}
                 </label>
-                <button
+                <Toggle
                   id={id}
-                  type="button"
-                  role="switch"
-                  aria-checked={checked}
-                  aria-label={field.label}
+                  on={checked}
+                  label={field.label}
                   onClick={() => set(field.key, !checked)}
-                  className={`relative mt-0.5 inline-flex h-5 w-10 shrink-0 items-center rounded-full transition ${
-                    checked ? "bg-ok" : "bg-chip"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-accent transition ${
-                      checked ? "translate-x-5" : "translate-x-1"
-                    }`}
-                  />
-                </button>
+                  className="mt-0.5"
+                />
               </div>
             );
           }
@@ -82,7 +80,7 @@ export function PlatformOptionsPanel({
           if (field.kind === "select") {
             const value = String(values[field.key] ?? field.default);
             return (
-              <div key={field.key}>
+              <div key={field.key} title={field.showHelp ? undefined : field.help}>
                 <label htmlFor={id} className="text-sm text-ink">
                   {field.label}
                 </label>
@@ -98,7 +96,7 @@ export function PlatformOptionsPanel({
                     </option>
                   ))}
                 </select>
-                {field.help ? (
+                {field.help && field.showHelp ? (
                   <p className="mt-1 text-xs text-faint">{field.help}</p>
                 ) : null}
               </div>
@@ -107,7 +105,7 @@ export function PlatformOptionsPanel({
 
           const text = String(values[field.key] ?? "");
           return (
-            <div key={field.key}>
+            <div key={field.key} title={field.showHelp ? undefined : field.help}>
               <label htmlFor={id} className="text-sm text-ink">
                 {field.label}
               </label>
@@ -132,7 +130,7 @@ export function PlatformOptionsPanel({
                 />
               )}
               <p className="mt-1 flex justify-between text-xs text-faint">
-                <span>{field.help}</span>
+                <span>{field.showHelp ? field.help : ""}</span>
                 {text ? (
                   <span
                     className={

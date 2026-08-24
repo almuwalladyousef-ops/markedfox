@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Card, Page } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
+import { listAccountProfiles } from "@/lib/accounts/store";
 import { listConnections } from "@/lib/connections/store";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -45,10 +46,16 @@ export default async function ComposePage({
   }
 
   const supabase = await createClient();
-  const [snapshot, connections] = await Promise.all([
+  const [snapshot, connections, profiles] = await Promise.all([
     getEntitlementSnapshot(supabase, user.id, active.id),
     listConnections(supabase, active.id),
+    // Cached, never a platform call: this page must not spend the shared
+    // rate-limit budget to draw eight avatars.
+    listAccountProfiles(supabase, active.id),
   ]);
+  const avatarByConnection = new Map(
+    profiles.map((p) => [p.connectionId, p.avatarUrl]),
+  );
   const specs = listContentSpecs();
   const optionSpecs = listOptionSpecs();
 
@@ -80,6 +87,7 @@ export default async function ComposePage({
     name: c.platform_account_name ?? c.platform_account_id,
     status: c.status,
     publishable: Boolean(specs[c.platform]),
+    avatarUrl: avatarByConnection.get(c.id) ?? null,
   }));
 
   // Structural plan gate per platform (is it on this plan at all?). Caps that

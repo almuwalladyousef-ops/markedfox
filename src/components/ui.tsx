@@ -102,12 +102,17 @@ export function CardTitle({
 export function SectionHeading({
   children,
   className,
+  title,
 }: {
   children: ReactNode;
   className?: string;
+  /** The explanation that used to be printed underneath. On hover it is there
+   *  for anyone who wants it and silent for everyone who does not. */
+  title?: string;
 }) {
   return (
     <h2
+      title={title}
       className={cx(
         "font-display text-[18px] font-bold tracking-[-0.01em] text-ink",
         className,
@@ -361,9 +366,12 @@ export function chipToggle(selected: boolean, className?: string): string {
 // ── toggle ─────────────────────────────────────────────────────────────────
 
 /**
- * The on/off switch, 46×26 with a 20px knob. On is success green rather than
- * the accent, because every one of these answers "is this running?" and the
- * accent already means "this is the thing to press".
+ * The on/off switch, 46×26 with a 20px knob. On is the accent.
+ *
+ * It used to be success green, on the theory that these answer "is this
+ * running?" while the accent means "press this". In practice a green switch
+ * beside an orange button is two loud colours arguing, and the app reads as
+ * one accent everywhere else. One "on" colour, and it is the app's own.
  *
  * Rendered as a `button` with `role="switch"` rather than a styled checkbox:
  * every caller here toggles through a server action or local state, and the
@@ -395,7 +403,7 @@ export function Toggle({
       disabled={disabled}
       className={cx(
         "relative h-[26px] w-[46px] shrink-0 rounded-full transition-[background-color] duration-[180ms] disabled:cursor-not-allowed disabled:opacity-45",
-        on ? "bg-ok" : "bg-line hover:bg-line-strong",
+        on ? "bg-accent" : "bg-line hover:bg-line-strong",
         className,
       )}
     >
@@ -431,7 +439,7 @@ export function ToggleForm({
       aria-label={label}
       className={cx(
         "relative h-[26px] w-[46px] shrink-0 rounded-full transition-[background-color] duration-[180ms]",
-        on ? "bg-ok" : "bg-line hover:bg-line-strong",
+        on ? "bg-accent" : "bg-line hover:bg-line-strong",
         className,
       )}
     >

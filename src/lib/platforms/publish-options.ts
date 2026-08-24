@@ -17,32 +17,36 @@ import type { Platform, PlatformPublishOptions } from "./types";
 // looks right and does nothing is worse than no toggle: the user believes they
 // turned comments off.
 
+/** Shared by every field kind: `help` is a hover title unless `showHelp` is
+ *  set, in which case it prints under the label. Printing all of it turned a
+ *  settings pane into an essay; hiding all of it would bury the two or three
+ *  that carry a real consequence. */
+type FieldBase = {
+  key: string;
+  label: string;
+  help?: string;
+  /** Print the help rather than hiding it behind hover. For consequences the
+   *  label cannot imply: what the platform overrides, what the law requires. */
+  showHelp?: boolean;
+};
+
 export type PublishOptionField =
-  | {
+  | (FieldBase & {
       kind: "select";
-      key: string;
-      label: string;
-      help?: string;
       choices: { value: string; label: string }[];
       default: string;
-    }
-  | {
+    })
+  | (FieldBase & {
       kind: "toggle";
-      key: string;
-      label: string;
-      help?: string;
       default: boolean;
-    }
-  | {
+    })
+  | (FieldBase & {
       kind: "text";
-      key: string;
-      label: string;
-      help?: string;
       maxLength: number;
       placeholder?: string;
       /** Renders as a textarea rather than a single line. */
       multiline?: boolean;
-    };
+    });
 
 export interface PlatformOptionSpec {
   /** Shown as the section heading: "Share on YouTube". */
@@ -69,6 +73,7 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
           { value: "private", label: "Private" },
         ],
         default: "public",
+        showHelp: true,
         help: "Until the API audit passes, YouTube forces every upload from an unverified project to private regardless of this setting.",
       },
       {
@@ -110,6 +115,7 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
           { value: "yes", label: "Made for kids" },
         ],
         default: "no",
+        showHelp: true,
         help: "You are legally required to answer this under COPPA, wherever you are. Getting it wrong is YouTube's problem to enforce and yours to answer for.",
       },
     ],
@@ -158,10 +164,29 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
     fields: [
       {
         kind: "toggle",
-        key: "share_to_feed",
-        label: "Also show this reel in your feed grid",
+        key: "comment_enabled",
+        label: "Allow comments",
         default: true,
-        help: "Off means it appears in the Reels tab only.",
+        showHelp: true,
+        help: "Applied to the reel once it is live — Instagram only accepts this after publishing, not on the upload itself.",
+      },
+      {
+        kind: "select",
+        key: "profile_display",
+        label: "Profile display",
+        choices: [
+          { value: "grid", label: "Main grid and Reels tab" },
+          { value: "reels_only", label: "Reels tab only" },
+        ],
+        default: "grid",
+      },
+      {
+        kind: "text",
+        key: "audio_name",
+        label: "Rename audio",
+        maxLength: 60,
+        placeholder: "Original audio",
+        help: "What the audio is called when somebody taps it.",
       },
     ],
   },
