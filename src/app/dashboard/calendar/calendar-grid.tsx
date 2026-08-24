@@ -715,7 +715,11 @@ function PostCard({
           )}
         >
           {platforms.slice(0, 4).map((platform) => (
-            <PlatformIcon key={platform} platform={platform} className="h-3 w-3" />
+            <PlatformIcon
+              key={platform}
+              platform={platform}
+              className="h-3 w-3 rounded-[3px]"
+            />
           ))}
           {platforms.length > 4 ? (
             <span className="text-[9px]">+{platforms.length - 4}</span>
@@ -778,7 +782,7 @@ function PostChip({
             <PlatformIcon
               key={platform}
               platform={platform}
-              className="h-2.5 w-2.5"
+              className="h-2.5 w-2.5 rounded-[2px]"
             />
           ))}
           {platforms.length > 3 ? (

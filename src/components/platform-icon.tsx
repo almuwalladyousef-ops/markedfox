@@ -1,59 +1,50 @@
 import type { Platform } from "@/lib/platforms/types";
 
-// One monochrome mark per platform, drawn rather than imported: the home
-// screen and the calendar both stack several of these at 14px on top of
-// photographs, where a colour logo turns to mush and a two-letter abbreviation
-// reads as noise. They inherit currentColor, so the same glyph works on a
-// light chip and over a dark thumbnail.
+// Each platform's real app icon, served from /public/platforms and supplied by
+// the owner. These replaced a set of hand-drawn monochrome glyphs: a drawn
+// approximation of somebody else's mark is wrong in a way people notice
+// without being able to say why, and colour is what makes a 12px mark
+// identifiable at all — a person scanning a grid of their own posts recognises
+// the app by its colour long before they read a label.
+//
+// Every asset is prepared to one rule: a full square, the mark filling it edge
+// to edge, no white or transparency around it. That matters because the corner
+// radius belongs to the container, not to the file — an asset carrying its own
+// rounded corners fights whatever it is placed inside, and shows the page
+// through the gap. The one exception is YouTube, whose mark is a red play
+// button on white by definition, so it keeps its white ground.
+//
+// Every tile carries `--platform-edge`, a hairline that flips with the theme.
+// Without it YouTube's white ground vanishes into a light card and the three
+// black marks vanish into a dark one; with it, neither does, and it is
+// invisible on the coloured marks in between. A hairline for everything beat
+// a list of which platforms need one — that list was wrong in one theme
+// whichever way it was written.
 
-const PATHS: Record<Platform, { path: string; label: string }> = {
-  instagram: {
-    label: "Instagram",
-    path:
-      "M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5Zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7Zm5 3.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM17.5 6a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Z",
-  },
-  x: {
-    label: "X",
-    path:
-      "M3 3h5.2l4.1 5.6L17.4 3H21l-6.7 7.7L21.4 21H16l-4.4-6-5.2 6H2.6l7.1-8.2L3 3Zm3.1 1.6 10 13.8h1.9L8.1 4.6H6.1Z",
-  },
-  threads: {
-    label: "Threads",
-    path:
-      "M12.2 2C6.9 2 3.4 5.4 3.4 12s3.5 10 8.8 10c4.2 0 6.6-2.1 7.3-4.6.6-2.4-.5-4.5-2.9-5.4-.3-1.8-1.6-3-3.7-3-1.7 0-3 .7-3.7 2l1.7 1c.4-.7 1.1-1.1 2-1.1 1 0 1.6.5 1.8 1.4-2.7-.2-4.7 1-4.9 3.1-.2 1.8 1.2 3.2 3.3 3.2 1.8 0 3-.9 3.6-2.4 1 .6 1.4 1.6 1.1 2.7-.4 1.6-2.1 3.1-5.6 3.1-4.1 0-6.7-2.6-6.7-8s2.6-8 6.7-8c2.8 0 4.8 1.1 5.9 3.2l1.8-.9C18.4 3.5 15.8 2 12.2 2Zm.3 12.6c-.3 1-1 1.6-1.9 1.6-.8 0-1.4-.5-1.3-1.2.1-.9 1.1-1.4 2.6-1.2h.6v.8Z",
-  },
-  facebook: {
-    label: "Facebook",
-    path:
-      "M13.5 21v-8h2.7l.4-3.1h-3.1V7.9c0-.9.3-1.5 1.6-1.5h1.6V3.6c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.4-4 4.1v2.3H7.5V13h2.8v8h3.2Z",
-  },
-  tiktok: {
-    label: "TikTok",
-    path:
-      "M14 2h3c.3 2.2 1.6 3.7 3.9 3.9v3c-1.5.1-2.8-.3-4-1v6.4c0 4.1-3.3 6.7-6.9 5.6-2.6-.8-4.2-3.3-4-6 .2-2.9 2.7-5.1 5.6-5v3.2c-.4-.1-.8-.2-1.2-.1-1.3.1-2.3 1.2-2.2 2.5.1 1.3 1.2 2.3 2.5 2.2 1.3-.1 2.3-1.2 2.3-2.6V2Z",
-  },
-  youtube: {
-    label: "YouTube",
-    path:
-      "M21.6 7.2c-.2-1.1-1-1.9-2-2.1C17.7 4.7 12 4.7 12 4.7s-5.7 0-7.6.4c-1 .2-1.8 1-2 2.1C2 9 2 12 2 12s0 3 .4 4.8c.2 1.1 1 1.9 2 2.1 1.9.4 7.6.4 7.6.4s5.7 0 7.6-.4c1-.2 1.8-1 2-2.1.4-1.8.4-4.8.4-4.8s0-3-.4-4.8ZM10.2 15.1V8.9l5.2 3.1-5.2 3.1Z",
-  },
-  snapchat: {
-    label: "Snapchat",
-    path:
-      "M12 2.3c2.7 0 4.6 2 4.6 4.6 0 .8-.1 1.6-.1 2.2.4.2.9.2 1.4 0 .3-.1.7 0 .9.3.2.4.1.8-.2 1.1-.5.4-1.2.7-1.8.9.4 1.4 1.6 2.9 3.3 3.4.4.1.6.5.5.9-.2.7-1.3 1.1-2.5 1.3-.1.3-.2.6-.3.9-.1.3-.4.4-.7.4-.6-.1-1.4-.2-2.2 0-.7.2-1.4 1.2-2.9 1.2s-2.2-1-2.9-1.2c-.8-.2-1.6-.1-2.2 0-.3 0-.6-.1-.7-.4-.1-.3-.2-.6-.3-.9-1.2-.2-2.3-.6-2.5-1.3-.1-.4.1-.8.5-.9 1.7-.5 2.9-2 3.3-3.4-.6-.2-1.3-.5-1.8-.9-.3-.3-.4-.7-.2-1.1.2-.3.6-.4.9-.3.5.2 1 .2 1.4 0 0-.6-.1-1.4-.1-2.2C7.4 4.3 9.3 2.3 12 2.3Z",
-  },
-  linkedin: {
-    label: "LinkedIn",
-    path:
-      "M4.5 3.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM3 9h3v12H3V9Zm6 0h2.9v1.6h.1c.4-.8 1.5-1.7 3.1-1.7 3.3 0 3.9 2.1 3.9 4.9V21h-3v-5.5c0-1.3 0-3-1.9-3s-2.1 1.4-2.1 2.9V21H9V9Z",
-  },
-  pinterest: {
-    label: "Pinterest",
-    path:
-      "M12 2a10 10 0 0 0-3.6 19.3c-.1-.8-.2-2 0-2.9l1.2-5.1s-.3-.6-.3-1.5c0-1.4.8-2.5 1.9-2.5.9 0 1.3.7 1.3 1.5 0 .9-.6 2.2-.9 3.5-.2 1 .5 1.9 1.6 1.9 1.9 0 3.2-2.4 3.2-5.3 0-2.2-1.5-3.8-4.1-3.8-3 0-4.9 2.2-4.9 4.7 0 .9.3 1.5.7 2 .2.2.2.3.1.6l-.2.9c-.1.3-.3.4-.5.3-1.4-.6-2.1-2.2-2.1-4 0-3 2.5-6.6 7.4-6.6 4 0 6.6 2.9 6.6 6 0 4-2.3 7-5.6 7-1.1 0-2.2-.6-2.5-1.3l-.7 2.7c-.3 1-.9 2-1.4 2.7A10 10 0 1 0 12 2Z",
-  },
+const MARKS: Record<Platform, { src: string; label: string }> = {
+  instagram: { src: "/platforms/instagram.png", label: "Instagram" },
+  facebook: { src: "/platforms/facebook.png", label: "Facebook" },
+  threads: { src: "/platforms/threads.png", label: "Threads" },
+  tiktok: { src: "/platforms/tiktok.svg", label: "TikTok" },
+  youtube: { src: "/platforms/youtube.png", label: "YouTube" },
+  x: { src: "/platforms/x.png", label: "X" },
+  snapchat: { src: "/platforms/snapchat.png", label: "Snapchat" },
+  linkedin: { src: "/platforms/linkedin.png", label: "LinkedIn" },
+  pinterest: { src: "/platforms/pinterest.png", label: "Pinterest" },
 };
 
+const EDGE = "inset 0 0 0 1px var(--platform-edge)";
+
+export function platformLabel(platform: Platform): string {
+  return MARKS[platform].label;
+}
+
+/**
+ * The mark on its own, sized by the caller's className. Square by
+ * construction; `object-cover` is belt-and-braces in case a caller sizes it to
+ * a rectangle. Callers wanting it rounded add the radius and `overflow-hidden`
+ * themselves — see `PlatformTile` and `PlatformBadge`, which is most of them.
+ */
 export function PlatformIcon({
   platform,
   className = "h-3.5 w-3.5",
@@ -64,80 +55,33 @@ export function PlatformIcon({
   /** Set when the icon stands alone; omit when a label sits beside it. */
   title?: string;
 }) {
-  const mark = PATHS[platform];
+  const mark = MARKS[platform];
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      role={title ? "img" : undefined}
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={mark.src}
+      alt={title ? mark.label : ""}
+      title={title}
       aria-hidden={title ? undefined : true}
-      aria-label={title}
-    >
-      {title ? <title>{mark.label}</title> : null}
-      <path d={mark.path} />
-    </svg>
+      draggable={false}
+      className={`shrink-0 object-cover ${className}`}
+    />
   );
 }
 
-// Each platform's own colour, for the round badges that sit on a thumbnail.
-// Brand colours rather than our accent: a person scanning a grid of their own
-// posts recognises the app by its colour long before they read a label.
-export const PLATFORM_BRAND: Record<Platform, { bg: string; fg: string }> = {
-  instagram: { bg: "bg-[#E1306C]", fg: "text-white" },
-  // The three black marks carry a hairline, or they vanish into a dark page.
-  x: { bg: "bg-black ring-1 ring-white/20", fg: "text-white" },
-  threads: { bg: "bg-black ring-1 ring-white/20", fg: "text-white" },
-  facebook: { bg: "bg-[#1877F2]", fg: "text-white" },
-  tiktok: { bg: "bg-black ring-1 ring-white/20", fg: "text-white" },
-  youtube: { bg: "bg-[#FF0000]", fg: "text-white" },
-  snapchat: { bg: "bg-[#FFFC00]", fg: "text-black" },
-  linkedin: { bg: "bg-[#0A66C2]", fg: "text-white" },
-  pinterest: { bg: "bg-[#E60023]", fg: "text-white" },
-};
-
 /**
- * The full-colour app tile: the platform's own brand fill with its mark
- * knocked out in white. This is the treatment for anywhere the platform is
- * the subject — the settings account list, the composer's platform grid, the
- * calendar filter row — as opposed to `PlatformBadge`, which is the small
- * round badge stamped on a thumbnail.
+ * The app tile: the platform's own icon at a given edge length. Radius follows
+ * at 30% of the size, which is what keeps a 20px badge and a 40px settings
+ * tile looking like one shape, and the image is clipped to it rather than
+ * carrying corners of its own.
  *
- * Two of these took iteration and both are load-bearing:
- *
- * - YouTube and Pinterest are white tiles, so they disappear against a white
- *   card without an inset ring. Their marks stay full-colour rather than
- *   white, because a white YouTube play button on a white tile is nothing.
- * - Snapchat's ghost is white on `#FFFC00`, which is illegible. Four
- *   one-direction drop-shadows draw an outline around it.
+ * This is the treatment for anywhere the platform is the subject — the
+ * settings account list, the composer's platform grid, the calendar filter row
+ * — as opposed to `PlatformBadge`, which is the small round badge stamped on a
+ * thumbnail.
  */
-const PLATFORM_TILE: Record<
-  Platform,
-  { background: string; ring?: boolean; fg?: string; outline?: boolean }
-> = {
-  instagram: {
-    background:
-      "linear-gradient(135deg,#FEDA75 0%,#FA7E1E 26%,#D62976 56%,#962FBF 78%,#4F5BD5 100%)",
-  },
-  threads: { background: "#000000" },
-  tiktok: { background: "#000000" },
-  x: { background: "#000000" },
-  facebook: { background: "linear-gradient(180deg,#18ACFE 0%,#0163E0 100%)" },
-  youtube: { background: "#ffffff", ring: true, fg: "#FF0000" },
-  pinterest: { background: "#ffffff", ring: true, fg: "#E60023" },
-  snapchat: { background: "#FFFC00", outline: true },
-  linkedin: { background: "#0A66C2" },
-};
-
-/** A one-direction black shadow on each side, which is the only way to outline
- *  a filled path without redrawing it as a stroke. */
-const GHOST_OUTLINE =
-  "drop-shadow(0.7px 0 0 #000) drop-shadow(-0.7px 0 0 #000) drop-shadow(0 0.7px 0 #000) drop-shadow(0 -0.7px 0 #000)";
-
 export function PlatformTile({
   platform,
-  /** The tile's edge in pixels. Radius follows at 30% of it, which is what
-   *  keeps a 20px badge and a 40px settings tile looking like one shape. */
   size = 32,
   /** 999 where the mark reads as an avatar badge rather than an app icon. */
   radius,
@@ -150,61 +94,56 @@ export function PlatformTile({
   className?: string;
   title?: string;
 }) {
-  const tile = PLATFORM_TILE[platform];
-  const mark = PATHS[platform];
-  const glyph = Math.round(size * 0.56);
+  const mark = MARKS[platform];
   return (
     <span
       title={title ?? mark.label}
-      className={`inline-flex shrink-0 items-center justify-center ${className ?? ""}`}
+      className={`inline-flex shrink-0 overflow-hidden ${className ?? ""}`}
       style={{
         width: size,
         height: size,
         borderRadius: radius ?? Math.round(size * 0.3),
-        background: tile.background,
-        boxShadow: tile.ring ? "inset 0 0 0 1px var(--border)" : undefined,
+        boxShadow: EDGE,
       }}
     >
-      <svg
-        viewBox="0 0 24 24"
-        fill={tile.fg ?? "#ffffff"}
-        aria-hidden
-        style={{
-          width: glyph,
-          height: glyph,
-          filter: tile.outline ? GHOST_OUTLINE : undefined,
-        }}
-      >
-        <path d={mark.path} />
-      </svg>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={mark.src}
+        alt=""
+        draggable={false}
+        className="h-full w-full object-cover"
+      />
     </span>
   );
 }
 
-/** The round brand badge used on grid tiles and in the composer's platform
- *  picker. `size` is a Tailwind size pair, because the two callers want
- *  different ones and everything else about the badge is identical. */
+/** The brand badge used on grid tiles and in the composer's platform picker.
+ *  Shape lives in the caller's className, not baked in: the grid wants a
+ *  circle and the composer's picker wants an app-icon square, and a hardcoded
+ *  rounded-full here would win over either depending on stylesheet order. */
 export function PlatformBadge({
   platform,
-  // Shape lives in the caller's className, not baked in: the grid wants a
-  // circle and the composer's picker wants an app-icon square, and a hardcoded
-  // rounded-full here would win over either depending on stylesheet order.
   className = "h-6 w-6 rounded-full",
-  iconClassName = "h-3.5 w-3.5",
   title,
 }: {
   platform: Platform;
   className?: string;
-  iconClassName?: string;
   title?: string;
 }) {
-  const brand = PLATFORM_BRAND[platform];
+  const mark = MARKS[platform];
   return (
     <span
       title={title}
-      className={`inline-flex items-center justify-center ${brand.bg} ${brand.fg} ${className}`}
+      className={`inline-flex shrink-0 overflow-hidden ${className}`}
+      style={{ boxShadow: EDGE }}
     >
-      <PlatformIcon platform={platform} className={iconClassName} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={mark.src}
+        alt=""
+        draggable={false}
+        className="h-full w-full object-cover"
+      />
     </span>
   );
 }

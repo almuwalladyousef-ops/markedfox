@@ -34,6 +34,12 @@
   --dock-hover: #f6f0e6;
   /* The page-level wash behind everything: a faint pool of accent. */
   --wash: rgba(232, 80, 14, 0.06);
+  /* The hairline every platform mark carries. It has to flip with the theme:
+     YouTube's white ground disappears into a light card, and the three black
+     marks (X, Threads, TikTok) disappear into a dark one. A contrast-side
+     hairline covers both without a per-platform list, and is invisible on the
+     coloured marks in between. */
+  --platform-edge: rgba(0, 0, 0, 0.12);
 }
 
 [data-theme="dark"] {
@@ -64,6 +70,7 @@
   --dock-idle: #a89880;
   --dock-hover: #f4ede1;
   --wash: rgba(251, 109, 36, 0.05);
+  --platform-edge: rgba(255, 255, 255, 0.17);
 }
 
 /* `@theme inline` is what turns the variables above into Tailwind utilities:
