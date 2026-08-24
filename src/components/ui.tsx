@@ -37,8 +37,19 @@ export function FoxMark({
 }) {
   // A static, already-cropped PNG: next/image would add a loader and a layout
   // wrapper to do nothing here.
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src="/logo.png" alt={alt} className={cx("w-auto", className)} />;
+  //
+  // `shrink-0` is load-bearing, not tidiness. The mark is 392x133, so at
+  // `h-10` it wants 118px of width — and as a flex item in a narrower box it
+  // shrinks, squashing the fox while the height holds. `object-contain` keeps
+  // the aspect if a caller ever sets both axes.
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/logo.png"
+      alt={alt}
+      className={cx("shrink-0 object-contain", className)}
+    />
+  );
 }
 
 // ── surfaces ───────────────────────────────────────────────────────────────

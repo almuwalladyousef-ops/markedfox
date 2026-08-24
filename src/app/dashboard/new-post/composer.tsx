@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon, PlanDiamond, type IconName } from "@/components/icons";
 import { PlatformIcon, PlatformTile } from "@/components/platform-icon";
@@ -26,6 +26,7 @@ import {
   type TikTokCreatorContext,
   type TikTokPublishOptions,
 } from "@/lib/platforms/tiktok-options";
+import { checkUpload } from "@/lib/media/policy";
 import { validatePublishOptions } from "@/lib/platforms/publish-options";
 import type { OptionSpecs } from "@/lib/publish/specs";
 import type {
@@ -100,15 +101,38 @@ type Props = {
 
 type MediaRow = {
   key: number;
+  /** Empty until the bytes are actually in R2. A row picked from the computer
+   *  gets one only when the post is committed. */
   url: string;
   type: MediaRef["type"];
-  /** Set while bytes are in flight, 0–100. */
+  /** Set while bytes are in flight, 0–100. Only ever during a commit. */
   progress?: number;
   /** Upload failure, shown on the row itself. */
   error?: string;
   /** Filename, so an uploaded row reads as the file rather than a long URL. */
   name?: string;
+  /** The chosen bytes, held in the tab until Publish, Schedule or Save draft.
+   *  Present and `url` empty means "not uploaded yet". */
+  file?: File;
+  /** A `blob:` URL for the preview frame, so the post can be looked at without
+   *  a byte leaving the machine. Revoked when the row goes. */
+  previewUrl?: string;
 };
+
+/**
+ * The stand-in URL a picked-but-not-yet-uploaded file wears during validation.
+ *
+ * `validateContent` is the same function the API runs, and it requires an
+ * absolute http(s) URL. A pending file does not have one yet — but the checks
+ * that matter in the composer are the counts, the types and the mixing rules,
+ * and those all run off `type`. So a pending row stands in with a URL shaped
+ * like the one it will be given.
+ *
+ * It never leaves the browser: `commitMedia` replaces every pending row with
+ * the real URL its upload returns, and `assertNoPending` refuses to send if
+ * one somehow survives.
+ */
+const PENDING_MEDIA_URL = "https://upload.pending.markedfox.com/";
 
 type Issue = { platform: Platform | null; message: string };
 
@@ -197,9 +221,25 @@ export function Composer({
       type: item.type,
     })),
   );
-  const [selected, setSelected] = useState<string[]>(
-    draft?.targetConnectionIds ?? [],
-  );
+  // A new post starts with every account it could go to already on. Posting
+  // everywhere at once is the product, so that is the default, and turning one
+  // off is the deliberate act rather than turning six on.
+  //
+  // Only accounts that could actually publish: a dead token or a platform the
+  // plan does not include would otherwise start selected and immediately
+  // block the composer with an issue nobody asked for. A reopened draft keeps
+  // whatever it was saved with, including nothing.
+  const [selected, setSelected] = useState<string[]>(() => {
+    if (draft) return draft.targetConnectionIds;
+    return accounts
+      .filter(
+        (account) =>
+          account.status === "active" &&
+          account.publishable &&
+          !gates[account.platform],
+      )
+      .map((account) => account.id);
+  });
   const [overrides, setOverrides] = useState<Partial<Record<Platform, string>>>(
     () => {
       const out: Partial<Record<Platform, string>> = {};
@@ -282,16 +322,49 @@ export function Composer({
     return Array.from(set);
   }, [selected, accountById]);
 
-  // Rows still uploading have no URL yet, so they are not offered to
-  // validation — an in-flight file must not read as "no media".
+  // A picked file counts as media from the moment it is picked, even though
+  // its bytes are still on the machine — it is exactly as much "a video going
+  // to Instagram" as an uploaded one, and every rule the composer checks runs
+  // off the type rather than the URL.
   const mediaRefs: MediaRef[] = useMemo(
     () =>
       media
-        .filter((m) => m.url.trim())
-        .map((m) => ({ url: m.url.trim(), type: m.type })),
+        .filter((m) => m.file || m.url.trim())
+        .map((m) => ({
+          url: m.url.trim() || PENDING_MEDIA_URL,
+          type: m.type,
+        })),
     [media],
   );
+  /** Bytes are in flight. Only true during a commit now, never while editing. */
   const uploading = media.some((m) => m.progress !== undefined);
+  /** Files chosen but not yet in storage — what a commit has to upload, and
+   *  what would be lost by closing the tab. */
+  const pendingCount = media.filter((m) => m.file && !m.url.trim()).length;
+
+  // Deferring the upload means a picked file lives in this tab and nowhere
+  // else until the post is committed, so closing it loses the bytes. The old
+  // flow never needed this warning, because it uploaded on pick.
+  useEffect(() => {
+    if (pendingCount === 0) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [pendingCount]);
+
+  // Every `blob:` URL handed out is held by the document until it is revoked.
+  // Through a ref, because the cleanup has to run on unmount with the final
+  // list and must not re-run every time that list changes.
+  const mediaSnapshot = useRef(media);
+  mediaSnapshot.current = media;
+  useEffect(
+    () => () => {
+      for (const row of mediaSnapshot.current) {
+        if (row.previewUrl) URL.revokeObjectURL(row.previewUrl);
+      }
+    },
+    [],
+  );
 
   const captionFor = (platform: Platform) => overrides[platform] ?? caption;
 
@@ -441,9 +514,6 @@ export function Composer({
     if (mode === "schedule" && !scheduledFor) {
       out.push({ platform: null, message: "Pick a date and time." });
     }
-    if (uploading) {
-      out.push({ platform: null, message: "Wait for the upload to finish." });
-    }
     for (const row of media) {
       if (row.error) out.push({ platform: null, message: row.error });
     }
@@ -455,7 +525,6 @@ export function Composer({
     overrides,
     mediaRefs,
     media,
-    uploading,
     mode,
     scheduledFor,
     xLinksAllowed,
@@ -487,88 +556,143 @@ export function Composer({
       prev.map((m) => (m.key === key ? { ...m, ...patch } : m)),
     );
   const removeMedia = (key: number) =>
-    setMedia((prev) => prev.filter((m) => m.key !== key));
+    setMedia((prev) => {
+      const row = prev.find((m) => m.key === key);
+      if (row?.previewUrl) URL.revokeObjectURL(row.previewUrl);
+      return prev.filter((m) => m.key !== key);
+    });
 
-  // Upload straight to R2 with a URL the server signs. The bytes never pass
-  // through our box — see /api/media/upload-url. XMLHttpRequest rather than
-  // fetch purely because it reports progress, which matters for a 200MB video.
-  const uploadFile = (file: File) => {
-    const rowKey = takeKey();
+  /**
+   * Take a file, do not upload it.
+   *
+   * The bytes stay in the tab until the post is committed — see `commitMedia`.
+   * The point is that the whole post can be built and looked at before
+   * anything is sent: pick the file, write the caption, choose the accounts,
+   * set each platform's options, read the review, and only then does anything
+   * leave the machine. It also means a post abandoned halfway uploads nothing
+   * at all, where the old flow left an orphan in R2 for the sweep to collect.
+   *
+   * The size and type check is the same pure function the signing route runs,
+   * so a file that would be refused is refused here, instantly and for free,
+   * rather than at the one moment the person least wants to hear it.
+   */
+  const addFiles = (files: File[]) => {
     setMedia((prev) => [
       ...prev,
-      {
-        key: rowKey,
-        url: "",
-        type: file.type.startsWith("video/") ? "video" : "image",
-        progress: 0,
-        name: file.name,
-      },
-    ]);
-
-    void (async () => {
-      try {
-        const response = await fetch("/api/media/upload-url", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            workspaceId,
-            contentType: file.type,
-            sizeBytes: file.size,
-          }),
-        });
-        const body = (await response.json().catch(() => ({}))) as Record<
-          string,
-          unknown
-        >;
-        if (!response.ok) {
-          updateMedia(rowKey, {
-            progress: undefined,
-            error: String(body.message ?? "That file was refused."),
-          });
-          return;
-        }
-
-        const { uploadUrl, publicUrl, headers, kind } = body as {
-          uploadUrl: string;
-          publicUrl: string;
-          headers: Record<string, string>;
-          kind: MediaRef["type"];
+      ...files.map((file) => {
+        const check = checkUpload(file.type, file.size);
+        return {
+          key: takeKey(),
+          url: "",
+          type: (check.ok ? check.kind : file.type.startsWith("video/")
+            ? "video"
+            : "image") as MediaRef["type"],
+          name: file.name,
+          // A refused file is kept as a row carrying its reason rather than
+          // dropped silently — otherwise picking a 40MB PNG looks like the
+          // button did nothing.
+          ...(check.ok
+            ? { file, previewUrl: URL.createObjectURL(file) }
+            : { error: check.reason }),
         };
+      }),
+    ]);
+  };
 
-        await new Promise<void>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open("PUT", uploadUrl);
-          for (const [name, value] of Object.entries(headers)) {
-            xhr.setRequestHeader(name, value);
-          }
-          xhr.upload.onprogress = (event) => {
-            if (!event.lengthComputable) return;
-            updateMedia(rowKey, {
-              progress: Math.round((event.loaded / event.total) * 100),
-            });
-          };
-          xhr.onload = () =>
-            xhr.status >= 200 && xhr.status < 300
-              ? resolve()
-              : reject(new Error(`Upload failed (HTTP ${xhr.status}).`));
-          xhr.onerror = () =>
-            reject(new Error("Upload failed — check your connection."));
-          xhr.send(file);
-        });
+  /** PUT one file to R2 with a URL the server signs, reporting progress into
+   *  its row. The bytes never pass through our box — see
+   *  /api/media/upload-url. XMLHttpRequest rather than fetch purely because it
+   *  reports progress, which matters for a 300MB video. */
+  const uploadOne = async (row: MediaRow, file: File): Promise<MediaRef> => {
+    updateMedia(row.key, { progress: 0, error: undefined });
 
-        updateMedia(rowKey, {
-          url: publicUrl,
-          type: kind,
-          progress: undefined,
-          error: undefined,
-        });
-      } catch (error) {
-        updateMedia(rowKey, {
-          progress: undefined,
-          error: error instanceof Error ? error.message : "Upload failed.",
-        });
+    const response = await fetch("/api/media/upload-url", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        workspaceId,
+        contentType: file.type,
+        sizeBytes: file.size,
+      }),
+    });
+    const body = (await response.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+    if (!response.ok) {
+      throw new Error(String(body.message ?? "That file was refused."));
+    }
+
+    const { uploadUrl, publicUrl, headers, kind } = body as {
+      uploadUrl: string;
+      publicUrl: string;
+      headers: Record<string, string>;
+      kind: MediaRef["type"];
+    };
+
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", uploadUrl);
+      for (const [name, value] of Object.entries(headers)) {
+        xhr.setRequestHeader(name, value);
       }
-    })();
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        updateMedia(row.key, {
+          progress: Math.round((event.loaded / event.total) * 100),
+        });
+      };
+      xhr.onload = () =>
+        xhr.status >= 200 && xhr.status < 300
+          ? resolve()
+          : reject(new Error(`Upload failed (HTTP ${xhr.status}).`));
+      xhr.onerror = () =>
+        reject(new Error("Upload failed — check your connection."));
+      xhr.send(file);
+    });
+
+    // The URL goes back on the row, so a publish that fails downstream — a
+    // dead token, a platform refusing the caption — can be retried without
+    // sending the same 300MB again.
+    updateMedia(row.key, {
+      url: publicUrl,
+      type: kind,
+      progress: undefined,
+      error: undefined,
+    });
+    return { url: publicUrl, type: kind };
+  };
+
+  /**
+   * Upload everything still on the machine and hand back the refs to post.
+   *
+   * Sequential on purpose: several files at once share one uplink, so the
+   * progress bars all crawl together and none of them means anything. One at
+   * a time, "2 of 3" is the truth.
+   *
+   * Throws on the first failure, and the caller posts nothing — a partial
+   * upload must never become a post missing half its carousel.
+   */
+  const commitMedia = async (): Promise<MediaRef[]> => {
+    const refs: MediaRef[] = [];
+    for (const row of media) {
+      const existing = row.url.trim();
+      if (existing) {
+        refs.push({ url: existing, type: row.type });
+        continue;
+      }
+      if (!row.file) continue;
+      refs.push(await uploadOne(row, row.file));
+    }
+    return refs;
+  };
+
+  /** Last line of defence: the stand-in URL is for validation only and must
+   *  never reach the API, which would store it and try to publish it. */
+  const assertNoPending = (refs: MediaRef[]) => {
+    if (refs.some((ref) => ref.url === PENDING_MEDIA_URL)) {
+      throw new Error("A file did not finish uploading.");
+    }
   };
 
   /** Caption overrides plus each platform's own settings, in the shape the API
@@ -618,6 +742,20 @@ export function Composer({
     setSavingDraft(true);
     setOutcome(null);
     try {
+      // A draft has to carry its files, or reopening it tomorrow finds a post
+      // whose video only ever existed in a tab that has since been closed.
+      let refs: MediaRef[];
+      try {
+        refs = await commitMedia();
+        assertNoPending(refs);
+      } catch (error) {
+        setOutcome({
+          kind: "error",
+          message: "The files were not uploaded, so the draft was not saved.",
+          details: [error instanceof Error ? error.message : String(error)],
+        });
+        return;
+      }
       const response = await fetch("/api/posts", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -626,7 +764,7 @@ export function Composer({
           draft: true,
           draftId: draft?.id,
           caption,
-          media: mediaRefs,
+          media: refs,
           targetConnectionIds: selected,
           platformOverrides: buildOverrides(),
           scheduledFor:
@@ -674,6 +812,28 @@ export function Composer({
     setSubmitting(true);
     setOutcome(null);
     try {
+      // The upload happens here, at the moment the person commits — not when
+      // they picked the file. Nothing has left the machine until now.
+      //
+      // For a scheduled post this is still the right moment: the tick that
+      // fires it runs on the server with no browser open, so the bytes have to
+      // be in storage before the row is written, not at the scheduled minute.
+      let refs: MediaRef[];
+      try {
+        refs = await commitMedia();
+        assertNoPending(refs);
+      } catch (error) {
+        setOutcome({
+          kind: "error",
+          message:
+            mode === "now"
+              ? "The files were not uploaded, so nothing was posted."
+              : "The files were not uploaded, so nothing was scheduled.",
+          details: [error instanceof Error ? error.message : String(error)],
+        });
+        return;
+      }
+
       const platformOverrides = buildOverrides();
       const response = await fetch("/api/posts", {
         method: "POST",
@@ -681,7 +841,7 @@ export function Composer({
         body: JSON.stringify({
           workspaceId,
           caption,
-          media: mediaRefs,
+          media: refs,
           targetConnectionIds: selected,
           platformOverrides,
           draftId: draft?.id,
@@ -759,8 +919,33 @@ export function Composer({
   const selectedAccounts = selected
     .map((id) => accountById.get(id))
     .filter((account): account is ComposerAccount => Boolean(account));
-  const preview = mediaRefs[0] ?? null;
-  const blocked = issues.length > 0 || selected.length === 0 || uploading;
+  // The preview reads the local `blob:` URL when there is one, so a file
+  // shows itself the instant it is picked and without a round trip. A row from
+  // a reopened draft has only its stored URL, and uses that.
+  const previewRow =
+    media.find((m) => m.previewUrl || m.url.trim()) ?? null;
+  const preview = previewRow
+    ? {
+        url: previewRow.previewUrl ?? previewRow.url.trim(),
+        type: previewRow.type,
+      }
+    : null;
+  const blocked = issues.length > 0 || selected.length === 0;
+
+  // What the action bar says while a commit is uploading. The media list lives
+  // on the file step and Publish is pressed on the review step, so without
+  // this the bar reads "Working…" for however long a 300MB video takes and
+  // gives no sign anything is happening.
+  const uploadNote = (() => {
+    if (!uploading) return null;
+    const files = media.filter((m) => m.file);
+    const active = files.find((m) => m.progress !== undefined);
+    if (!active) return null;
+    const position = files.filter((m) => m.url.trim()).length + 1;
+    const which =
+      files.length > 1 ? `file ${position} of ${files.length}` : active.name;
+    return `Uploading ${which} — ${active.progress ?? 0}%`;
+  })();
 
   // What this post will be called where it lands. A video going to Instagram
   // is a reel and to YouTube a short; the same post made of photos is neither,
@@ -817,11 +1002,9 @@ export function Composer({
         ? "Pick what you are posting."
         : null
       : step === "file"
-        ? uploading
-          ? "Waiting for the upload to finish."
-          : mediaRefs.length === 0
-            ? "Add a file, or go back and choose a text post."
-            : null
+        ? mediaRefs.length === 0
+          ? "Add a file, or go back and choose a text post."
+          : null
         : step === "caption"
           ? selected.length === 0
             ? "Pick at least one account."
@@ -899,7 +1082,11 @@ export function Composer({
                     {row.progress !== undefined ? (
                       <span className="ml-2 text-faint">{row.progress}%</span>
                     ) : row.url ? (
-                      <span className="ml-2 text-ok">ready</span>
+                      <span className="ml-2 text-ok">uploaded</span>
+                    ) : row.file ? (
+                      // Says where the file actually is. "Ready" used to mean
+                      // "already in storage"; now it would be a lie.
+                      <span className="ml-2 text-faint">on this device</span>
                     ) : null}
                   </span>
                 ) : (
@@ -962,8 +1149,7 @@ export function Composer({
         accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime"
         className="sr-only"
         onChange={(event) => {
-          const files = Array.from(event.target.files ?? []);
-          files.forEach(uploadFile);
+          addFiles(Array.from(event.target.files ?? []));
           // Reset so choosing the same file twice still fires.
           event.target.value = "";
         }}
@@ -1110,7 +1296,7 @@ export function Composer({
               <p className="mt-2 max-w-md text-[15px]/[24px] text-pretty text-muted">
                 {kind === "photo"
                   ? "Pick one image, or several for a carousel. They post in the order you add them."
-                  : "One file. It is uploaded straight to storage — the bytes never pass through our server."}
+                  : "One file. It stays on your machine while you build the post, and uploads straight to storage when you publish — the bytes never pass through our server."}
               </p>
 
               <div className="mt-5 flex flex-wrap items-center gap-2.5">
@@ -1600,7 +1786,9 @@ export function Composer({
                 disabled={!canSubmit}
               >
                 {submitting
-                  ? "Working…"
+                  ? uploading
+                    ? "Uploading…"
+                    : "Working…"
                   : mode === "now"
                     ? "Publish now"
                     : "Schedule post"}
@@ -1616,10 +1804,22 @@ export function Composer({
               </Button>
             )}
           </div>
-          <p className="text-[13px] text-faint">
-            {isLast
-              ? "Nothing is sent until you press publish."
-              : (holdup ?? `Next: ${steps[stepIndex + 1]?.title.toLowerCase()}.`)}
+          <p
+            aria-live="polite"
+            className={cx(
+              "text-[13px]",
+              uploadNote ? "font-semibold text-ink" : "text-faint",
+            )}
+          >
+            {uploadNote ??
+              (isLast
+                ? pendingCount > 0
+                  ? mode === "now"
+                    ? `Your ${pendingCount === 1 ? "file uploads" : "files upload"} and the post goes out when you press publish.`
+                    : `Your ${pendingCount === 1 ? "file uploads" : "files upload"} when you schedule it, so it can go out without this tab open.`
+                  : "Nothing is sent until you press publish."
+                : (holdup ??
+                  `Next: ${steps[stepIndex + 1]?.title.toLowerCase()}.`))}
           </p>
         </div>
       </div>

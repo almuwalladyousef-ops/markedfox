@@ -50,7 +50,7 @@ export function MobileTabs() {
         href="/dashboard/new-post"
         aria-label="New post"
         title="New post — the composer"
-        className="-mt-[22px] flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-[18px] bg-accent text-accent-ink shadow-[0_10px_24px_rgba(232,80,14,.35)]"
+        className="-mt-[22px] flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-[18px] bg-accent text-accent-ink shadow-[0_10px_24px_var(--accent-glow)]"
       >
         <Icon name="plus" className="h-[23px] w-[23px]" strokeWidth={2.2} />
       </Link>
