@@ -2,184 +2,171 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 
 import { Icon } from "@/components/icons";
 import { FoxMark, cx } from "@/components/ui";
-import { SIDEBAR_COOKIE, type SidebarState } from "@/lib/sidebar";
+import { activeRowHref, activeSpace, type ShellSpaceId } from "@/lib/shell";
 import type { Workspace } from "@/lib/workspaces/store";
 
-import { NavRow, SidebarNav, type NavSection } from "./sidebar-nav";
+import { NavRow } from "./sidebar-nav";
+import { isDecoratedItem, type DecoratedSpace } from "./shell-types";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
-// The sidebar as a floating panel rather than a wall: its own rounded card
-// with the page scrolling beside it.
+// The shell's two rails, per the redesign handoff: a 68px ink dock holding the
+// three spaces, New post and Settings, and a 236px contextual rail holding
+// only the current space's own rows. The old single 262px sidebar — six
+// titled groups, thirteen rows, a collapse toggle — is gone; the dock is
+// already the collapsed state, so there is nothing left to collapse.
 //
-// It is a client component so collapsing is instant — the width is state here
-// and a cookie for the next request, which is what keeps the server's first
-// paint the same width the person left it at.
-//
-// One thing that was got wrong once and is worth keeping right: the collapse
-// toggle stays visible when collapsed. An earlier version hid it at 92px, on
-// the theory that the rail was already minimal, which left no way back out.
+// The user row and plan label left the rail too: they live in Settings, which
+// the dock's own button reaches.
 
 export function Sidebar({
-  sections,
+  spaces,
   workspaces,
   activeId,
   canCreate,
   createBlockedReason,
   remaining,
-  email,
-  planId,
-  initial,
 }: {
-  sections: NavSection[];
+  spaces: DecoratedSpace[];
   workspaces: Workspace[];
   activeId: string;
   canCreate: boolean;
   createBlockedReason?: string;
   remaining?: number | null;
-  email: string | null;
-  planId: string;
-  initial: SidebarState;
 }) {
-  const [state, setState] = useState<SidebarState>(initial);
-  const collapsed = state === "collapsed";
   const pathname = usePathname();
   const onSettings = pathname.startsWith("/dashboard/settings");
-
-  const toggle = () => {
-    const next: SidebarState = collapsed ? "open" : "collapsed";
-    setState(next);
-    document.cookie = `${SIDEBAR_COOKIE}=${next};path=/;max-age=31536000;samesite=lax`;
-  };
-
-  const collapseButton = (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-expanded={!collapsed}
-      title={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
-      aria-label={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
-      className={cx(
-        "flex shrink-0 items-center justify-center text-muted transition-[background,color] duration-150 hover:text-ink",
-        collapsed
-          ? "h-[34px] w-[34px] rounded-[10px] bg-chip"
-          : "h-7 w-7 rounded-lg hover:bg-chip",
-      )}
-    >
-      <Icon name="panel" className="h-[17px] w-[17px]" />
-    </button>
-  );
+  const rowHref = activeRowHref(pathname);
+  const spaceId: ShellSpaceId = activeSpace(pathname).id;
+  const space = spaces.find((s) => s.id === spaceId) ?? spaces[0];
 
   return (
-    <aside
-      className={cx(
-        "sticky top-0 hidden h-screen shrink-0 flex-col py-3.5 pl-3.5 shell:flex",
-        // A width transition rather than a jump: the page beside it reflows
-        // either way, and a jump reads as a reload.
-        "transition-[width] duration-[180ms] ease-out",
-        collapsed ? "w-[92px]" : "w-[262px]",
-      )}
-    >
-      <div className="flex min-h-0 flex-1 flex-col gap-3.5 rounded-3xl border border-line bg-panel px-3 pt-5 pb-3">
-        {collapsed ? (
-          <div className="flex flex-col items-center gap-2.5">
-            <Link href="/dashboard" aria-label="MarkedFox home">
-              <FoxMark className="h-[30px]" />
-            </Link>
-            {collapseButton}
+    <>
+      {/* ── the dock ─────────────────────────────────────────────────── */}
+      <aside className="sticky top-0 hidden h-screen shrink-0 py-3.5 pl-3.5 shell:flex">
+        <div className="flex w-[68px] flex-col items-center gap-2 rounded-[22px] border border-dock-line bg-dock pt-4 pb-3.5">
+          <Link
+            href="/dashboard"
+            title="MarkedFox — home"
+            aria-label="MarkedFox home"
+            className="mb-1.5 flex w-11 justify-center"
+          >
+            <FoxMark className="h-10" />
+          </Link>
+
+          {/* The app's one accent button. */}
+          <Link
+            href="/dashboard/new-post"
+            title="New post — the composer"
+            aria-label="New post"
+            className="mb-1.5 flex h-11 w-11 items-center justify-center rounded-[16px] bg-accent text-accent-ink shadow-[0_8px_20px_rgba(232,80,14,.35)] transition-transform duration-150 hover:scale-[1.06]"
+          >
+            <Icon name="plus" className="h-5 w-5" strokeWidth={2.2} />
+          </Link>
+
+          <div className="flex flex-1 flex-col gap-1.5">
+            {spaces.map((s) => {
+              const on = !onSettings && s.id === spaceId;
+              return (
+                <Link
+                  key={s.id}
+                  href={s.firstHref}
+                  title={s.tip}
+                  aria-label={s.label}
+                  aria-current={on ? "page" : undefined}
+                  className={cx(
+                    "flex h-11 w-11 items-center justify-center rounded-[15px] transition-[background,color] duration-150",
+                    on
+                      ? "bg-accent text-accent-ink"
+                      : "text-dock-idle hover:text-dock-hover",
+                  )}
+                >
+                  <Icon name={s.icon} className="h-[21px] w-[21px]" />
+                </Link>
+              );
+            })}
           </div>
-        ) : (
-          <div className="flex items-center gap-2.5 px-2">
-            <Link href="/dashboard" className="flex items-center gap-2.5">
-              <FoxMark className="h-[30px] shrink-0" />
-              {/* No truncation on the wordmark: the rail is a fixed 262px and
-                  the name fits, so a `truncate` here only ever fires when
-                  something else is mis-sized — and it hides that fact by
-                  quietly rendering "Marke…". */}
-              <span className="font-display text-[18px] font-bold tracking-[-0.02em] whitespace-nowrap text-ink">
-                MarkedFox
-              </span>
-            </Link>
-            <span className="ml-auto">{collapseButton}</span>
-          </div>
-        )}
 
-        {/* The one control that starts work rather than reviewing it, so it
-            sits above the nav and wears the app's only solid button. */}
-        <Link
-          href="/dashboard/new-post"
-          title={collapsed ? "New post" : undefined}
-          className={cx(
-            "flex items-center justify-center gap-2 rounded-[14px] bg-ink text-panel transition-[filter] duration-150 hover:brightness-[1.45]",
-            collapsed ? "py-[13px]" : "px-3.5 py-[11px]",
-          )}
-        >
-          <Icon
-            name="plus"
-            className={collapsed ? "h-[22px] w-[22px]" : "h-[17px] w-[17px]"}
-            strokeWidth={2.1}
-          />
-          {collapsed ? (
-            <span className="sr-only">New post</span>
-          ) : (
-            <span className="text-[14.5px] font-semibold">New post</span>
-          )}
-        </Link>
-
-        <WorkspaceSwitcher
-          workspaces={workspaces}
-          activeId={activeId}
-          canCreate={canCreate}
-          createBlockedReason={createBlockedReason}
-          remaining={remaining}
-          variant={collapsed ? "collapsed" : "full"}
-        />
-
-        <SidebarNav sections={sections} collapsed={collapsed} />
-
-        <div className="flex flex-col gap-1 border-t border-line pt-3">
-          <NavRow
-            href="/dashboard/settings"
-            label="Settings"
-            icon="settings"
-            collapsed={collapsed}
-            active={onSettings}
-          />
           <Link
             href="/dashboard/settings"
-            title={collapsed ? (email ?? "Account") : undefined}
+            title="Settings — account, billing and connected accounts"
+            aria-label="Settings"
+            aria-current={onSettings ? "page" : undefined}
             className={cx(
-              "flex items-center gap-2.5 rounded-[13px] transition-[background] duration-150 hover:bg-chip",
-              collapsed ? "justify-center py-2" : "px-3 py-2",
+              "flex h-11 w-11 items-center justify-center rounded-[15px] transition-[background,color] duration-150",
+              onSettings
+                ? "bg-accent text-accent-ink"
+                : "text-dock-idle hover:text-dock-hover",
             )}
           >
-            <span
-              aria-hidden
-              className="font-display flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-ink text-[13px] font-bold text-panel uppercase"
-            >
-              {(email ?? "?").trim().charAt(0)}
-            </span>
-            {collapsed ? (
-              <span className="sr-only">{email ?? "Account"}</span>
-            ) : (
-              <span className="min-w-0">
-                <span
-                  className="block truncate text-[12.5px] font-semibold text-ink"
-                  title={email ?? undefined}
-                >
-                  {email}
-                </span>
-                <span className="block text-[11.5px] text-muted capitalize">
-                  {planId} plan
-                </span>
-              </span>
-            )}
+            <Icon name="settings" className="h-[21px] w-[21px]" />
           </Link>
         </div>
-      </div>
-    </aside>
+      </aside>
+
+      {/* ── the contextual rail ──────────────────────────────────────── */}
+      <aside className="sticky top-0 hidden h-screen w-[236px] shrink-0 py-3.5 pl-3 shell:flex">
+        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto rounded-[22px] border border-line bg-panel/75 px-3 pt-[18px] pb-3.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mb-2.5">
+            <WorkspaceSwitcher
+              workspaces={workspaces}
+              activeId={activeId}
+              canCreate={canCreate}
+              createBlockedReason={createBlockedReason}
+              remaining={remaining}
+            />
+          </div>
+
+          <p className="font-display mx-0.5 text-[19px] font-extrabold tracking-[-0.02em] text-ink">
+            {space.title}
+          </p>
+          <p className="mx-0.5 mb-3 text-[12.5px] text-faint">{space.sub}</p>
+
+          {space.rows.map((row, i) =>
+            isDecoratedItem(row) ? (
+              <NavRow
+                key={row.href}
+                href={row.href}
+                label={row.label}
+                icon={row.icon}
+                tip={row.tip}
+                active={row.href === rowHref}
+                badge={row.badge}
+                locked={row.locked}
+              />
+            ) : (
+              <p
+                key={`h-${i}`}
+                className="mx-1 mt-3.5 mb-1 text-[10.5px] font-bold tracking-[0.1em] text-faint uppercase"
+              >
+                {row.heading}
+              </p>
+            ),
+          )}
+
+          <div className="flex-1" />
+
+          {/* The space's usage meter, real numbers from the entitlement
+              snapshot. No bar on an unlimited figure — a full bar and a bar
+              with no ceiling look identical and mean opposite things. */}
+          <div className="mt-3 rounded-[15px] border border-line bg-panel px-3.5 py-[13px]">
+            <p className="text-[12px] font-bold text-ink">{space.meter.title}</p>
+            <p className="mt-1 mb-2 text-[11.5px]/[16px] text-faint">
+              {space.meter.note}
+            </p>
+            {space.meter.pct === null ? null : (
+              <div className="h-[5px] overflow-hidden rounded-full bg-chip">
+                <div
+                  className="h-full rounded-full bg-accent"
+                  style={{ width: `${space.meter.pct}%` }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
+    </>
   );
 }

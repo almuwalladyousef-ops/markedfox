@@ -59,8 +59,8 @@ export function WorkspaceSwitcher({
   canCreate,
   createBlockedReason,
   remaining,
-  /** `collapsed` is the 92px rail: the initials tile alone. `compact` is the
-   *  mobile top bar: a small tile and a chevron, no name. */
+  /** `full` is the contextual rail: full width. `compact` is the mobile top
+   *  bar: a small tile and a chevron, no name. */
   variant = "full",
 }: {
   workspaces: Workspace[];
@@ -69,7 +69,7 @@ export function WorkspaceSwitcher({
   createBlockedReason?: string;
   /** Workspaces left on the plan; null on an unlimited plan. */
   remaining?: number | null;
-  variant?: "full" | "collapsed" | "compact";
+  variant?: "full" | "compact";
 }) {
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -87,43 +87,28 @@ export function WorkspaceSwitcher({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        title={variant === "full" ? undefined : name}
+        title={variant === "full" ? "Switch workspace" : `Workspace: ${name}`}
         className={cx(
           "flex items-center rounded-[13px] border border-line bg-panel text-ink transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-[0_1px_2px_rgba(24,24,27,.06)]",
-          variant === "collapsed"
-            ? "w-full justify-center py-2"
-            : variant === "compact"
-              ? "gap-1.5 px-2 py-1.5"
-              : "w-full justify-between gap-2 px-[11px] py-[9px]",
+          variant === "compact"
+            ? "gap-1.5 px-2 py-1.5"
+            : "w-full justify-between gap-2 px-2.5 py-2",
         )}
       >
-        {variant === "collapsed" ? (
-          <WorkspaceTile name={name} size={32} radius={10} />
-        ) : (
-          <>
-            <span className="flex min-w-0 items-center gap-2.5">
-              <WorkspaceTile name={name} size={variant === "compact" ? 20 : 26} />
-              {variant === "compact" ? null : (
-                <span className="truncate text-[13.5px] font-semibold">
-                  {name}
-                </span>
-              )}
-            </span>
-            <Icon name="chevronDown" className="h-3.5 w-3.5 text-faint" />
-          </>
-        )}
-        {variant === "collapsed" ? <span className="sr-only">{name}</span> : null}
+        <span className="flex min-w-0 items-center gap-[9px]">
+          <WorkspaceTile name={name} size={variant === "compact" ? 20 : 24} />
+          {variant === "compact" ? null : (
+            <span className="truncate text-[13px] font-bold">{name}</span>
+          )}
+        </span>
+        <Icon name="chevronDown" className="h-[13px] w-[13px] text-faint" />
       </button>
 
       {open ? (
         <div
           className={cx(
             "absolute z-40 mt-2 rounded-[14px] border border-line bg-panel p-1.5 shadow-[0_16px_40px_rgba(24,24,27,.12)]",
-            variant === "compact"
-              ? "right-0 w-56"
-              : variant === "collapsed"
-                ? "left-0 w-56"
-                : "right-0 left-0",
+            variant === "compact" ? "right-0 w-56" : "right-0 left-0",
           )}
         >
           <ul className="flex flex-col">
@@ -137,6 +122,7 @@ export function WorkspaceSwitcher({
                   />
                   <button
                     type="submit"
+                    title="Switch to this workspace"
                     className={cx(
                       "flex w-full items-center justify-between gap-2 rounded-[10px] px-2.5 py-2 text-left text-[13.5px] transition-[background] duration-150 hover:bg-chip",
                       workspace.id === activeId
@@ -204,7 +190,13 @@ export function WorkspaceSwitcher({
               <button
                 type="button"
                 onClick={() => setCreating(true)}
-                title={canCreate ? undefined : createBlockedReason}
+                title={
+                  canCreate
+                    ? remaining === null || remaining === undefined
+                      ? "Create another workspace"
+                      : `Create another workspace — ${remaining} left on your plan`
+                    : createBlockedReason
+                }
                 className="flex w-full items-center justify-between gap-2 rounded-[10px] px-2.5 py-2 text-left text-[13.5px] font-semibold text-muted transition-[background,color] duration-150 hover:bg-chip hover:text-ink"
               >
                 <span>+ New workspace</span>

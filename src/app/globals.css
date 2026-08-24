@@ -6,17 +6,17 @@
    `data-theme="dark"` on <html>. */
 
 :root {
-  --bg: #f6f6f7;
-  --panel: #ffffff;
-  --chip: #f1f1f3;
-  --border: #e5e5e8;
-  --border2: #d5d5da;
-  --text: #18181b;
-  --muted: #54545c;
-  --faint: #8b8b93;
-  --accent: #ea580c;
+  --bg: #f6f0e6;
+  --panel: #fffdf8;
+  --chip: #f0e7d8;
+  --border: #e9dfd0;
+  --border2: #e2d6c3;
+  --text: #221b13;
+  --muted: #6b6257;
+  --faint: #b5a68f;
+  --accent: #e8500e;
   --accent-ink: #ffffff;
-  --accent-soft: rgba(234, 88, 12, 0.11);
+  --accent-soft: rgba(232, 80, 14, 0.12);
   --ok: #16a34a;
   --ok-soft: rgba(22, 163, 74, 0.11);
   --warn: #d97706;
@@ -25,21 +25,31 @@
   --danger-soft: rgba(220, 38, 38, 0.09);
   --sky: #0284c7;
   --sky-soft: rgba(2, 132, 199, 0.11);
-  --shadow: 0 16px 40px rgba(24, 24, 27, 0.1);
+  --shadow: 0 16px 40px rgba(60, 44, 24, 0.14);
+  /* The dock is ink-dark in both themes, so its colours are its own tokens
+     rather than reuses of --text (which flips to near-white in dark). */
+  --dock: #221b13;
+  --dock-line: #221b13;
+  --dock-idle: #a89880;
+  --dock-hover: #f6f0e6;
+  /* The page-level wash behind everything: a faint pool of accent. */
+  --wash: rgba(232, 80, 14, 0.06);
 }
 
 [data-theme="dark"] {
-  --bg: #09090b;
-  --panel: #101012;
-  --chip: #1a1a1e;
-  --border: #232327;
-  --border2: #323238;
-  --text: #fafafa;
-  --muted: #9d9da6;
-  --faint: #6b6b74;
-  --accent: #f97316;
-  --accent-ink: #101012;
-  --accent-soft: rgba(249, 115, 22, 0.14);
+  /* Derived from the warm-paper light set: same hue family, inverted value.
+     The handoff shipped no dark palette, so these are ours. */
+  --bg: #141008;
+  --panel: #1c1710;
+  --chip: #272016;
+  --border: #322a1c;
+  --border2: #403624;
+  --text: #f4ede1;
+  --muted: #a99e8c;
+  --faint: #7a6f5c;
+  --accent: #fb6d24;
+  --accent-ink: #1c1710;
+  --accent-soft: rgba(251, 109, 36, 0.15);
   --ok: #22c55e;
   --ok-soft: rgba(34, 197, 94, 0.13);
   --warn: #f59e0b;
@@ -49,6 +59,11 @@
   --sky: #38bdf8;
   --sky-soft: rgba(56, 189, 248, 0.13);
   --shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  --dock: #211a11;
+  --dock-line: #322a1c;
+  --dock-idle: #a89880;
+  --dock-hover: #f4ede1;
+  --wash: rgba(251, 109, 36, 0.05);
 }
 
 /* `@theme inline` is what turns the variables above into Tailwind utilities:
@@ -73,8 +88,13 @@
   --color-danger-soft: var(--danger-soft);
   --color-sky: var(--sky);
   --color-sky-soft: var(--sky-soft);
+  --color-dock: var(--dock);
+  --color-dock-line: var(--dock-line);
+  --color-dock-idle: var(--dock-idle);
+  --color-dock-hover: var(--dock-hover);
 
-  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
   --shadow-panel: var(--shadow);
 
   /* Two layout breakpoints of our own: `shell` is where the sidebar becomes
@@ -85,8 +105,11 @@
 }
 
 body {
-  background: var(--bg);
+  background:
+    radial-gradient(1200px 600px at 80% -10%, var(--wash), transparent 60%),
+    var(--bg);
   color: var(--text);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
