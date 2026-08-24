@@ -529,6 +529,7 @@ export const instagram: PlatformAdapter = {
     }
 
     const token = tokens.accessToken;
+    const audioName = optionValue("instagram", options, "audio_name");
     let creationId: string;
 
     if (media.length === 1) {
@@ -544,8 +545,12 @@ export const instagram: PlatformAdapter = {
               // Only meaningful on a single reel. Instagram's default is to
               // show it in the grid too, so the flag is sent only to turn
               // that off.
-              ...(optionValue("instagram", options, "share_to_feed") === false
+              ...(optionValue("instagram", options, "profile_display") ===
+              "reels_only"
                 ? { share_to_feed: "false" }
+                : {}),
+              ...(typeof audioName === "string" && audioName
+                ? { audio_name: audioName }
                 : {}),
             }
           : { image_url: item.url, caption },
@@ -588,6 +593,23 @@ export const instagram: PlatformAdapter = {
     );
 
     const result: PublishResult = { platformPostId: published.id };
+
+    // Comments are not something the container accepts: Instagram only takes
+    // the switch once the media exists. Off is the only value worth sending,
+    // since on is already the default.
+    if (optionValue("instagram", options, "comment_enabled") === false) {
+      try {
+        await graph(`/${published.id}`, {
+          method: "POST",
+          searchParams: { comment_enabled: "false", access_token: token },
+        });
+      } catch {
+        // The reel is live. Failing the whole post because comments stayed on
+        // would be a worse answer than a published reel with comments on, and
+        // the person can switch them off in the app.
+      }
+    }
+
     try {
       const permalink = await graph<{ permalink?: string }>(`/${published.id}`, {
         searchParams: { fields: "permalink", access_token: token },

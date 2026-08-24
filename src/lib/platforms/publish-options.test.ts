@@ -78,7 +78,8 @@ describe("validatePublishOptions", () => {
 describe("optionValue", () => {
   it("falls back to the declared default", () => {
     expect(optionValue("youtube", {}, "privacy_status")).toBe("public");
-    expect(optionValue("instagram", undefined, "share_to_feed")).toBe(true);
+    expect(optionValue("instagram", undefined, "comment_enabled")).toBe(true);
+    expect(optionValue("instagram", {}, "profile_display")).toBe("grid");
   });
 
   it("returns undefined for text with nothing in it, so the adapter decides", () => {
