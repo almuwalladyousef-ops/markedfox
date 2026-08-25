@@ -1350,3 +1350,81 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   endpoint's actual output. **Not verified:** anything needing a real platform
   connection or an AI key, neither of which is configured here and neither of
   which changed.
+
+- **2026-08-25 — the composer rebuilt, and video editing in the browser.**
+  See `sessions/2026-08-25-composer-rebuild.md` and
+  `handoff/2026-08-25-composer-and-media-editing.md`. Seven commits, all
+  merged and deployed; live at `201538a`.
+
+  Started as "use the real platform logos" and became a rebuild of the
+  new-post flow across five rounds of owner feedback with reference
+  screenshots.
+
+  *The marks.* Nine hand-drawn monochrome glyphs replaced by the owner's
+  actual app icons in `public/platforms/`, each prepared to one rule: a full
+  square, the mark edge to edge, **the corner radius belonging to the
+  container** — an asset carrying its own corners fights whatever it is placed
+  inside. The trim is a flood fill seeded from the border, which destroyed the
+  Facebook mark (its `f` runs off the bottom edge, so the flood travelled up
+  the stem) and is now guarded on the border actually being a surround.
+  `--platform-edge`, a theme-flipping hairline, replaced a per-platform ring
+  list that was wrong in one theme whichever way it was written.
+
+  *Upload moved to the moment of commit.* Picking a file uploads nothing; the
+  bytes stay in the tab and the preview is a local `blob:` URL. A post
+  abandoned halfway now leaves no orphan in R2. **A scheduled post uploads
+  when you press Schedule, not at the scheduled minute** — the tick runs
+  server-side with no browser open, so this is the only place it can happen.
+
+  *Trim and volume, in the browser* (`lib/media/edit.ts`, pure and tested,
+  plus `ffmpeg-client.ts`). No platform API takes either, and transcoding on a
+  1 vCPU droplet is the thing the media path exists to avoid. The video stream
+  is **never** re-encoded — `-c:v copy` makes a trim a remux, at the cost of
+  cutting on the nearest earlier keyframe, which the UI says out loud. Audio
+  re-encodes only when the volume changed. An untouched clip never fetches the
+  32MB core: proven byte-identical at 155,385 bytes in half a second, against
+  an edited clip going 10s → 4.167s at exactly −6.0dB in three. The core is
+  self-hosted (`scripts/copy-ffmpeg.mjs` on `prebuild`, gitignored) because
+  ffmpeg's worker uses `importScripts`, and single-threaded because the
+  multi-threaded core needs COOP/COEP, which would break every cross-origin
+  image the app shows. Speed was dropped by owner decision.
+
+  *The flow.* Five steps — kind, file, caption, settings, review — with a
+  drop zone that actually accepts a drag, an autoplaying centred preview with
+  Audio and Trim beside it, the accounts' own profile pictures over the
+  caption, and a review step that shows the post under the platform's chrome
+  rather than printing the caption back. Schedule opens a four-wheel dialog.
+  **Long video** is wired; **Story** is surfaced and deliberately refuses to
+  publish, naming the missing adapter work — the alternative is posting
+  somebody's story to their feed. `DESTINATION` is one table keyed by kind
+  that decides both the word each platform uses and whether the kind can go
+  there at all.
+
+  *Settings for every platform with an adapter.* Facebook's title and
+  embeddable, and Snapchat's `locale` and `skip_save_to_profile` — the last
+  two found hardcoded in the adapter's own body, which is exactly why they
+  were worth offering. Instagram gained allow-comments, profile display,
+  rename audio, and **Trial** on the owner's second ask, labelled honestly as
+  something Instagram may ignore. **TikTok's panel was restyled with every
+  audit-relevant behaviour held still**, and its tests caught a "just a
+  restyle" string change that was not one.
+
+  *Palette reversed.* The warm-paper set is gone; light is neutral near-white,
+  dark is the same family inverted in value. Corners are rounder on the
+  owner's call to follow Apple's proportions. Every toggle is the accent —
+  there were three different switches, one green with an orange knob.
+
+  *Seven bugs, each recorded in the session log.* The fox mark was squashed
+  because an `<img>` with a fixed height is still a shrinking flex item;
+  `submit` read the mode from state where two buttons set it; `icon: "name"`
+  type-checked and crashed the settings step at render, and the field is typed
+  now; and three separate faults in the schedule wheels — `scroll-smooth`
+  swallowing direct scroll writes, `offsetTop` measured before layout, and the
+  selection never following the scroll.
+
+  567 tests, build, typecheck and lint green; trim and volume measured with
+  `ffprobe` on a real clip through the real R2 path; every step clicked
+  through with nine seeded connections. **Open:** the owner says the screens
+  still do not match his references and the specific differences have not been
+  named — ask before rebuilding again. Apple's design guidance arrived at the
+  very end and is applied only as far as the corner radii.
