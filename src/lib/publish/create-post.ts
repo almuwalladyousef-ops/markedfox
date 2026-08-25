@@ -3,6 +3,10 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { canUserDo } from "@/lib/entitlements/can-user-do";
+import {
+  formatBytes,
+  MAX_SCHEDULED_VIDEO_BYTES,
+} from "@/lib/media/policy";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import type { DenialCode } from "@/lib/entitlements/types";
 import { getPlatform } from "@/lib/platforms/registry";
@@ -52,8 +56,15 @@ export type PlanProblem = {
   message: string;
 };
 
+/** A refusal about *when*, not about what or where. */
+export type ScheduleProblem = {
+  code: "scheduling_locked" | "scheduled_media_too_large";
+  message: string;
+};
+
 export type CreatePostResult =
   | { kind: "workspace_not_found" }
+  | { kind: "schedule_denied"; problem: ScheduleProblem }
   | { kind: "bad_targets"; problems: TargetProblem[] }
   | { kind: "invalid_content"; issues: ContentIssue[] }
   | { kind: "plan_denied"; problems: PlanProblem[] }
@@ -160,6 +171,40 @@ export async function createPost(
     request.workspaceId,
   );
   const immediate = request.scheduledFor === null;
+
+  // 3a. scheduling, which is a question about the post and not about any one
+  //     platform — so it is answered once, before the per-platform loop, and
+  //     returns its own result kind rather than a list of identical denials.
+  if (!immediate) {
+    const decision = canUserDo(snapshot, { type: "schedule_post" });
+    if (!decision.allowed) {
+      return {
+        kind: "schedule_denied",
+        problem: { code: "scheduling_locked", message: decision.reason },
+      };
+    }
+
+    // A scheduled post's media is uploaded now and then waits in the bucket
+    // until the tick fires. Media is transient by design in this product; a
+    // very large file parked for a fortnight is the one thing that makes that
+    // untrue. Publishing it now is unaffected.
+    const oversized = request.media.find(
+      (item) =>
+        item.type === "video" &&
+        typeof item.bytes === "number" &&
+        item.bytes > MAX_SCHEDULED_VIDEO_BYTES,
+    );
+    if (oversized) {
+      return {
+        kind: "schedule_denied",
+        problem: {
+          code: "scheduled_media_too_large",
+          message: `A scheduled video has to be under ${formatBytes(MAX_SCHEDULED_VIDEO_BYTES)} — this one is ${formatBytes(oversized.bytes ?? 0)}. Post it now instead, or trim it down.`,
+        },
+      };
+    }
+  }
+
   const denials: PlanProblem[] = [];
   for (const platform of platforms) {
     const decision = canUserDo(snapshot, {

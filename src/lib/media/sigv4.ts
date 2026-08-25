@@ -55,7 +55,7 @@ function signingKey(
 }
 
 export type PresignInput = {
-  method: "GET" | "PUT" | "DELETE";
+  method: "GET" | "PUT" | "POST" | "DELETE";
   /** Origin only, no path: https://<account>.r2.cloudflarestorage.com */
   endpoint: string;
   /** Object path within the endpoint, e.g. "markedfox-media/u/1/a.jpg". */

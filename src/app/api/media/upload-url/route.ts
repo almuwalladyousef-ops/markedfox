@@ -1,7 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getUser } from "@/lib/auth/session";
-import { checkUpload } from "@/lib/media/policy";
+import { formatBytes, SINGLE_PUT_MAX_BYTES } from "@/lib/media/policy";
+import {
+  assertOwnWorkspace,
+  checkUploadRequest,
+  parseUploadContext,
+  parseUploadIntent,
+} from "@/lib/media/upload-request";
 import {
   createMediaStore,
   isMediaStorageConfigured,
@@ -15,12 +21,23 @@ import { createClient } from "@/lib/supabase/server";
 // difference between one user uploading a video and every other request
 // stalling behind it.
 //
-// Body: { workspaceId, contentType, sizeBytes }
+// This is the one-request path, for anything up to SINGLE_PUT_MAX_BYTES.
+// Above that R2 refuses a single PUT outright and the browser goes to
+// /api/media/multipart instead.
+//
+// Body: { workspaceId, contentType, sizeBytes, context?, intent? }
+//   context — "short" | "long", what the composer said the post is; it is
+//             what decides the size ceiling for a video
+//   intent  — "now" | "schedule", because a file that will sit in the bucket
+//             until its time comes is judged more strictly than one being
+//             spent in the next minute
 // 200  { uploadUrl, headers, publicUrl, key, kind }
 // 400  { error: "invalid_request", message }
 // 401  { error: "unauthenticated" }
 // 403  { error: "workspace_not_found" }
-// 413  { error: "rejected", message }   — type or size refused
+// 403  { error: "schedule_denied", message }
+// 413  { error: "rejected" | "schedule_denied", message }
+// 413  { error: "use_multipart", message, threshold }
 // 503  { error: "storage_not_configured", message }
 
 export async function POST(request: NextRequest) {
@@ -50,10 +67,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { workspaceId, contentType, sizeBytes } = (body ?? {}) as Record<
-    string,
-    unknown
-  >;
+  const { workspaceId, contentType, sizeBytes, context, intent } = (body ??
+    {}) as Record<string, unknown>;
   if (typeof workspaceId !== "string" || typeof contentType !== "string") {
     return NextResponse.json(
       {
@@ -64,31 +79,47 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // The size is the browser's claim, used to refuse an obviously-too-large
-  // file before spending a signature on it. R2 is not bound by it, so the
-  // real ceiling is the bucket's — a Phase 6 item alongside video minutes.
   const size = Number(sizeBytes);
-  const check = checkUpload(contentType, size);
-  if (!check.ok) {
+
+  // R2, like S3, refuses a single PUT over 5GiB. Rather than hand out a
+  // signature that cannot work, say so and name the other door.
+  if (Number.isFinite(size) && size > SINGLE_PUT_MAX_BYTES) {
     return NextResponse.json(
-      { error: "rejected", message: check.reason },
+      {
+        error: "use_multipart",
+        threshold: SINGLE_PUT_MAX_BYTES,
+        message: `Files over ${formatBytes(SINGLE_PUT_MAX_BYTES)} upload in parts. Use /api/media/multipart.`,
+      },
       { status: 413 },
     );
   }
 
-  // The workspace must be the user's: the object key embeds both ids, so this
-  // is what stops one tenant writing under another's prefix.
   const supabase = await createClient();
-  const { data: workspace, error } = await supabase
-    .from("workspaces")
-    .select("id")
-    .eq("id", workspaceId)
-    .eq("owner_id", user.id)
-    .maybeSingle();
-  if (error) throw error;
-  if (!workspace) {
-    return NextResponse.json({ error: "workspace_not_found" }, { status: 403 });
+  const denied = await assertOwnWorkspace(supabase, user.id, workspaceId);
+  if (denied) {
+    return NextResponse.json(
+      { error: denied.error, message: denied.message },
+      { status: denied.status },
+    );
   }
+
+  // The size is the browser's claim, used to refuse an obviously-too-large
+  // file before spending a signature on it. R2 does not enforce it, so what
+  // actually bounds this path is R2's own single-PUT ceiling.
+  const verdict = await checkUploadRequest(supabase, user.id, {
+    workspaceId,
+    contentType,
+    sizeBytes: size,
+    context: parseUploadContext(context),
+    intent: parseUploadIntent(intent),
+  });
+  if (!verdict.ok) {
+    return NextResponse.json(
+      { error: verdict.refusal.error, message: verdict.refusal.message },
+      { status: verdict.refusal.status },
+    );
+  }
+  const check = verdict.check;
 
   const target = await createMediaStore().createUploadTarget({
     userId: user.id,

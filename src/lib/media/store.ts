@@ -8,6 +8,10 @@ import { requireEnv } from "@/lib/env";
 
 import {
   buildObjectKey,
+  MAX_PARTS,
+  MULTIPART_URL_TTL_SECONDS,
+  partCountFor,
+  partSizeFor,
   publicUrlFor,
   UPLOAD_URL_TTL_SECONDS,
   type MediaKind,
@@ -18,6 +22,7 @@ import type {
   StoredObject,
 } from "./purge";
 import { presignUrl } from "./sigv4";
+import { decodeXml, escapeXml } from "./xml";
 
 // Object storage for media awaiting publish.
 //
@@ -40,6 +45,24 @@ export type UploadTarget = {
   key: string;
 };
 
+/**
+ * A file too large for one request, signed up front as a run of parts.
+ *
+ * Every part URL is handed out at the start rather than one at a time. It
+ * costs one round trip instead of ten thousand, and it means an upload that
+ * loses the connection for a minute can carry on where it stopped without
+ * asking us for anything.
+ */
+export type MultipartTarget = {
+  key: string;
+  uploadId: string;
+  publicUrl: string;
+  /** Every part but the last is exactly this many bytes — R2 requires it. */
+  partBytes: number;
+  /** One signed PUT per part, in order. `partUrls.length` is the part count. */
+  partUrls: string[];
+};
+
 export interface MediaStore {
   createUploadTarget(input: {
     userId: string;
@@ -48,6 +71,30 @@ export interface MediaStore {
     extension: string;
     kind: MediaKind;
   }): Promise<UploadTarget>;
+  /** The same thing for a file over SINGLE_PUT_MAX_BYTES. */
+  createMultipartTarget(input: {
+    userId: string;
+    workspaceId: string;
+    contentType: string;
+    extension: string;
+    sizeBytes: number;
+  }): Promise<MultipartTarget>;
+  /**
+   * Assemble the parts into the object.
+   *
+   * Deliberately takes no ETags. S3 wants a part number and an ETag for each
+   * part, and the obvious design has the browser read the ETag off every
+   * response and post the list back — which needs `ETag` in the bucket's
+   * CORS expose-headers, and trusts the tab to report honestly on ten
+   * thousand requests. ListParts gives the server the same list from the
+   * other end, so the browser only ever has to say "done".
+   */
+  completeMultipartUpload(input: {
+    key: string;
+    uploadId: string;
+    expectedParts: number;
+  }): Promise<void>;
+  abortMultipartUpload(input: { key: string; uploadId: string }): Promise<void>;
   delete(key: string): Promise<void>;
   /** Everything in the bucket. Used to find uploads no post ever claimed. */
   list(): Promise<StoredObject[]>;
@@ -121,6 +168,201 @@ export function createMediaStore(now: () => Date = () => new Date()): MediaStore
         publicUrl: publicUrlFor(publicBaseUrl, key),
         key,
       };
+    },
+
+    async createMultipartTarget(input) {
+      const key = buildObjectKey({
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+        extension: input.extension,
+        random: randomBytes(16).toString("hex"),
+      });
+      const partBytes = partSizeFor(input.sizeBytes);
+      const partCount = partCountFor(input.sizeBytes, partBytes);
+      if (partCount > MAX_PARTS) {
+        // partSizeFor exists to make this impossible; it is checked anyway
+        // because signing 10,001 URLs would be a slow way to find out.
+        throw new Error(
+          `${input.sizeBytes} bytes needs ${partCount} parts; R2 allows ${MAX_PARTS}`,
+        );
+      }
+
+      const createUrl = presignUrl({
+        method: "POST",
+        endpoint,
+        key: `${bucket}/${key}`,
+        accessKeyId,
+        secretAccessKey,
+        region: R2_REGION,
+        expiresInSeconds: 300,
+        now: now(),
+        queryParams: { uploads: "" },
+        signedHeaders: { "content-type": input.contentType },
+      });
+      const created = await fetch(createUrl, {
+        method: "POST",
+        headers: { "content-type": input.contentType },
+        signal: AbortSignal.timeout(30_000),
+      });
+      const createdXml = await created.text();
+      if (!created.ok) {
+        throw new Error(
+          `R2 multipart create failed: HTTP ${created.status} ${createdXml.slice(0, 200)}`,
+        );
+      }
+      const uploadId = /<UploadId>([^<]+)<\/UploadId>/.exec(createdXml)?.[1];
+      if (!uploadId) {
+        throw new Error("R2 multipart create returned no UploadId");
+      }
+
+      // The signing clock is read once, so every part URL expires together.
+      const signedAt = now();
+      const partUrls = Array.from({ length: partCount }, (_, i) =>
+        presignUrl({
+          method: "PUT",
+          endpoint,
+          key: `${bucket}/${key}`,
+          accessKeyId,
+          secretAccessKey,
+          region: R2_REGION,
+          expiresInSeconds: MULTIPART_URL_TTL_SECONDS,
+          now: signedAt,
+          queryParams: {
+            partNumber: String(i + 1),
+            uploadId,
+          },
+          // No content-type pinned on a part: a part is a byte range, not a
+          // file, and S3 ignores the header. Pinning it only creates a way
+          // for the browser to get a 403 for saying something true.
+        }),
+      );
+
+      return {
+        key,
+        uploadId,
+        publicUrl: publicUrlFor(publicBaseUrl, key),
+        partBytes,
+        partUrls,
+      };
+    },
+
+    async completeMultipartUpload({ key, uploadId, expectedParts }) {
+      const parts: { partNumber: number; etag: string }[] = [];
+      let marker: string | null = null;
+      // ListParts pages at 1000, and there can be ten times that.
+      for (let page = 0; page < 16; page += 1) {
+        const url = presignUrl({
+          method: "GET",
+          endpoint,
+          key: `${bucket}/${key}`,
+          accessKeyId,
+          secretAccessKey,
+          region: R2_REGION,
+          expiresInSeconds: 300,
+          now: now(),
+          queryParams: {
+            uploadId,
+            "max-parts": "1000",
+            ...(marker ? { "part-number-marker": marker } : {}),
+          },
+        });
+        const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+        const xml = await response.text();
+        if (!response.ok) {
+          throw new Error(
+            `R2 list parts failed: HTTP ${response.status} ${xml.slice(0, 200)}`,
+          );
+        }
+        for (const match of xml.matchAll(/<Part>([\s\S]*?)<\/Part>/g)) {
+          const entry = match[1];
+          const number = /<PartNumber>(\d+)<\/PartNumber>/.exec(entry)?.[1];
+          const etag = /<ETag>([^<]+)<\/ETag>/.exec(entry)?.[1];
+          if (!number || !etag) continue;
+          // ListParts returns the ETag with its quotes as entities —
+          // `&quot;abc&quot;` — and CompleteMultipartUpload wants the literal
+          // value back. Sending the entities through untouched (and then
+          // escaping the `&` a second time on the way out) is what R2 answers
+          // with `InvalidPart: One or more of the specified parts could not be
+          // found`, which reads like a missing part rather than a mangled one.
+          parts.push({ partNumber: Number(number), etag: decodeXml(etag) });
+        }
+        const truncated = /<IsTruncated>true<\/IsTruncated>/.test(xml);
+        marker = truncated
+          ? (/<NextPartNumberMarker>([^<]+)<\/NextPartNumberMarker>/.exec(xml)?.[1] ??
+            null)
+          : null;
+        if (!marker) break;
+      }
+
+      parts.sort((a, b) => a.partNumber - b.partNumber);
+      // A short list means the browser stopped early or a part failed
+      // silently. Completing anyway would produce a truncated video that
+      // publishes and looks like a platform bug.
+      if (parts.length !== expectedParts) {
+        throw new Error(
+          `R2 has ${parts.length} of ${expectedParts} parts for ${key}; refusing to assemble a partial file`,
+        );
+      }
+
+      const body =
+        "<CompleteMultipartUpload>" +
+        parts
+          .map(
+            (part) =>
+              `<Part><PartNumber>${part.partNumber}</PartNumber><ETag>${escapeXml(part.etag)}</ETag></Part>`,
+          )
+          .join("") +
+        "</CompleteMultipartUpload>";
+
+      const completeUrl = presignUrl({
+        method: "POST",
+        endpoint,
+        key: `${bucket}/${key}`,
+        accessKeyId,
+        secretAccessKey,
+        region: R2_REGION,
+        expiresInSeconds: 300,
+        now: now(),
+        queryParams: { uploadId },
+      });
+      const response = await fetch(completeUrl, {
+        method: "POST",
+        body,
+        signal: AbortSignal.timeout(120_000),
+      });
+      const text = await response.text();
+      // S3 can answer 200 and then put the failure in the body — the
+      // connection is held open while the parts are stitched, so the status
+      // line is sent before the outcome is known.
+      if (!response.ok || /<Error>/.test(text)) {
+        throw new Error(
+          `R2 multipart complete failed: HTTP ${response.status} ${text.slice(0, 200)}`,
+        );
+      }
+    },
+
+    async abortMultipartUpload({ key, uploadId }) {
+      const url = presignUrl({
+        method: "DELETE",
+        endpoint,
+        key: `${bucket}/${key}`,
+        accessKeyId,
+        secretAccessKey,
+        region: R2_REGION,
+        expiresInSeconds: 300,
+        now: now(),
+        queryParams: { uploadId },
+      });
+      const response = await fetch(url, {
+        method: "DELETE",
+        signal: AbortSignal.timeout(30_000),
+      });
+      // 404 means the upload is already gone, which is the state we wanted.
+      if (!response.ok && response.status !== 404) {
+        throw new Error(
+          `R2 multipart abort failed for ${key}: HTTP ${response.status}`,
+        );
+      }
     },
 
     async list(): Promise<StoredObject[]> {
