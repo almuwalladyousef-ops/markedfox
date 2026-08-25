@@ -174,7 +174,7 @@ function DisconnectButton({
         type="submit"
         aria-label={`Disconnect ${account.name} from ${platformLabel}`}
         title="Disconnect"
-        className="rounded p-0.5 text-faint transition-[color] duration-150 hover:text-danger"
+        className="rounded-sm p-0.5 text-faint transition-[color] duration-110 hover:text-danger"
       >
         <Icon name="close" className="h-3 w-3" />
       </button>
@@ -195,12 +195,17 @@ function Toggle({
   onBlockedClick: () => void;
   label: string;
 }) {
+  // The accent, not success green. `ui.tsx` reversed the shared switch to the
+  // accent on exactly this reasoning — a green switch beside an orange button
+  // is two loud colours arguing — and this copy of it was missed, so the one
+  // screen a new user spends the most time on was the one screen with a
+  // different "on" colour.
   const track = cx(
-    "relative block h-[26px] w-[46px] shrink-0 rounded-full transition-[background-color] duration-[180ms]",
-    on ? "bg-ok" : "bg-line hover:bg-line-strong",
+    "relative block h-[26px] w-[46px] shrink-0 rounded-full transition-[background-color] duration-110",
+    on ? "bg-accent" : "bg-line hover:bg-line-strong",
   );
   const knob = cx(
-    "absolute top-[3px] left-0 h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.22)] transition-transform duration-[180ms]",
+    "absolute top-[3px] left-0 h-5 w-5 rounded-full bg-white shadow-e1 transition-transform duration-110",
     on ? "translate-x-[23px]" : "translate-x-[3px]",
   );
 
@@ -241,7 +246,7 @@ function UpgradeDialog({
 
   return (
     <div {...overlayProps(onClose, "centre", "z-50")} role="dialog" aria-modal="true">
-      <div className="mf-modal w-full max-w-[400px] rounded-2xl border border-line bg-panel p-6 shadow-panel">
+      <div className="mf-modal w-full max-w-[400px] rounded-2xl border border-line bg-panel p-6 shadow-e2">
         <FoxMark className="h-[38px]" />
         <h3 className="font-display mt-3 text-[19px] font-bold tracking-[-0.01em] text-ink">
           {!row.included
@@ -259,7 +264,7 @@ function UpgradeDialog({
         </p>
 
         {row.included && !row.configured ? (
-          <p className="mt-4 rounded-xl border border-line bg-chip px-3.5 py-3 text-[13px]/[19px] text-pretty text-muted">
+          <p className="mt-4 rounded-lg border border-line bg-chip px-3.5 py-3 text-[13px]/[19px] text-pretty text-muted">
             Nothing is wrong with your account — this one needs a developer app
             and its keys added to the deployment before anybody can connect it.
             Everything else on the list works today.
@@ -267,7 +272,7 @@ function UpgradeDialog({
         ) : null}
 
         {row.id === "x" ? (
-          <p className="mt-4 rounded-xl border border-line bg-chip px-3.5 py-3 text-[13px]/[19px] text-pretty text-muted">
+          <p className="mt-4 rounded-lg border border-line bg-chip px-3.5 py-3 text-[13px]/[19px] text-pretty text-muted">
             X charges $0.015 per post through its API — and 13x more with an
             external link — so X carries a hard monthly number on every plan
             rather than being unlimited.

@@ -48,7 +48,7 @@ export function AnalysisTabs({
               key={item.id}
               type="button"
               onClick={() => setTab(item.id)}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[14.5px] whitespace-nowrap transition ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[14.5px] whitespace-nowrap transition-[background-color,color] duration-110 ${
                 tab === item.id
                   ? "bg-chip font-medium text-ink"
                   : "text-muted hover:text-ink"
@@ -61,7 +61,7 @@ export function AnalysisTabs({
         </div>
       </div>
 
-      <section className="rounded-xl border border-line bg-panel p-5">
+      <section className="rounded-lg border border-line bg-panel p-5">
         {tab === "transcript" ? (
           <>
             <div className="flex items-center justify-between gap-3">

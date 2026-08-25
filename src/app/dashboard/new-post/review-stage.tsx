@@ -83,7 +83,7 @@ export function ReviewStage({
         {/* The post itself, with the chrome the platform puts over it. The
             controls are decoration — they are what the viewer will see, not
             anything to press here. */}
-        <div className="relative w-[286px] shrink-0 overflow-hidden rounded-[20px] bg-black shadow-[0_24px_60px_rgba(0,0,0,.28)]">
+        <div className="relative w-[286px] shrink-0 overflow-hidden rounded-2xl bg-black shadow-e2">
           <div className="aspect-[9/16] w-full">{media}</div>
 
           <div
@@ -95,9 +95,9 @@ export function ReviewStage({
                 <span key={name} className="flex flex-col items-center gap-0.5">
                   <Icon
                     name={name}
-                    className="h-[26px] w-[26px] drop-shadow-[0_1px_3px_rgba(0,0,0,.6)]"
+                    className="h-[26px] w-[26px] drop-shadow-e1"
                   />
-                  <span className="text-[10px] font-semibold drop-shadow-[0_1px_3px_rgba(0,0,0,.6)]">
+                  <span className="text-[10px] font-semibold drop-shadow-e1">
                     –
                   </span>
                 </span>
@@ -117,12 +117,12 @@ export function ReviewStage({
                       />
                     ) : null}
                   </span>
-                  <span className="truncate text-[12.5px] font-semibold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,.6)]">
+                  <span className="truncate text-[12.5px] font-semibold text-white drop-shadow-e1">
                     {accountName ?? "your account"}
                   </span>
                 </span>
                 {text ? (
-                  <span className="line-clamp-2 pr-10 text-[11.5px]/[16px] text-white/90 drop-shadow-[0_1px_3px_rgba(0,0,0,.6)]">
+                  <span className="line-clamp-2 pr-10 text-[11.5px]/[16px] text-white/90 drop-shadow-e1">
                     {text}
                   </span>
                 ) : null}
@@ -136,7 +136,7 @@ export function ReviewStage({
         {mediaUrl ? (
           <div className="flex flex-col gap-4">
             <figure className="m-0">
-              <div className="h-[132px] w-[76px] overflow-hidden rounded-xl bg-chip shadow-[0_6px_18px_rgba(0,0,0,.14)]">
+              <div className="h-[132px] w-[76px] overflow-hidden rounded-lg bg-chip shadow-e2">
                 {mediaType === "video" ? (
                   <video
                     src={mediaUrl}
@@ -160,7 +160,7 @@ export function ReviewStage({
 
             {platform && GRID_PLATFORMS.includes(platform) ? (
               <figure className="m-0">
-                <div className="grid h-[76px] w-[76px] grid-cols-3 grid-rows-3 gap-px overflow-hidden rounded-xl bg-line">
+                <div className="grid h-[76px] w-[76px] grid-cols-3 grid-rows-3 gap-px overflow-hidden rounded-lg bg-line">
                   <span className="col-span-1 row-span-1 overflow-hidden bg-chip">
                     {mediaType === "video" ? (
                       <video
@@ -204,7 +204,7 @@ export function ReviewStage({
                   aria-pressed={on}
                   title={`Preview as ${labels[item]}`}
                   className={cx(
-                    "block rounded-[13px] p-1 transition-[background,opacity] duration-150",
+                    "block rounded-lg p-1 transition-[background-color,opacity] duration-110",
                     on ? "bg-chip" : "opacity-55 hover:opacity-100",
                   )}
                 >

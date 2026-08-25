@@ -46,7 +46,7 @@ export function PlatformOptionsPanel({
     field.icon ? (
       <Icon
         name={field.icon}
-        className="mt-[3px] h-[17px] w-[17px] shrink-0 text-muted"
+        className="mt-0.5 h-[17px] w-[17px] shrink-0 text-muted"
       />
     ) : (
       <span aria-hidden className="w-[17px] shrink-0" />

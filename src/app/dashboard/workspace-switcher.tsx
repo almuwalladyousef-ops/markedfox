@@ -9,7 +9,7 @@ import {
 } from "react";
 
 import { Icon, PlanDiamond } from "@/components/icons";
-import { Busy, cx } from "@/components/ui";
+import { Busy, buttonClass, cx } from "@/components/ui";
 import {
   createWorkspaceAction,
   switchWorkspaceAction,
@@ -121,7 +121,7 @@ export function WorkspaceSwitcher({
         aria-expanded={open}
         title={variant === "full" ? "Switch workspace" : `Workspace: ${name}`}
         className={cx(
-          "flex items-center rounded-[13px] border border-line bg-panel text-ink transition-[border-color,box-shadow] duration-150 hover:border-line-strong hover:shadow-[0_1px_2px_rgba(24,24,27,.06)]",
+          "flex items-center rounded-lg border border-line bg-panel text-ink transition-[border-color,box-shadow] duration-110 hover:border-line-strong hover:shadow-e1",
           variant === "compact"
             ? "gap-1.5 px-2 py-1.5"
             : "w-full justify-between gap-2 px-2.5 py-2",
@@ -136,7 +136,7 @@ export function WorkspaceSwitcher({
         <Icon
           name="chevronDown"
           className={cx(
-            "h-[13px] w-[13px] text-faint transition-transform duration-150",
+            "h-[13px] w-[13px] text-faint transition-transform duration-110",
             open ? "rotate-180" : null,
           )}
         />
@@ -158,7 +158,7 @@ export function WorkspaceSwitcher({
             } as CSSProperties
           }
           className={cx(
-            "mf-popover absolute z-40 mt-2 rounded-[14px] border border-line bg-panel p-1.5 shadow-[0_16px_40px_rgba(24,24,27,.12)]",
+            "mf-popover absolute z-40 mt-2 rounded-lg border border-line bg-panel p-1.5 shadow-e2",
             variant === "compact" ? "right-0 w-56" : "right-0 left-0",
           )}
         >
@@ -175,7 +175,7 @@ export function WorkspaceSwitcher({
                     type="submit"
                     title="Switch to this workspace"
                     className={cx(
-                      "flex w-full items-center justify-between gap-2 rounded-[10px] px-2.5 py-2 text-left text-[13.5px] transition-[background] duration-150 hover:bg-chip",
+                      "flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-[13.5px] transition-[background-color] duration-110 hover:bg-chip",
                       workspace.id === activeId
                         ? "font-semibold text-ink"
                         : "text-muted",
@@ -207,7 +207,7 @@ export function WorkspaceSwitcher({
                   autoFocus
                   required
                   maxLength={60}
-                  className="rounded-[10px] border border-line bg-chip px-2.5 py-2 text-[13.5px] text-ink outline-none focus:border-accent"
+                  className="rounded-md border border-line bg-chip px-2.5 py-2 text-[13.5px] text-ink outline-none focus:border-accent"
                 />
                 {state.message ? (
                   <p
@@ -224,14 +224,14 @@ export function WorkspaceSwitcher({
                   <button
                     type="submit"
                     disabled={pending}
-                    className="inline-flex items-center gap-1.5 rounded-[9px] bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-accent-ink transition-[filter,scale] duration-150 hover:brightness-[1.08] active:scale-[0.97] disabled:opacity-45 disabled:active:scale-100"
+                    className={buttonClass("primary", "sm")}
                   >
                     <Busy busy={pending}>{pending ? "Creating…" : "Create"}</Busy>
                   </button>
                   <button
                     type="button"
                     onClick={() => setCreating(false)}
-                    className="rounded-[9px] border border-line px-3 py-1.5 text-[12.5px] font-semibold text-muted"
+                    className="rounded-md border border-line px-3 py-1.5 text-[12.5px] font-semibold text-muted"
                   >
                     Cancel
                   </button>
@@ -248,7 +248,7 @@ export function WorkspaceSwitcher({
                       : `Create another workspace — ${remaining} left on your plan`
                     : createBlockedReason
                 }
-                className="flex w-full items-center justify-between gap-2 rounded-[10px] px-2.5 py-2 text-left text-[13.5px] font-semibold text-muted transition-[background,color] duration-150 hover:bg-chip hover:text-ink"
+                className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-[13.5px] font-semibold text-muted transition-[background-color,color] duration-110 hover:bg-chip hover:text-ink"
               >
                 <span>+ New workspace</span>
                 {/* Shown even when the plan is out — clicking explains why,

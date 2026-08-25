@@ -33,7 +33,7 @@ export function NavRow({
       aria-current={active ? "page" : undefined}
       title={tip ?? label}
       className={cx(
-        "flex w-full items-center gap-[11px] rounded-[13px] px-[11px] py-[9px] transition-[background,color] duration-150",
+        "flex w-full items-center gap-[11px] rounded-lg px-2.5 py-2 transition-[background-color,color] duration-110",
         active ? "bg-ink text-panel" : "text-muted hover:bg-chip hover:text-ink",
       )}
     >

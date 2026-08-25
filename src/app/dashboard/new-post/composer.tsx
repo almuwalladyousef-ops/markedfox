@@ -278,13 +278,13 @@ const VIDEO_KINDS: PostKind[] = ["video", "longVideo", "story"];
 function DropMark({ kind }: { kind: "video" | "photo" }) {
   return (
     <span aria-hidden className="relative mb-1 block h-[62px] w-[86px]">
-      <span className="absolute top-1 left-0 flex h-[52px] w-[46px] -rotate-[14deg] items-center justify-center rounded-[13px] bg-gradient-to-br from-[#f472b6] to-[#a855f7] shadow-[0_8px_18px_rgba(168,85,247,.28)]">
+      <span className="absolute top-1 left-0 flex h-[52px] w-[46px] -rotate-[14deg] items-center justify-center rounded-lg bg-gradient-to-br from-[#f472b6] to-[#a855f7] shadow-e2">
         <Icon
           name={kind === "video" ? "play" : "image"}
           className="h-5 w-5 text-white"
         />
       </span>
-      <span className="absolute top-0 right-0 flex h-[52px] w-[46px] rotate-[12deg] items-center justify-center rounded-[13px] bg-gradient-to-br from-[#fb7185] to-[#e11d48] shadow-[0_8px_18px_rgba(225,29,72,.28)]">
+      <span className="absolute top-0 right-0 flex h-[52px] w-[46px] rotate-[12deg] items-center justify-center rounded-lg bg-gradient-to-br from-[#fb7185] to-[#e11d48] shadow-e2">
         <Icon
           name={kind === "video" ? "play" : "image"}
           className="h-5 w-5 text-white"
@@ -1168,7 +1168,7 @@ export function Composer({
       {/* Lifted off the page rather than outlined on it: a shadow and a black
           ground make the clip the thing you are looking at, where a bordered
           box made it one more panel among the panels. */}
-      <div className="relative mx-auto w-full max-w-[300px] overflow-hidden rounded-[20px] bg-black shadow-[0_24px_60px_rgba(0,0,0,.28)]">
+      <div className="relative mx-auto w-full max-w-[300px] overflow-hidden rounded-2xl bg-black shadow-e2">
         <div className="aspect-[9/16] w-full">
           {preview ? (
             preview.type === "video" ? (
@@ -1255,7 +1255,7 @@ export function Composer({
     issues.length > 0 && selected.length > 0 ? (
       <div
         aria-live="polite"
-        className="mt-6 rounded-xl border border-warn bg-warn-soft px-4 py-3.5"
+        className="mt-6 rounded-lg border border-warn bg-warn-soft px-4 py-3.5"
       >
         <p className="text-[13px] font-bold text-warn">Fix before publishing</p>
         <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-4 text-[14px]/[21px] text-ink">
@@ -1310,7 +1310,7 @@ export function Composer({
              description, made five short choices look like a form. The
              description now lives on the hover title, where it is there when
              somebody wants it and silent when they do not. */
-          <div className="flex min-h-[38vh] flex-col items-center justify-center">
+          <div className="flex flex-col items-center pt-4 pb-2">
             <ul className="flex flex-wrap justify-center gap-1.5">
               {KINDS.map((option) => {
                 const on = kind === option.id;
@@ -1346,7 +1346,7 @@ export function Composer({
                       }}
                       aria-pressed={on}
                       className={cx(
-                        "flex items-center gap-2.5 rounded-full border-[1.5px] px-[18px] py-[11px] text-[14.5px] font-semibold whitespace-nowrap transition-[background,border-color,color] duration-150",
+                        "flex items-center gap-2.5 rounded-full border px-4 py-2.5 text-[14.5px] font-semibold whitespace-nowrap transition-[background-color,border-color,color] duration-110",
                         on
                           ? "border-accent bg-accent-soft text-ink"
                           : "border-line bg-panel text-muted hover:border-line-strong hover:text-ink",
@@ -1394,7 +1394,7 @@ export function Composer({
                 addFiles(Array.from(event.dataTransfer.files ?? []));
               }}
               className={cx(
-                "flex min-h-[56vh] flex-col items-center justify-center gap-4 rounded-3xl transition-[background,outline-color] duration-150",
+                "flex min-h-[56vh] flex-col items-center justify-center gap-4 rounded-2xl transition-[background-color,outline-color] duration-110",
                 dragging
                   ? "bg-accent-soft outline outline-2 outline-dashed outline-accent"
                   : "outline outline-2 outline-dashed outline-transparent",
@@ -1487,7 +1487,7 @@ export function Composer({
                     <span
                       key={account.id}
                       title={`${account.name} · ${labels[account.platform]}`}
-                      className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-panel bg-chip shadow-[0_2px_6px_rgba(0,0,0,.16)]"
+                      className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-2 border-panel bg-chip shadow-e1"
                     >
                       {account.avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -1536,7 +1536,7 @@ export function Composer({
                   The old row of links grew with the number of platforms, and
                   every one of them said almost the same thing. */}
               {selectedPlatforms.length > 1 ? (
-                <label className="flex cursor-pointer items-center gap-2.5 text-[13.5px] text-muted transition-[color] duration-150 hover:text-ink">
+                <label className="flex cursor-pointer items-center gap-2.5 text-[13.5px] text-muted transition-[color] duration-110 hover:text-ink">
                   <input
                     type="checkbox"
                     checked={perPlatform}
@@ -1578,7 +1578,7 @@ export function Composer({
                         <PlatformTile
                           platform={platform}
                           size={26}
-                          className="mt-1 shadow-[0_2px_6px_rgba(0,0,0,.14)]"
+                          className="mt-1 shadow-e1"
                           title={labels[platform]}
                         />
                         <textarea
@@ -1650,7 +1650,7 @@ export function Composer({
                             `${labels[platform]} · ${list.map((a) => a.name).join(", ")}`
                           }
                           className={cx(
-                            "block w-[76px] transition-transform duration-150",
+                            "block w-[76px] transition-transform duration-110",
                             disabledReason
                               ? "cursor-not-allowed opacity-45"
                               : "hover:-translate-y-0.5",
@@ -1660,13 +1660,13 @@ export function Composer({
                             platform={platform}
                             size={64}
                             radius={19}
-                            className="shadow-[0_3px_10px_rgba(0,0,0,.16)]"
+                            className="shadow-e1"
                           />
                           <span className="mt-2.5 flex items-center justify-center gap-1.5">
                             <span
                               aria-hidden
                               className={cx(
-                                "flex h-[16px] w-[16px] items-center justify-center rounded-[5px] transition-[background,border-color] duration-150",
+                                "flex h-[16px] w-[16px] items-center justify-center rounded-sm transition-[background-color,border-color] duration-110",
                                 on
                                   ? "bg-accent text-accent-ink"
                                   : "border border-line-strong text-transparent",
@@ -1739,13 +1739,13 @@ export function Composer({
                       <a
                         href={`/api/connect/${item.platform}/start`}
                         title={item.reason ?? `Connect ${item.label}`}
-                        className="block w-[76px] transition-transform duration-150 hover:-translate-y-0.5"
+                        className="block w-[76px] transition-transform duration-110 hover:-translate-y-0.5"
                       >
                         <PlatformTile
                           platform={item.platform}
                           size={64}
                           radius={19}
-                          className="opacity-45 shadow-[0_3px_10px_rgba(0,0,0,.12)]"
+                          className="opacity-45 shadow-e1"
                         />
                         <span className="mt-2.5 flex items-center justify-center gap-1.5">
                           <span
@@ -2015,7 +2015,7 @@ function OutcomePanel({
     return (
       <div
         aria-live="polite"
-        className="flex items-center gap-3 rounded-xl border border-ok bg-ok-soft px-3.5 py-3 text-[13px] text-ink"
+        className="flex items-center gap-3 rounded-lg border border-ok bg-ok-soft px-3.5 py-3 text-[13px] text-ink"
       >
         <FoxMark className="h-6" />
         <p>
@@ -2034,7 +2034,7 @@ function OutcomePanel({
     return (
       <div
         aria-live="polite"
-        className="rounded-xl border border-danger bg-danger-soft px-3.5 py-3 text-[13px] text-danger"
+        className="rounded-lg border border-danger bg-danger-soft px-3.5 py-3 text-[13px] text-danger"
       >
         <p>{outcome.message}</p>
         {outcome.details.length > 0 ? (
@@ -2058,7 +2058,7 @@ function OutcomePanel({
   return (
     <div
       aria-live="polite"
-      className={`rounded-xl border px-3.5 py-3 text-[13px] text-ink ${
+      className={`rounded-lg border px-3.5 py-3 text-[13px] text-ink ${
         outcome.status === "published"
           ? "border-ok bg-ok-soft"
           : outcome.status === "partial"

@@ -153,7 +153,7 @@ export function ChannelPicker({
               aria-pressed={platform === item.id}
               title={item.available ? item.label : `${item.label} — needs setup`}
               className={cx(
-                "inline-flex items-center gap-2 rounded-[10px] border px-2.5 py-1.5 text-[13px] font-semibold transition-[background,border-color,color] duration-150",
+                "inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-[13px] font-semibold transition-[background-color,border-color,color] duration-110",
                 platform === item.id
                   ? "border-accent bg-accent-soft text-ink"
                   : "border-line text-muted hover:border-line-strong hover:text-ink",
@@ -169,7 +169,7 @@ export function ChannelPicker({
             <button
               type="button"
               onClick={() => setSizeOpen((v) => !v)}
-              className="inline-flex items-center gap-2 rounded-[10px] border border-line bg-chip px-2.5 py-1.5 text-[13px] font-semibold text-ink"
+              className="inline-flex items-center gap-2 rounded-md border border-line bg-chip px-2.5 py-1.5 text-[13px] font-semibold text-ink"
             >
               {sizes.length === 0
                 ? "Account size"
@@ -177,11 +177,11 @@ export function ChannelPicker({
               <Icon name="chevronDown" className="h-3 w-3 text-faint" />
             </button>
             {sizeOpen ? (
-              <div className="absolute z-20 mt-1.5 w-64 rounded-[14px] border border-line bg-panel p-1.5 shadow-panel">
+              <div className="absolute z-20 mt-1.5 w-64 rounded-lg border border-line bg-panel p-1.5 shadow-e2">
                 {SIZE_TIERS.map((tier) => (
                   <label
                     key={tier.id}
-                    className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-[background] duration-150 hover:bg-chip"
+                    className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-[background-color] duration-110 hover:bg-chip"
                   >
                     <input
                       type="checkbox"
@@ -209,7 +209,7 @@ export function ChannelPicker({
             <button
               type="button"
               onClick={() => setSizes([])}
-              className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-faint transition-[color] duration-150 hover:text-ink"
+              className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-faint transition-[color] duration-110 hover:text-ink"
             >
               <Icon name="close" className="h-3 w-3" />
               Clear filters
@@ -283,7 +283,7 @@ export function ChannelPicker({
                       })
                     }
                     className={cx(
-                      "flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-[background,border-color] duration-150 disabled:opacity-50",
+                      "flex w-full items-center gap-3 rounded-lg border px-3.5 py-3 text-left transition-[background-color,border-color] duration-110 disabled:opacity-50",
                       chosen
                         ? "border-accent bg-accent-soft"
                         : "border-line hover:border-line-strong",
@@ -318,7 +318,7 @@ export function ChannelPicker({
       {pickedList.length > 0 ? (
         <form
           action={runAdd}
-          className="sticky bottom-4 flex items-center gap-3 rounded-2xl border border-line bg-panel px-4 py-3 shadow-panel"
+          className="sticky bottom-4 flex items-center gap-3 rounded-2xl border border-line bg-panel px-4 py-3 shadow-e2"
         >
           {/* JSON rather than a delimited string: "Alex Hormozi | Acquisition"
               is a perfectly ordinary channel name, and a pipe-joined value
@@ -344,7 +344,7 @@ export function ChannelPicker({
             <button
               type="button"
               onClick={() => setPicked({})}
-              className="ml-3 text-[13px] font-normal text-faint transition-[color] duration-150 hover:text-ink"
+              className="ml-3 text-[13px] font-normal text-faint transition-[color] duration-110 hover:text-ink"
             >
               Clear
             </button>

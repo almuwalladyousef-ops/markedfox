@@ -49,7 +49,7 @@ export function PriorityList({
         {items.map((item, index) => (
           <li
             key={item.id}
-            className="flex items-center gap-3.5 rounded-xl border border-line bg-panel px-4 py-3"
+            className="flex items-center gap-3.5 rounded-lg border border-line bg-panel px-4 py-3"
           >
             <span
               aria-hidden
@@ -92,7 +92,7 @@ export function PriorityList({
           <button
             type="button"
             onClick={() => setItems(initial)}
-            className="text-[13px] text-faint transition-[color] duration-150 hover:text-ink"
+            className="text-[13px] text-faint transition-[color] duration-110 hover:text-ink"
           >
             Undo
           </button>

@@ -30,7 +30,7 @@ export function MobileTabs() {
         title={space.tip}
         aria-current={active ? "page" : undefined}
         className={cx(
-          "flex min-h-[44px] min-w-[56px] flex-col items-center justify-center gap-1 px-2 text-[10.5px] font-bold transition-[color,scale] duration-150 active:scale-[0.94]",
+          "flex min-h-[44px] min-w-[56px] flex-col items-center justify-center gap-1 px-2 text-[10.5px] font-bold transition-[color,scale] duration-110 active:scale-[0.94]",
           active ? "text-accent" : "text-muted",
         )}
       >
@@ -53,7 +53,7 @@ export function MobileTabs() {
         // The largest target in the app, and the only one that had no answer
         // to being pressed. On a phone there is no hover state to fall back
         // on, so the press scale is the entire feedback.
-        className="-mt-[22px] flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-[18px] bg-accent text-accent-ink shadow-[0_10px_24px_var(--accent-glow)] transition-transform duration-150 active:scale-[0.92]"
+        className="-mt-5 flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-2xl bg-accent text-accent-ink shadow-e2 transition-transform duration-110 active:scale-[0.92]"
       >
         <Icon name="plus" className="h-[23px] w-[23px]" strokeWidth={2.2} />
       </Link>

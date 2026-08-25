@@ -85,7 +85,7 @@ export function FeedFilters({
       </label>
 
       {channelsOpen ? (
-        <div className="-mt-2 max-h-64 overflow-y-auto rounded-xl border border-line">
+        <div className="-mt-2 max-h-64 overflow-y-auto rounded-lg border border-line">
           {channels.length === 0 ? (
             <p className="px-3 py-3 text-[13px] text-faint">
               No channels yet.
@@ -96,7 +96,7 @@ export function FeedFilters({
                 const checked = selected.includes(channel.id);
                 return (
                   <li key={channel.id}>
-                    <label className="flex cursor-pointer items-center gap-2.5 px-3 py-2 text-[13.5px] text-ink transition-[background] duration-150 hover:bg-chip">
+                    <label className="flex cursor-pointer items-center gap-2.5 px-3 py-2 text-[13.5px] text-ink transition-[background-color] duration-110 hover:bg-chip">
                       <input
                         type="checkbox"
                         name="source"

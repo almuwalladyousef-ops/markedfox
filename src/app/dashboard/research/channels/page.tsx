@@ -208,7 +208,7 @@ export default async function ChannelsPage() {
                       type="submit"
                       title="Sync now"
                       aria-label={`Sync ${source.title}`}
-                      className="rounded p-1.5 text-faint transition-[color] duration-150 hover:text-ink"
+                      className="rounded-sm p-1.5 text-faint transition-[color] duration-110 hover:text-ink"
                     >
                       <Icon name="refresh" className="h-3.5 w-3.5" />
                     </button>
@@ -218,7 +218,7 @@ export default async function ChannelsPage() {
                     <button
                       type="submit"
                       aria-label={`Stop watching ${source.title}`}
-                      className="rounded p-1.5 text-faint transition-[color] duration-150 hover:text-danger"
+                      className="rounded-sm p-1.5 text-faint transition-[color] duration-110 hover:text-danger"
                     >
                       <Icon name="close" className="h-3.5 w-3.5" />
                     </button>

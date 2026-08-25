@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { Card, Pill, Stat } from "@/components/ui";
+import { Card, Pill, Stat, StatRow } from "@/components/ui";
 import { requireUser } from "@/lib/auth/session";
 import { getStripeCustomerId } from "@/lib/billing/store";
 import { isStripeConfigured } from "@/lib/billing/stripe";
@@ -117,7 +117,7 @@ export default async function SubscriptionPane({
         </Card>
       ) : null}
 
-      <dl className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
+      <StatRow>
         <Stat
           label="Status"
           value={<span className="capitalize">{row?.status ?? "free"}</span>}
@@ -137,7 +137,7 @@ export default async function SubscriptionPane({
               : undefined
           }
         />
-      </dl>
+      </StatRow>
 
       <BillingPanel
         planId={snapshot?.planId ?? "free"}

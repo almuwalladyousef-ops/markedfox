@@ -210,9 +210,9 @@ function Row({
       ref={ref}
       type="submit"
       disabled={disabled}
-      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-[14.5px] transition disabled:cursor-default disabled:opacity-60 ${
+      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-[14.5px] transition-[background-color,color] duration-110 disabled:cursor-default disabled:opacity-60 ${
         tone === "primary"
-          ? "bg-accent font-medium text-accent-ink transition-[filter,scale] duration-150 hover:brightness-[1.08] active:scale-[0.97]"
+          ? "bg-accent font-semibold text-accent-ink transition-[background-color,scale] duration-110 hover:opacity-90 active:scale-[0.97]"
           : "border border-line text-ink hover:border-line-strong hover:text-ink"
       }`}
     >

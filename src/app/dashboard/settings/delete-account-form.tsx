@@ -26,7 +26,7 @@ export function DeleteAccountForm() {
         type="text"
         autoComplete="off"
         required
-        className="max-w-xs rounded-[10px] border border-line bg-panel px-3.5 py-[10px] text-[14.5px] text-ink outline-none transition-[border-color] duration-150 focus:border-danger"
+        className="max-w-xs rounded-md border border-line bg-panel px-3.5 py-2.5 text-[14.5px] text-ink outline-none transition-[border-color] duration-110 focus:border-danger"
       />
       {state.message ? (
         <p aria-live="polite" className="text-[14px] text-danger">
@@ -36,7 +36,7 @@ export function DeleteAccountForm() {
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex items-center justify-center gap-2 w-fit rounded-[10px] border border-danger px-4 py-2.5 text-[14px] font-semibold text-danger transition-[background,color] duration-150 hover:bg-danger hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+        className="inline-flex items-center justify-center gap-2 w-fit rounded-md border border-danger px-4 py-2.5 text-[14px] font-semibold text-danger transition-[background-color,color] duration-110 hover:bg-danger hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
       >
         <Busy busy={pending}>
           {pending ? "Deleting…" : "Delete my account…"}

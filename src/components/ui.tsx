@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { CSSProperties, ComponentProps, ReactNode } from "react";
 
+import { Icon } from "@/components/icons";
+
 // The shared vocabulary. Before this file the dashboard had two visual
 // dialects — the publisher's `rounded-lg border-neutral-900` one and the
 // research pages' `rounded-2xl border-neutral-800` one — and the on/off toggle
@@ -19,6 +21,21 @@ import type { CSSProperties, ComponentProps, ReactNode } from "react";
 // read: body type went from a 13.5px floor to 15px, metadata from 11px to
 // 13px, card padding from 18px to 22–28px, and the gap between page sections
 // from 14px to 22px. Everything below is measured rather than eyeballed.
+//
+// Two rules were added on 2026-08-25 and both are mechanical, so a later
+// reader does not have to guess:
+//
+//   *Corners follow height.* A control under 32px tall takes `rounded-md`
+//   (10px), a control or tile above it takes `rounded-lg` (14px), a surface
+//   holding other surfaces takes `rounded-2xl` (18px), a hairline bar takes
+//   `rounded-sm`, and anything circular is `rounded-full`. There are no other
+//   radii in the app, and `globals.css` maps every remaining Tailwind name
+//   onto one of these so a stray class cannot invent a sixth.
+//
+//   *Spacing sits on a 4px grid.* Every arbitrary `py-3` / `px-5` /
+//   `p-5` in this file is gone. Off-grid padding is invisible on its own
+//   and unmistakable in aggregate: it is why two buttons beside each other
+//   used to sit a pixel out of line.
 
 export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
@@ -64,7 +81,7 @@ export function Card({
       {...rest}
       className={cx(
         "rounded-2xl border border-line bg-panel",
-        className ?? "px-6 py-[22px]",
+        className ?? "p-6",
       )}
     >
       {children}
@@ -160,9 +177,7 @@ export function Page({
   children: ReactNode;
 }) {
   return (
-    <div
-      className={cx("mx-auto flex w-full flex-col gap-[22px]", width, className)}
-    >
+    <div className={cx("mx-auto flex w-full flex-col gap-6", width, className)}>
       {children}
     </div>
   );
@@ -230,7 +245,7 @@ export function TwoPane({
   return (
     <div
       className={cx(
-        "flex flex-wrap items-start gap-[22px]",
+        "flex flex-wrap items-start gap-6",
         className,
       )}
     >
@@ -260,31 +275,48 @@ export function StickyPane({
 
 // ── buttons ────────────────────────────────────────────────────────────────
 
-// `active:scale-[0.97]` is the reason `transform` is in the transition list.
-// It is the app's single most-repeated piece of feedback: a button that does
-// not move under the press leaves the user unsure the press landed, and the
-// doubt costs more than the 150ms. A disabled button is pinned back to 1 —
-// two variants beat one on specificity, so the order here is not luck.
+// `active:scale-[0.97]` is the reason `scale` is in the transition list. It is
+// the app's single most-repeated piece of feedback: a button that does not move
+// under the press leaves the user unsure the press landed, and the doubt costs
+// more than the 110ms. A disabled button is pinned back to 1 — two variants
+// beat one on specificity, so the order here is not luck.
 const BUTTON_BASE =
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap transition-[background,color,border-color,filter,scale] duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100";
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-semibold transition-[background-color,color,border-color,scale] duration-110 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100";
+
+// Hover is a named colour rather than a `brightness()` filter. The filter was
+// the reason `ink` needed 1.45 while `primary` needed 1.08 and `quiet` needed
+// 0.97 — three numbers tuned by eye against three different starting values,
+// each of which then behaved differently in the other theme, because
+// brightening a near-black and brightening an orange are not the same
+// operation. A token knows which direction it is going in both themes.
+//
+// A disabled *filled* button loses its fill rather than fading it. Forty-five
+// per cent of the accent is still unmistakably the accent, so a washed orange
+// Next read as a brand colour rendering wrong rather than as a control that is
+// not available yet — which is what it looks like on the first step of the
+// composer, the first thing a new user sees. The tone declarations come after
+// BUTTON_BASE in the class string, so `disabled:opacity-100` wins.
+const DISABLED_FILL = "disabled:bg-chip disabled:text-faint disabled:opacity-100";
 
 const BUTTON_TONE = {
-  primary: "bg-accent text-accent-ink font-semibold hover:brightness-[1.08]",
+  primary: `bg-accent text-accent-ink hover:opacity-90 ${DISABLED_FILL}`,
   /** The app's one solid ink button: New post, and the primary action of a
    *  flow that ends in publishing. */
-  ink: "bg-ink text-panel font-semibold hover:brightness-[1.45]",
-  secondary:
-    "border border-line bg-panel text-ink font-semibold hover:border-line-strong",
-  quiet: "bg-chip text-ink font-semibold hover:brightness-[0.97]",
-  ghost: "text-muted font-semibold hover:bg-chip hover:text-ink",
-  danger: "border border-danger text-danger font-semibold hover:bg-danger hover:text-white",
+  ink: `bg-ink text-panel hover:opacity-85 ${DISABLED_FILL}`,
+  secondary: "border border-line bg-panel text-ink hover:bg-chip",
+  quiet: "bg-chip text-ink hover:bg-line",
+  ghost: "text-muted hover:bg-chip hover:text-ink",
+  danger: "border border-line text-danger hover:border-danger hover:bg-danger-soft",
 } as const;
 
+// One geometry per size, on the 4px grid, with the radius picked by the
+// resulting height rather than by taste: xs is 26px and sm is 30px, so both
+// take the small corner; md is 40px and lg is 46px, so both take the large one.
 const BUTTON_SIZE = {
-  xs: "rounded-[11px] px-[12px] py-[6px] text-[12.5px]",
-  sm: "rounded-[13px] px-[15px] py-[8px] text-[13px]",
-  md: "rounded-[15px] px-[19px] py-[11px] text-[14.5px]",
-  lg: "rounded-[18px] px-[23px] py-[13px] text-[15px]",
+  xs: "rounded-md px-2.5 py-1 text-[12.5px]",
+  sm: "rounded-md px-3 py-1.5 text-[13px]",
+  md: "rounded-lg px-4 py-2.5 text-[14.5px]",
+  lg: "rounded-lg px-5 py-3 text-[15px]",
 } as const;
 
 export type ButtonTone = keyof typeof BUTTON_TONE;
@@ -326,7 +358,7 @@ export function ButtonLink({
  *  square that still clears a comfortable pointer target on a dense row, and
  *  the mobile layouts pad around it to reach 44px. */
 export const iconButtonClass =
-  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[11px] border border-line bg-panel text-muted transition-[background,color,border-color,scale] duration-150 hover:bg-chip hover:text-ink active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100";
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line bg-panel text-muted transition-[background-color,color,border-color,scale] duration-110 hover:bg-chip hover:text-ink active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100";
 
 /** A link or button that reads as text rather than as a control: the "Delete",
  *  "Hide this", "+ Add a follow-up" affordances. */
@@ -334,13 +366,13 @@ export const iconButtonClass =
 // animates a dozen of them, including `transform` and `box-shadow`, which
 // nothing here changes and every one of which the browser then watches.
 export const textButtonClass =
-  "text-[13px] font-semibold text-accent transition-[color,filter] duration-150 hover:brightness-[1.08] active:brightness-90 disabled:opacity-45";
+  "text-[13px] font-semibold text-accent transition-opacity duration-110 hover:opacity-75 active:opacity-60 disabled:opacity-45";
 
 export const quietButtonClass =
-  "text-[13px] text-faint transition-colors duration-150 hover:text-ink active:text-muted disabled:opacity-45";
+  "text-[13px] text-faint transition-colors duration-110 hover:text-ink active:text-muted disabled:opacity-45";
 
 export const destructiveButtonClass =
-  "text-[13px] text-faint transition-colors duration-150 hover:text-danger active:brightness-90 disabled:opacity-45";
+  "text-[13px] text-faint transition-colors duration-110 hover:text-danger active:text-danger disabled:opacity-45";
 
 // ── waiting ────────────────────────────────────────────────────────────────
 
@@ -407,12 +439,13 @@ export function Busy({
 /**
  * The per-item delay for a first-paint stagger, as an inline style.
  *
- * Deliberately capped: past the eighth item the delay is zero, so a long grid
+ * Deliberately capped: past the sixth item the delay is zero, so a long grid
  * finishes arriving at the same moment a short one does. A stagger is
  * decoration, and a decoration that makes the tenth row wait half a second is
- * just a slow page.
+ * just a slow page. 6 × 22ms puts the last tile 132ms behind the first, which
+ * is a sequence you notice without one you wait through.
  */
-export function staggerStyle(index: number, step = 40, cap = 8) {
+export function staggerStyle(index: number, step = 22, cap = 6) {
   return { "--mf-stagger": `${Math.min(index, cap) * step}ms` } as CSSProperties;
 }
 
@@ -421,16 +454,16 @@ export function staggerStyle(index: number, step = 40, cap = 8) {
 /** Track + item classes rather than a component, because the same control is
  *  built from links on the calendar and from buttons in the composer. */
 export const segmentedTrack =
-  "inline-flex items-center gap-[3px] rounded-[13px] border border-line bg-chip p-[3px]";
+  "inline-flex items-center gap-0.5 rounded-lg bg-chip p-1";
 
 export function segmentedItem(selected: boolean, className?: string): string {
   return cx(
     // No press scale here on purpose. This is the calendar's Month/Week/Day
     // and the feed's filters — pressed tens of times a session, and at that
     // frequency motion reads as lag rather than as feedback.
-    "rounded-[9px] px-[18px] py-2 text-[13.5px] font-semibold transition-[background,color,box-shadow] duration-150",
+    "rounded-md px-4 py-1.5 text-[13.5px] font-semibold transition-[background-color,color,box-shadow] duration-110",
     selected
-      ? "bg-panel text-ink shadow-[0_1px_2px_rgba(24,24,27,.06)]"
+      ? "bg-panel text-ink shadow-e1"
       : "text-faint hover:text-ink",
     className,
   );
@@ -440,7 +473,7 @@ export function segmentedItem(selected: boolean, className?: string): string {
  *  feed's minimum-multiple, the composer's account chips. */
 export function chipToggle(selected: boolean, className?: string): string {
   return cx(
-    "inline-flex items-center gap-2 rounded-full border-[1.5px] px-[15px] py-[7px] text-[13px] font-semibold transition-[background,color,border-color,scale] duration-150 active:scale-[0.96]",
+    "inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-[13px] font-semibold transition-[background-color,color,border-color,scale] duration-110 active:scale-[0.96]",
     selected
       ? "border-accent bg-accent-soft text-ink"
       : "border-line bg-panel text-muted hover:border-line-strong hover:text-ink",
@@ -487,7 +520,7 @@ export function Toggle({
       onClick={onClick}
       disabled={disabled}
       className={cx(
-        "relative h-[26px] w-[46px] shrink-0 rounded-full transition-[background-color] duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45",
+        "relative h-[26px] w-[46px] shrink-0 rounded-full transition-[background-color] duration-110 ease-out disabled:cursor-not-allowed disabled:opacity-45",
         on ? "bg-accent" : "bg-line hover:bg-line-strong",
         className,
       )}
@@ -495,7 +528,7 @@ export function Toggle({
       <span
         aria-hidden
         className={cx(
-          "absolute top-[3px] left-0 h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.22)] transition-transform duration-150 ease-out",
+          "absolute top-[3px] left-0 h-5 w-5 rounded-full bg-white shadow-e1 transition-transform duration-110 ease-out",
           on ? "translate-x-[23px]" : "translate-x-[3px]",
         )}
       />
@@ -523,7 +556,7 @@ export function ToggleForm({
       type="submit"
       aria-label={label}
       className={cx(
-        "relative h-[26px] w-[46px] shrink-0 rounded-full transition-[background-color] duration-150 ease-out",
+        "relative h-[26px] w-[46px] shrink-0 rounded-full transition-[background-color] duration-110 ease-out",
         on ? "bg-accent" : "bg-line hover:bg-line-strong",
         className,
       )}
@@ -531,7 +564,7 @@ export function ToggleForm({
       <span
         aria-hidden
         className={cx(
-          "absolute top-[3px] left-0 h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.22)] transition-transform duration-150 ease-out",
+          "absolute top-[3px] left-0 h-5 w-5 rounded-full bg-white shadow-e1 transition-transform duration-110 ease-out",
           on ? "translate-x-[23px]" : "translate-x-[3px]",
         )}
       />
@@ -542,7 +575,7 @@ export function ToggleForm({
 // ── inputs ─────────────────────────────────────────────────────────────────
 
 export const inputClass =
-  "w-full rounded-[13px] border border-line bg-chip px-3.5 py-[10px] text-[14.5px] text-ink outline-none transition-[border-color] duration-150 placeholder:text-faint focus:border-accent";
+  "w-full rounded-lg border border-line bg-chip px-3.5 py-2.5 text-[14.5px] text-ink outline-none transition-[border-color] duration-110 placeholder:text-faint focus:border-accent";
 
 export function Field({
   label,
@@ -581,7 +614,7 @@ export type PillTone = keyof typeof PILL_TONE;
 
 export function pillClass(tone: PillTone = "neutral", className?: string) {
   return cx(
-    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-[4px] text-[11.5px] font-bold whitespace-nowrap",
+    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-bold whitespace-nowrap",
     PILL_TONE[tone],
     className,
   );
@@ -606,7 +639,7 @@ export function Pill({
 }
 
 const NOTICE_TONE: Record<PillTone, string> = {
-  neutral: "border-line bg-panel text-muted",
+  neutral: "border-line-strong bg-chip text-muted",
   ok: "border-ok bg-ok-soft text-ok",
   warn: "border-warn bg-warn-soft text-warn",
   danger: "border-danger bg-danger-soft text-danger",
@@ -626,7 +659,10 @@ export function Notice({
   return (
     <div
       className={cx(
-        "rounded-2xl border px-4 py-3 text-[13.5px]/[20px] text-pretty",
+        // A left rule rather than a full outline. A tinted fill already marks
+        // the block off from the page; ringing it as well is the second border
+        // in a row of them, which is what made warnings shout.
+        "rounded-lg border-l-2 px-4 py-3 text-[13.5px]/[20px] text-pretty",
         NOTICE_TONE[tone],
         className,
       )}
@@ -646,8 +682,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-line-strong px-6 py-12 text-center">
-      <FoxMark className="mx-auto mb-4 h-7 opacity-70" />
+    <div className="rounded-2xl border border-dashed border-line px-6 py-12 text-center">
       <p className="font-display text-[16px] font-bold text-ink">{title}</p>
       {children ? (
         <p className="mx-auto mt-2 max-w-md text-[14px]/[21px] text-pretty text-muted">
@@ -675,6 +710,17 @@ export function formatCount(value: number | null | undefined): string {
   return String(value);
 }
 
+/**
+ * A label and a number, and deliberately not a box.
+ *
+ * This used to be `rounded-2xl bg-chip` and it is the single most-repeated
+ * element in the app — five across an automation row, three on Home, two on
+ * the subscription screen. Every one of them sat inside a `Card`, which sat
+ * inside the page's own panel, so a number arrived wrapped in three
+ * containers. Grouping is what the box was for and whitespace already does
+ * that job; see `StatRow`, which separates a row of these with a hairline
+ * instead of drawing five more rectangles.
+ */
 export function Stat({
   label,
   value,
@@ -685,7 +731,7 @@ export function Stat({
   note?: string;
 }) {
   return (
-    <div className="rounded-2xl bg-chip px-4 py-3">
+    <div>
       <dt className="text-[12.5px] text-faint" title={note}>
         {label}
       </dt>
@@ -698,6 +744,31 @@ export function Stat({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * A row of `Stat`s, divided rather than boxed. On a phone the row wraps to two
+ * columns and the divider goes with it, because a vertical hairline between
+ * stacked items reads as a stray mark.
+ */
+export function StatRow({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <dl
+      className={cx(
+        "grid grid-cols-2 gap-x-6 gap-y-5 shell:flex shell:flex-wrap shell:items-start shell:gap-0 shell:divide-x shell:divide-line",
+        "[&>*]:shell:px-6 [&>*:first-child]:shell:pl-0 [&>*:last-child]:shell:pr-0",
+        className,
+      )}
+    >
+      {children}
+    </dl>
   );
 }
 
@@ -740,10 +811,10 @@ export function Meter({
         {pct === null ? (
           <Pill tone="neutral">No cap</Pill>
         ) : (
-          <div className="h-1 w-full overflow-hidden rounded-full bg-chip">
+          <div className="h-1 w-full overflow-hidden rounded-sm bg-chip">
             <div
               className={cx(
-                "h-full rounded-full transition-[width] duration-150",
+                "h-full rounded-sm transition-[width] duration-110",
                 atLimit ? "bg-warn" : "bg-accent",
               )}
               style={{ width: `${pct}%` }}
@@ -777,7 +848,12 @@ export function MetricPills({
   engagement: number | null;
   viewsLabel?: string;
 }) {
-  const pill = "rounded-xl px-2 py-[3px] text-[11.5px] font-bold";
+  // The glyphs these carried — ↗ ◎ ✳ — were the last three text symbols left
+  // in the app, and they had the same problem the nav's ✎ ▤ ⚡ did: the weight
+  // never matched the numerals beside them, and ✳ has no glyph in several
+  // Android fallbacks. The icon set already exists; this uses it.
+  const pill = "rounded-md px-2 py-0.5 text-[11.5px] font-bold";
+  const glyph = "h-3 w-3";
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {score ? (
@@ -786,11 +862,13 @@ export function MetricPills({
           className={pill}
           title="Multiple of this channel's own median"
         >
-          ↗ {score}
+          <Icon name="arrowUp" className={glyph} />
+          {score}
         </Pill>
       ) : null}
       <Pill tone="info" className={pill} title={viewsLabel}>
-        ◎ {formatCount(views)}
+        <Icon name="eye" className={glyph} />
+        {formatCount(views)}
       </Pill>
       {engagement !== null ? (
         <Pill
@@ -798,7 +876,8 @@ export function MetricPills({
           className={pill}
           title="Likes plus comments, over views"
         >
-          ✳ {Math.round(engagement * 100)}%
+          <Icon name="spark" className={glyph} />
+          {Math.round(engagement * 100)}%
         </Pill>
       ) : null}
     </div>
@@ -818,7 +897,7 @@ export function Kbd({
   return (
     <kbd
       className={cx(
-        "inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-lg border border-line-strong bg-chip px-1.5 font-sans text-[11.5px] font-bold text-faint",
+        "inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-sm border border-line bg-chip px-1.5 font-sans text-[11.5px] font-bold text-faint",
         className,
       )}
     >
@@ -846,7 +925,7 @@ export function UpgradeCard({
   cta?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-warn bg-warn-soft px-7 py-6">
+    <div className="rounded-2xl border-l-2 border-warn bg-warn-soft p-6">
       <p className="font-display flex items-center gap-2 text-[16px] font-bold text-warn">
         <svg viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3" aria-hidden>
           <path d="M12 2 22 9l-10 13L2 9Z" />

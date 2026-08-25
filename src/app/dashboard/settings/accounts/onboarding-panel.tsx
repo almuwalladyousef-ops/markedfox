@@ -106,7 +106,7 @@ export function OnboardingPanel({
 
       <div className="mt-3 h-1 overflow-hidden rounded-full bg-chip">
         <div
-          className="h-full rounded-full bg-ok transition-all"
+          className="h-full rounded-sm bg-accent transition-[width] duration-110"
           style={{ width: `${total === 0 ? 0 : (done / total) * 100}%` }}
         />
       </div>
@@ -116,7 +116,7 @@ export function OnboardingPanel({
           <li key={step.id}>
             <Link
               href={step.href}
-              className={`flex items-start gap-2.5 rounded-lg px-2 py-[7px] transition hover:bg-chip ${
+              className={`flex items-start gap-2.5 rounded-lg px-2 py-1.5 transition-[background-color,color] duration-110 hover:bg-chip ${
                 step.done ? "opacity-55" : ""
               }`}
             >

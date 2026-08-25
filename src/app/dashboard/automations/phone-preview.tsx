@@ -50,7 +50,7 @@ export function PhonePreview({
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <div className="w-full max-w-[290px] overflow-hidden rounded-[30px] border-4 border-line-strong bg-black">
+      <div className="w-full max-w-[290px] overflow-hidden rounded-2xl border-4 border-line-strong bg-black">
         <div className="flex items-center justify-between px-4 py-2 text-[9.5px] text-[#7a7a82]">
           <span>{accountName}</span>
           <span>▁▂▃ ▮</span>
@@ -198,7 +198,7 @@ function Bubble({
       >
         {text}
         {buttonLabel ? (
-          <span className="mt-2 block rounded-[9px] border border-[#3f3f46] bg-[#101012] px-2 py-1 text-center text-[11px] text-[#ececf0]">
+          <span className="mt-2 block rounded-md border border-[#3f3f46] bg-[#101012] px-2 py-1 text-center text-[11px] text-[#ececf0]">
             {buttonLabel}
           </span>
         ) : null}

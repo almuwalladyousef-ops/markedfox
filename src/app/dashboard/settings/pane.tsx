@@ -53,7 +53,7 @@ export function PaneRow({
   action: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-panel px-5 py-4">
+    <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-panel p-5">
       <div className="min-w-0">
         <p className="text-[14.5px] font-semibold text-ink">{title}</p>
         {detail ? (

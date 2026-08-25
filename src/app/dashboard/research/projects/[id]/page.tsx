@@ -146,7 +146,7 @@ export default async function ProjectPage({
                           <button
                             type="submit"
                             aria-label="Remove from project"
-                            className="rounded px-2 py-1 text-faint transition-colors hover:bg-chip hover:text-danger"
+                            className="rounded-sm px-2 py-1 text-faint transition-colors hover:bg-chip hover:text-danger"
                           >
                             ×
                           </button>

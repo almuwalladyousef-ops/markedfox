@@ -1,6 +1,6 @@
 "use client";
 
-import { Busy } from "@/components/ui";
+import { Busy, buttonClass } from "@/components/ui";
 import { useActionState } from "react";
 
 import {
@@ -39,7 +39,7 @@ export function BreakdownPanel({
   const [state, action, pending] = useActionState(breakdownVideoAction, EMPTY);
 
   return (
-    <section className="rounded-xl border border-line bg-panel p-5">
+    <section className="rounded-lg border border-line bg-panel p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-[14.5px] font-semibold">Why it worked</h2>
@@ -55,7 +55,7 @@ export function BreakdownPanel({
             <button
               type="submit"
               disabled={!enabled || pending || creditsLeft <= 0}
-              className="inline-flex items-center justify-center gap-2 shrink-0 rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-accent-ink transition-[filter,opacity] hover:brightness-[1.08] disabled:opacity-50 active:scale-[0.97] disabled:active:scale-100"
+              className={buttonClass("primary", "sm", "shrink-0")}
             >
               <Busy busy={pending}>
                 {pending ? "Analysing…" : "Break it down"}

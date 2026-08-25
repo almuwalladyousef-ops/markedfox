@@ -81,7 +81,7 @@ export default async function ScriptsPage() {
             <li key={draft.id}>
               <Link
                 href={`/dashboard/research/scripts/${draft.id}`}
-                className="flex h-full flex-col gap-2.5 rounded-2xl border border-line bg-panel px-5 py-4 transition-[border-color] duration-150 hover:border-accent"
+                className="flex h-full flex-col gap-2.5 rounded-2xl border border-line bg-panel px-5 py-4 transition-[border-color] duration-110 hover:border-accent"
               >
                 <span className="flex items-start justify-between gap-3">
                   <span className="font-display text-[16px]/[22px] font-bold tracking-[-0.01em] text-ink">

@@ -10,6 +10,13 @@ import { signOut } from "@/lib/auth/actions";
 // The settings menu: five groups, one active row, and the door out at the
 // foot.
 //
+// Each group is ONE bordered list divided by hairlines, not a stack of
+// individually bordered rows. Thirteen rows meant thirteen outlines plus the
+// menu's own column plus the page panel, and a border drawn around something
+// that is already obviously a group is a border doing nothing. The active row
+// is now marked by fill and a rule on its leading edge, which reads at a
+// glance where a swapped border colour did not.
+//
 // It is grouped by whose problem it solves rather than by which table it
 // writes to — "my setup" is the product, "manage my account" is the login,
 // "help and support" is us, and the last group is everything a person only
@@ -42,7 +49,7 @@ export function SettingsMenu({
 
   return (
     <nav className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-line bg-panel px-5 py-5">
+      <div className="rounded-2xl border border-line bg-panel p-5">
         <div className="flex items-center gap-3.5">
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -70,7 +77,7 @@ export function SettingsMenu({
         </div>
         <Link
           href="/dashboard/settings/workspaces"
-          className="mt-4 flex items-center gap-2.5 rounded-xl border border-line px-3.5 py-2.5 text-[14px] font-semibold text-ink transition-[border-color] duration-150 hover:border-line-strong"
+          className="mt-4 flex items-center gap-2.5 rounded-lg border border-line px-3.5 py-2.5 text-[14px] font-semibold text-ink transition-[border-color] duration-110 hover:border-line-strong"
         >
           <Icon name="people" className="h-[18px] w-[18px] text-muted" />
           Manage workspaces
@@ -83,7 +90,7 @@ export function SettingsMenu({
           <h2 className="font-display px-1 text-[14px] font-bold text-ink">
             {group.title}
           </h2>
-          <ul className="mt-2.5 flex flex-col gap-1.5">
+          <ul className="mt-2.5 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-panel">
             {group.rows.map((row) => {
               const active = pathname === row.href;
               return (
@@ -92,10 +99,10 @@ export function SettingsMenu({
                     href={row.href}
                     aria-current={active ? "page" : undefined}
                     className={cx(
-                      "flex items-center gap-3 rounded-xl border bg-panel px-3.5 py-3 transition-[border-color,background] duration-150",
+                      "flex items-center gap-3 border-l-2 px-4 py-3 transition-[background-color,border-color] duration-110",
                       active
-                        ? "border-ink"
-                        : "border-line hover:border-line-strong",
+                        ? "border-accent bg-chip"
+                        : "border-transparent hover:bg-chip",
                     )}
                   >
                     <Icon
@@ -115,7 +122,7 @@ export function SettingsMenu({
                     {row.trail ? (
                       <span
                         className={cx(
-                          "shrink-0 rounded-full px-2.5 py-[3px] text-[11.5px] font-bold capitalize",
+                          "shrink-0 rounded-full px-2.5 py-0.5 text-[11.5px] font-bold capitalize",
                           row.trailAccent
                             ? "bg-accent-soft text-accent"
                             : "bg-chip text-muted",
@@ -139,7 +146,7 @@ export function SettingsMenu({
       <form action={signOut}>
         <button
           type="submit"
-          className="flex w-full items-center gap-3 rounded-xl border border-line px-3.5 py-3 text-[14.5px] font-semibold text-danger transition-[border-color] duration-150 hover:border-danger"
+          className="flex w-full items-center gap-3 rounded-2xl border border-line px-4 py-3 text-[14.5px] font-semibold text-danger transition-[background-color,border-color] duration-110 hover:border-danger hover:bg-danger-soft"
         >
           <Icon name="logout" className="h-[18px] w-[18px]" />
           Log out

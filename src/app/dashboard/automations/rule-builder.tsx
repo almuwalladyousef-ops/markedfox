@@ -218,7 +218,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
   };
 
   const input =
-    "mt-2 w-full rounded-[10px] border border-line bg-chip px-3.5 py-[10px] text-[14.5px] text-ink outline-none transition-[border-color] duration-150 placeholder:text-faint focus:border-accent";
+    "mt-2 w-full rounded-md border border-line bg-chip px-3.5 py-2.5 text-[14.5px] text-ink outline-none transition-[border-color] duration-110 placeholder:text-faint focus:border-accent";
   const label = "text-[13px] font-semibold text-muted";
   const help = "mt-2 text-[12.5px]/[18px] text-pretty text-faint";
   const err = (key: string) =>
@@ -429,13 +429,13 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
               <ul className="flex flex-wrap items-center gap-2">
                 {keywordList.map((word) => (
                   <li key={word}>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-accent bg-accent-soft py-[5px] pr-2 pl-3.5 text-[13px] font-semibold text-ink">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-accent bg-accent-soft py-1 pr-2 pl-3.5 text-[13px] font-semibold text-ink">
                       {word}
                       <button
                         type="button"
                         onClick={() => removeKeyword(word)}
                         aria-label={`Remove ${word}`}
-                        className="text-faint transition-[color] duration-150 hover:text-danger"
+                        className="text-faint transition-[color] duration-110 hover:text-danger"
                       >
                         <Icon name="close" className="h-3 w-3" strokeWidth={2.4} />
                       </button>
@@ -461,7 +461,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                     onBlur={commitKeyword}
                     placeholder={keywordList.length ? "Add another…" : "LINK"}
                     aria-label="Add a keyword"
-                    className="w-full rounded-full border border-line bg-panel px-3.5 py-[7px] text-[13px] text-ink outline-none transition-[border-color] duration-150 placeholder:text-faint focus:border-accent"
+                    className="w-full rounded-full border border-line bg-panel px-3.5 py-1.5 text-[13px] text-ink outline-none transition-[border-color] duration-110 placeholder:text-faint focus:border-accent"
                   />
                 </li>
               </ul>
@@ -706,7 +706,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
               ) : null}
               <ul className="mt-3 flex flex-col gap-3">
                 {followUps.map((f, index) => (
-                  <li key={f.key} className="rounded-xl bg-chip p-4">
+                  <li key={f.key} className="rounded-lg bg-chip p-4">
                     <div className="flex items-center justify-between gap-2">
                       <label className="text-[13px] text-muted">
                         Wait{" "}
@@ -722,7 +722,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                               ),
                             )
                           }
-                          className="rounded-[9px] border border-line bg-panel px-2.5 py-1.5 text-[13px] text-ink"
+                          className="rounded-md border border-line bg-panel px-2.5 py-1.5 text-[13px] text-ink"
                         >
                           {DELAY_CHOICES.map((d) => (
                             <option key={d.minutes} value={d.minutes}>
@@ -881,7 +881,7 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
                               }
                               aria-pressed={on}
                               className={cx(
-                                "block w-full overflow-hidden rounded-xl border-2 text-left transition-[border-color] duration-150",
+                                "block w-full overflow-hidden rounded-lg border-2 text-left transition-[border-color] duration-110",
                                 on ? "border-accent" : "border-line hover:border-line-strong",
                               )}
                             >

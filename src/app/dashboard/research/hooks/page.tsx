@@ -184,7 +184,7 @@ export default async function HooksPage({
           {hooks.map((hook) => (
             <li
               key={hook.id}
-              className={`flex flex-col gap-2 rounded-[14px] border px-4 py-[15px] ${
+              className={`flex flex-col gap-2 rounded-lg border px-4 py-4 ${
                 hook.favorite
                   ? "border-[rgba(217,119,6,.45)] bg-warn-soft"
                   : "border-line bg-panel"
@@ -205,7 +205,7 @@ export default async function HooksPage({
                     <button
                       type="submit"
                       aria-label={hook.favorite ? "Unfavourite" : "Favourite"}
-                      className={`rounded px-1.5 py-1 text-[14.5px] transition ${
+                      className={`rounded-sm px-1.5 py-1 text-[14.5px] transition-[background-color,color] duration-110 ${
                         hook.favorite ? "text-warn" : "text-line-strong hover:text-warn"
                       }`}
                     >
@@ -217,7 +217,7 @@ export default async function HooksPage({
                     <button
                       type="submit"
                       aria-label="Delete"
-                      className="rounded px-1.5 py-1 text-[14.5px] text-faint transition-colors hover:text-danger"
+                      className="rounded-sm px-1.5 py-1 text-[14.5px] text-faint transition-colors hover:text-danger"
                     >
                       ×
                     </button>

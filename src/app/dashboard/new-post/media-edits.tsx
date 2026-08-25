@@ -57,7 +57,7 @@ export function MediaEdits({
       title={hint}
       aria-expanded={open === id}
       className={cx(
-        "flex w-[62px] flex-col items-center gap-1.5 rounded-2xl px-2 py-3 transition-[background,color] duration-150",
+        "flex w-[62px] flex-col items-center gap-1.5 rounded-2xl px-2 py-3 transition-[background-color,color] duration-110",
         open === id
           ? "bg-chip text-ink"
           : active

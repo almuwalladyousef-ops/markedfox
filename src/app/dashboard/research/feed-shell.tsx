@@ -70,7 +70,10 @@ export function FeedShell({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-line bg-panel px-3.5 py-2.5">
+      {/* A bare row, not a panel. Every control in it already carries its own
+          border and its own panel fill, so drawing one more around the group
+          put a bordered white box inside a bordered white box for no gain. */}
+      <div className="flex flex-wrap items-center gap-2.5">
         {left}
         <div className="ml-auto flex flex-wrap items-center gap-2.5">
           <button
@@ -82,7 +85,7 @@ export function FeedShell({
             // order they were written, so the override silently lost.
             className={
               open
-                ? "inline-flex items-center justify-center gap-2 rounded-[9px] border border-accent bg-accent-soft px-[11px] py-[6px] text-[12.5px] font-semibold text-accent transition-[background,color,border-color] duration-150"
+                ? "inline-flex items-center justify-center gap-2 rounded-md border border-accent bg-accent-soft px-2.5 py-1.5 text-[12.5px] font-semibold text-accent transition-[background-color,color,border-color] duration-110"
                 : buttonClass("secondary", "xs")
             }
           >

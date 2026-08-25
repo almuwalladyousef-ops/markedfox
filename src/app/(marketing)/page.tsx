@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import Link from "next/link";
 
-import { FoxMark } from "@/components/ui";
+import { buttonClass, FoxMark } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "MarkedFox — publish everywhere, automate every DM",
@@ -67,13 +67,13 @@ export default function Home() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               href="/signup"
-              className="rounded-xl bg-accent px-[22px] py-[13px] text-sm font-semibold text-accent-ink transition-[filter,scale] hover:brightness-[1.08] active:scale-[0.97]"
+              className={buttonClass("primary", "lg")}
             >
               Start free — no card
             </Link>
             <Link
               href="/pricing"
-              className="rounded-xl border border-line-strong px-[22px] py-[13px] text-sm font-medium text-ink transition-colors hover:border-accent hover:text-accent"
+              className="rounded-lg border border-line-strong px-5 py-3 text-sm font-medium text-ink transition-colors hover:border-accent hover:text-accent"
             >
               See pricing
             </Link>
@@ -90,7 +90,7 @@ export default function Home() {
             still in review dates the moment anything moves, and these say the
             same thing — one composer, and a DM that goes out by itself. */}
         <div className="relative pb-8 wide:pb-16">
-          <div className="max-w-[400px] rounded-[18px] border border-line bg-panel p-5 shadow-panel">
+          <div className="max-w-[400px] rounded-2xl border border-line bg-panel p-5 shadow-e2">
             <p className="text-[11px] font-semibold tracking-[0.06em] text-faint uppercase">
               Compose
             </p>
@@ -105,7 +105,7 @@ export default function Home() {
                 </span>
               ))}
             </div>
-            <p className="mt-3 rounded-xl bg-chip px-3.5 py-3 text-[13px]/[19px] text-ink">
+            <p className="mt-3 rounded-lg bg-chip px-3.5 py-3 text-[13px]/[19px] text-ink">
               Three things I wish I knew before my first 100k views 👇
             </p>
             <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-faint">
@@ -117,20 +117,20 @@ export default function Home() {
               <span className="rounded-full bg-sky-soft px-2.5 py-1 text-[11px] font-semibold text-sky">
                 Fri 9:00 AM
               </span>
-              <span className="rounded-[10px] bg-accent px-4 py-2 text-[12.5px] font-semibold text-accent-ink">
+              <span className="rounded-md bg-accent px-4 py-2 text-[12.5px] font-semibold text-accent-ink">
                 Schedule
               </span>
             </div>
           </div>
 
-          <div className="mt-4 w-[250px] rounded-[18px] border border-line bg-panel p-4 shadow-panel wide:absolute wide:-right-4 wide:-bottom-16 wide:mt-0">
+          <div className="mt-4 w-[250px] rounded-2xl border border-line bg-panel p-4 shadow-e2 wide:absolute wide:-right-4 wide:-bottom-16 wide:mt-0">
             <p className="text-[11px] font-semibold tracking-[0.06em] text-faint uppercase">
               Automation
             </p>
-            <p className="mt-2.5 rounded-xl bg-chip px-3 py-2 text-[11.5px]/[16px] text-muted">
+            <p className="mt-2.5 rounded-lg bg-chip px-3 py-2 text-[11.5px]/[16px] text-muted">
               <span className="font-semibold text-ink">@someone</span> LINK
             </p>
-            <p className="mt-2 ml-[18px] rounded-xl bg-accent px-3 py-2 text-[11.5px]/[16px] text-accent-ink">
+            <p className="mt-2 ml-[18px] rounded-lg bg-accent px-3 py-2 text-[11.5px]/[16px] text-accent-ink">
               Sent! Here it is —{" "}
               <span className="underline">markedfox.com/guide</span>
             </p>
@@ -148,7 +148,7 @@ export default function Home() {
             <div
               key={pillar.id}
               id={pillar.id}
-              className="rounded-2xl border border-line bg-bg p-[22px]"
+              className="rounded-2xl border border-line bg-bg p-5"
             >
               <p className="text-xs font-bold tracking-[0.05em] text-accent uppercase">
                 {pillar.eyebrow}
@@ -178,7 +178,7 @@ export default function Home() {
         </p>
         <Link
           href="/signup"
-          className="mt-8 inline-block rounded-xl bg-accent px-[22px] py-[13px] text-sm font-semibold text-accent-ink transition-[filter,scale] hover:brightness-[1.08] active:scale-[0.97]"
+          className={buttonClass("primary", "lg", "mt-8")}
         >
           Start free
         </Link>

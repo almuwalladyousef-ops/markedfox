@@ -1,6 +1,6 @@
 "use client";
 
-import { Busy } from "@/components/ui";
+import { Busy, buttonClass } from "@/components/ui";
 import { useActionState } from "react";
 
 import {
@@ -23,7 +23,7 @@ export function HookGeneratorForm({
   const [state, action, pending] = useActionState(generateHooksAction, EMPTY);
 
   return (
-    <section className="rounded-xl border border-line bg-panel p-5">
+    <section className="rounded-lg border border-line bg-panel p-5">
       <h2 className="text-[14.5px] font-semibold">Hook generator</h2>
       <p className="mt-1 text-[13px] text-faint">
         Twenty openings for one topic, spread across the patterns that work —
@@ -45,7 +45,7 @@ export function HookGeneratorForm({
           <button
             type="submit"
             disabled={pending || creditsLeft <= 0}
-            className="inline-flex items-center justify-center gap-2 self-start rounded-lg bg-accent px-4 py-2 text-[14.5px] font-medium text-accent-ink transition-[filter,opacity] hover:brightness-[1.08] disabled:opacity-50 active:scale-[0.97] disabled:active:scale-100"
+            className={buttonClass("primary", "md", "self-start")}
           >
             <Busy busy={pending}>
               {pending ? "Writing…" : "Write 20 hooks"}
@@ -67,7 +67,7 @@ export function TranscriptForm() {
   const [state, action, pending] = useActionState(transcribeLinkAction, EMPTY);
 
   return (
-    <section className="rounded-xl border border-line bg-panel p-5">
+    <section className="rounded-lg border border-line bg-panel p-5">
       <h2 className="text-[14.5px] font-semibold">Transcript downloader</h2>
       <p className="mt-1 text-[13px] text-faint">
         Paste any YouTube link — including a Short — and get the captions.
@@ -86,7 +86,7 @@ export function TranscriptForm() {
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex items-center justify-center gap-2 self-start rounded-lg border border-line-strong px-4 py-2 text-[14.5px] font-medium transition-[color,background-color,border-color,opacity] hover:bg-chip disabled:opacity-50"
+          className={buttonClass("secondary", "md", "self-start")}
         >
           <Busy busy={pending}>
             {pending ? "Fetching…" : "Get transcript"}
@@ -115,7 +115,7 @@ export function AuditForm({
   const [state, action, pending] = useActionState(auditChannelAction, EMPTY);
 
   return (
-    <section className="rounded-xl border border-line bg-panel p-5">
+    <section className="rounded-lg border border-line bg-panel p-5">
       <h2 className="text-[14.5px] font-semibold">Channel audit</h2>
       <p className="mt-1 text-[13px] text-faint">
         Judges a channel against its own history — what the winners have in
@@ -147,7 +147,7 @@ export function AuditForm({
           <button
             type="submit"
             disabled={pending || creditsLeft <= 0}
-            className="inline-flex items-center justify-center gap-2 self-start rounded-lg border border-line-strong px-4 py-2 text-[14.5px] font-medium transition-[color,background-color,border-color,opacity] hover:bg-chip disabled:opacity-50"
+            className={buttonClass("secondary", "md", "self-start")}
           >
             <Busy busy={pending}>
               {pending ? "Auditing…" : "Audit this channel"}

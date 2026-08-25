@@ -33,7 +33,7 @@ export function AutoFill() {
   }, [router]);
 
   return (
-    <p className="rounded-[10px] bg-chip px-3.5 py-2 text-[12px] text-muted">
+    <p className="rounded-md bg-chip px-3.5 py-2 text-[12px] text-muted">
       Reading your connected accounts…
     </p>
   );

@@ -33,7 +33,7 @@ export default async function LoginPage({
   return (
     <>
       {linkError ? (
-        <p className="mb-4 rounded-[10px] border border-warn bg-warn-soft px-3 py-2 text-[13px] text-warn">
+        <p className="mb-4 rounded-md border border-warn bg-warn-soft px-3 py-2 text-[13px] text-warn">
           {linkError}
         </p>
       ) : null}

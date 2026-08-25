@@ -109,7 +109,7 @@ export default function PricingPage() {
 
       <PlanGrid plans={PLANS} />
 
-      <div className="mx-auto mt-12 max-w-2xl rounded-[14px] border border-line bg-panel p-5 text-[13px]/[20px] text-muted">
+      <div className="mx-auto mt-12 max-w-2xl rounded-lg border border-line bg-panel p-5 text-[13px]/[20px] text-muted">
         <h2 className="font-semibold text-ink">Why is X different?</h2>
         <p className="mt-2">
           Every other platform costs nothing per post, so those are genuinely
@@ -125,7 +125,7 @@ export default function PricingPage() {
         Questions?{" "}
         <Link
           href="mailto:support@markedfox.com"
-          className="text-accent transition-[filter,scale] duration-150 hover:brightness-[1.08] active:scale-[0.97]"
+          className="text-accent transition-opacity duration-110 hover:opacity-75"
         >
           support@markedfox.com
         </Link>

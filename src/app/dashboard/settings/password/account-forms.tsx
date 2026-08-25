@@ -179,7 +179,7 @@ export function AvatarForm({
         )}
         <div className="flex flex-wrap items-center gap-2.5">
           {uploadsEnabled ? (
-            <label className="inline-flex items-center justify-center gap-2 cursor-pointer rounded-[10px] border border-line bg-panel px-3.5 py-2 text-[13px] font-semibold text-ink transition-[border-color] duration-150 hover:border-line-strong">
+            <label className="inline-flex items-center justify-center gap-2 cursor-pointer rounded-md border border-line bg-panel px-3.5 py-2 text-[13px] font-semibold text-ink transition-[border-color] duration-110 hover:border-line-strong">
               <Busy busy={busy}>
                 {busy ? "Uploading…" : "Choose a picture"}
               </Busy>
@@ -204,7 +204,7 @@ export function AvatarForm({
             <button
               type="button"
               onClick={() => setUrl("")}
-              className="text-[13px] text-faint transition-[color] duration-150 hover:text-danger"
+              className="text-[13px] text-faint transition-[color] duration-110 hover:text-danger"
             >
               Remove
             </button>

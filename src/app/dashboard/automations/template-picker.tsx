@@ -51,7 +51,7 @@ export function TemplatePicker({
                     <Card
                       className={cx(
                         "flex h-full flex-col gap-2.5 px-5 py-5",
-                        "transition-[border-color] duration-150 hover:border-accent",
+                        "transition-[border-color] duration-110 hover:border-accent",
                       )}
                     >
                       <div className="flex flex-wrap items-center gap-2">
@@ -88,7 +88,7 @@ export function TemplatePicker({
       {showScratch ? (
         <Link
           href="/dashboard/automations/new?scratch=1"
-          className="rounded-2xl border border-dashed border-line-strong px-6 py-5 text-center text-[14.5px] font-semibold text-muted transition-[border-color,color] duration-150 hover:border-accent hover:text-ink"
+          className="rounded-2xl border border-dashed border-line-strong px-6 py-5 text-center text-[14.5px] font-semibold text-muted transition-[border-color,color] duration-110 hover:border-accent hover:text-ink"
         >
           Start from scratch instead
         </Link>

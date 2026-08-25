@@ -160,7 +160,7 @@ export default async function DashboardLayout({
       <div className="min-w-0 flex-1">
         <MobileShell spaces={spaces} {...workspaceProps} theme={theme} />
 
-        <main className="mx-auto flex w-full flex-col gap-[22px] px-[18px] pt-5 pb-[120px] shell:px-10 shell:pt-9 shell:pb-16">
+        <main className="mx-auto flex w-full flex-col gap-6 px-4 pt-5 pb-[120px] shell:px-10 shell:pt-9 shell:pb-16">
           {children}
         </main>
 

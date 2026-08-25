@@ -13,7 +13,7 @@ export default function AuthLayout({
           MarkedFox
         </span>
       </Link>
-      <div className="w-full max-w-[392px] rounded-2xl border border-line bg-panel p-[26px] shadow-panel">
+      <div className="w-full max-w-[392px] rounded-2xl border border-line bg-panel p-6 shadow-e2">
         {children}
       </div>
     </main>

@@ -246,7 +246,7 @@ export function CalendarGrid({
           <button
             type="button"
             onClick={() => go({ date: now ?? new Date() })}
-            className={buttonClass("secondary", "xs", "rounded-[9px]")}
+            className={buttonClass("secondary", "xs", "rounded-md")}
           >
             Today
           </button>
@@ -314,7 +314,7 @@ export function CalendarGrid({
             onClick={() => setOnlyPlatforms(new Set())}
             aria-pressed={onlyPlatforms.size === 0}
             className={cx(
-              "inline-flex h-10 items-center justify-center rounded-[13px] border px-4 text-[13px] font-semibold transition-[background,color,border-color,opacity] duration-150",
+              "inline-flex h-10 items-center justify-center rounded-lg border px-4 text-[13px] font-semibold transition-[background-color,color,border-color,opacity] duration-110",
               onlyPlatforms.size === 0
                 ? "border-ink bg-ink text-panel"
                 : "border-line bg-panel text-muted opacity-55 hover:opacity-100",
@@ -332,7 +332,7 @@ export function CalendarGrid({
                 aria-pressed={on}
                 title={PLATFORM_LABELS[platform]}
                 className={cx(
-                  "inline-flex h-10 w-10 items-center justify-center rounded-[13px] border transition-[background,border-color,opacity] duration-150",
+                  "inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-[background-color,border-color,opacity] duration-110",
                   on
                     ? "border-ink bg-ink"
                     : "border-line bg-panel opacity-55 hover:opacity-100",
@@ -346,9 +346,13 @@ export function CalendarGrid({
         </div>
       ) : null}
 
-      <p className="-mt-1 text-center text-[12.5px] text-faint">
-        {rangeLabel(view, anchor)}
-      </p>
+      {/* The range this view covers. Silent in month view, where it repeated
+          the heading directly above it word for word. */}
+      {view === "month" ? null : (
+        <p className="-mt-1 text-center text-[12.5px] text-faint">
+          {rangeLabel(view, anchor)}
+        </p>
+      )}
 
       {view === "month" ? (
         <MonthGrid
@@ -493,7 +497,7 @@ function TimeGrid({
       : now.getHours() * HOUR_HEIGHT_REM + (now.getMinutes() / 60) * HOUR_HEIGHT_REM;
 
   return (
-    <div className="overflow-x-auto rounded-[18px] border border-line bg-panel">
+    <div className="overflow-x-auto rounded-2xl border border-line bg-panel">
       <div className="min-w-[52rem]">
         <div
           className="grid border-b border-line bg-panel"
@@ -571,7 +575,7 @@ function TimeGrid({
                   {layOut(posts).map(({ post, top, column, columns }) => (
                     <div
                       key={post.id}
-                      className="absolute px-[3px]"
+                      className="absolute px-0.5"
                       style={{
                         top: `${top}rem`,
                         // Posts scheduled minutes apart sit side by side
@@ -699,7 +703,7 @@ function PostCard({
         />
         <span
           className={cx(
-            "absolute top-1 right-1.5 rounded px-1 text-[10px] font-semibold whitespace-nowrap",
+            "absolute top-1 right-1.5 rounded-sm px-1 text-[10px] font-semibold whitespace-nowrap",
             post.thumbnail ? "text-white" : "text-muted",
           )}
         >
@@ -719,7 +723,7 @@ function PostCard({
             <PlatformIcon
               key={platform}
               platform={platform}
-              className="h-3 w-3 rounded-[3px]"
+              className="h-3 w-3 rounded-sm"
             />
           ))}
           {platforms.length > 4 ? (
@@ -766,7 +770,7 @@ function PostChip({
       type="button"
       onClick={() => onOpen(post.id)}
       title={`${time ? `${time} · ` : ""}${post.caption}`}
-      className="block w-full overflow-hidden rounded-lg bg-bg px-[7px] py-[5px] text-left transition-[background] duration-150 hover:bg-chip"
+      className="block w-full overflow-hidden rounded-lg bg-bg px-1.5 py-1 text-left transition-[background-color] duration-110 hover:bg-chip"
     >
       <span className="flex items-center gap-1.5">
         <span
@@ -783,7 +787,7 @@ function PostChip({
             <PlatformIcon
               key={platform}
               platform={platform}
-              className="h-2.5 w-2.5 rounded-[2px]"
+              className="h-2.5 w-2.5 rounded-sm"
             />
           ))}
           {platforms.length > 3 ? (
@@ -833,7 +837,7 @@ function PostDetail({
           <div className="min-w-0">
             <span
               className={cx(
-                "inline-block rounded-full px-2 py-[3px] text-[11px] font-semibold capitalize",
+                "inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize",
                 STATUS_PILL[post.status] ?? "bg-chip text-muted",
               )}
             >
@@ -868,7 +872,7 @@ function PostDetail({
           <img
             src={post.thumbnail}
             alt=""
-            className="mt-3 max-h-52 w-full rounded-[12px] object-cover"
+            className="mt-3 max-h-52 w-full rounded-md object-cover"
           />
         ) : null}
 
@@ -942,7 +946,7 @@ function PostDetail({
               {/* A <details> rather than a second dialog: this is one field
                   and a button. */}
               <details className="relative">
-                <summary className="cursor-pointer list-none rounded-lg border border-line px-[13px] py-2 text-xs font-medium text-muted transition-colors hover:border-line-strong hover:text-ink">
+                <summary className="cursor-pointer list-none rounded-lg border border-line px-3 py-2 text-xs font-medium text-muted transition-colors hover:border-line-strong hover:text-ink">
                   Edit time
                 </summary>
                 <form
@@ -955,7 +959,7 @@ function PostDetail({
                     name="scheduled_for"
                     required
                     aria-label="New time"
-                    className="rounded-[10px] border border-line bg-chip px-3 py-2 text-xs text-ink outline-none focus:border-accent"
+                    className="rounded-md border border-line bg-chip px-3 py-2 text-xs text-ink outline-none focus:border-accent"
                   />
                   <Button type="submit" tone="primary" size="sm">
                     Move it

@@ -58,9 +58,9 @@ export function PlanGrid({ plans }: { plans: MarketingPlan[] }) {
           return (
             <div
               key={plan.id}
-              className={`relative flex flex-col rounded-2xl bg-panel p-[22px] ${
+              className={`relative flex flex-col rounded-2xl bg-panel p-5 ${
                 plan.highlight
-                  ? "border-2 border-accent shadow-panel"
+                  ? "border-2 border-accent shadow-e2"
                   : "border border-line"
               }`}
             >
@@ -99,9 +99,9 @@ export function PlanGrid({ plans }: { plans: MarketingPlan[] }) {
 
               <a
                 href={plan.cta.href}
-                className={`mt-6 rounded-[10px] px-4 py-2.5 text-center text-[13px] font-semibold transition ${
+                className={`mt-6 rounded-md px-4 py-2.5 text-center text-[13px] font-semibold transition-[background-color,color,border-color] duration-110 ${
                   plan.highlight
-                    ? "bg-accent text-accent-ink transition-[filter,scale] duration-150 hover:brightness-[1.08] active:scale-[0.97]"
+                    ? "bg-accent text-accent-ink transition-[background-color,scale] duration-110 hover:opacity-90 active:scale-[0.97]"
                     : "border border-line-strong text-ink hover:border-accent hover:text-accent"
                 }`}
               >

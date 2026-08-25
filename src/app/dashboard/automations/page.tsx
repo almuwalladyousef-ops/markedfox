@@ -4,19 +4,7 @@ import Link from "next/link";
 
 import { Icon, PlanDiamond } from "@/components/icons";
 import { PlatformTile } from "@/components/platform-icon";
-import {
-  ButtonLink,
-  Card,
-  CardTitle,
-  EmptyState,
-  Eyebrow,
-  Notice,
-  Page,
-  PageHeader,
-  Pill,
-  ToggleForm,
-  inputClass,
-} from "@/components/ui";
+import { ButtonLink, Card, CardTitle, EmptyState, Eyebrow, inputClass, Notice, Page, PageHeader, Pill, textButtonClass, ToggleForm } from "@/components/ui";
 import { LocalTime } from "@/components/local-time";
 import { requireUser } from "@/lib/auth/session";
 import { listConnections, type ConnectionRow } from "@/lib/connections/store";
@@ -214,7 +202,7 @@ export default async function AutomationsPage({
             first. Automation runs on Instagram today; Facebook Pages follow.
           </p>
         ) : (
-          <ul className="mt-4 flex flex-col gap-2">
+          <ul className="mt-4 divide-y divide-line border-t border-line">
             {accounts.map((c) => (
               <AccountRow key={c.id} connection={c} />
             ))}
@@ -233,7 +221,7 @@ export default async function AutomationsPage({
           <select
             name="trigger"
             defaultValue={params.trigger ?? ""}
-            className="rounded-[10px] border border-line bg-panel px-2.5 py-[9px] text-[13px] text-ink outline-none focus:border-accent"
+            className="rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] text-ink outline-none focus:border-accent"
           >
             <option value="">Any trigger</option>
             <option value="comment">Comment</option>
@@ -243,7 +231,7 @@ export default async function AutomationsPage({
           <select
             name="status"
             defaultValue={params.status ?? ""}
-            className="rounded-[10px] border border-line bg-panel px-2.5 py-[9px] text-[13px] text-ink outline-none focus:border-accent"
+            className="rounded-md border border-line bg-panel px-2.5 py-2 text-[13px] text-ink outline-none focus:border-accent"
           >
             <option value="">Any state</option>
             <option value="live">Live</option>
@@ -251,7 +239,7 @@ export default async function AutomationsPage({
           </select>
           <button
             type="submit"
-            className="rounded-[10px] border border-line-strong bg-panel px-3.5 py-[9px] text-[13px] text-ink transition-colors hover:border-accent hover:text-accent"
+            className="rounded-md border border-line-strong bg-panel px-3.5 py-2 text-[13px] text-ink transition-colors hover:border-accent hover:text-accent"
           >
             Filter
           </button>
@@ -372,7 +360,7 @@ export default async function AutomationsPage({
                         </form>
                       </div>
 
-                      <dl className="mt-5 grid grid-cols-2 gap-2.5 shell:grid-cols-5">
+                      <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 shell:flex shell:gap-0 shell:divide-x shell:divide-line [&>*]:shell:px-6 [&>*:first-child]:shell:pl-0">
                         <Stat label="Runs" value={s.triggered ?? 0} />
                         <Stat label="Sends" value={sent} />
                         <Stat label="Clicks" value={clicked} accent />
@@ -404,7 +392,7 @@ export default async function AutomationsPage({
                       <div className="mt-4 flex items-center gap-4 text-[13px]">
                         <Link
                           href={`/dashboard/automations/${rule.id}`}
-                          className="font-semibold text-accent transition-[filter,scale] hover:brightness-[1.08] active:scale-[0.97]"
+                          className={textButtonClass}
                         >
                           Edit
                         </Link>
@@ -444,7 +432,7 @@ function AccountRow({ connection }: { connection: ConnectionRow }) {
   const granted = required.every((scope) => connection.scopes.includes(scope));
   const name = connection.platform_account_name ?? connection.platform_account_id;
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line px-4 py-3">
+    <li className="flex flex-wrap items-center justify-between gap-3 py-3">
       <span className="flex min-w-0 items-center gap-3">
         <PlatformTile platform={connection.platform} size={32} />
         <span className="min-w-0 text-[14px] font-semibold text-ink">
@@ -479,7 +467,7 @@ function AccountRow({ connection }: { connection: ConnectionRow }) {
       ) : (
         <a
           href={`/api/connect/${connection.platform}/start?features=messaging`}
-          className="rounded-[9px] border border-line bg-panel px-3.5 py-2 text-[13px] font-semibold text-ink transition-[border-color,color] duration-150 hover:border-accent hover:text-accent"
+          className="rounded-md border border-line bg-panel px-3.5 py-2 text-[13px] font-semibold text-ink transition-[border-color,color] duration-110 hover:border-accent hover:text-accent"
         >
           Turn on automation
         </a>
@@ -500,8 +488,11 @@ function Stat({
   /** Clicks is the number the rule exists for, so it wears the accent. */
   accent?: boolean;
 }) {
+  // Not a box. Five of these sat in a row inside a card inside the page, so a
+  // rule's numbers arrived behind three nested rectangles; the row is divided
+  // by a hairline instead.
   return (
-    <div title={title} className="rounded-xl bg-chip px-3.5 py-2.5">
+    <div title={title}>
       <dt className="text-[12.5px] text-faint">{label}</dt>
       <dd
         className={`font-display mt-0.5 text-[20px] font-bold tracking-[-0.02em] ${accent ? "text-accent" : "text-ink"}`}

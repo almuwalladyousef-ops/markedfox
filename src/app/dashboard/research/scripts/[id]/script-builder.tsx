@@ -460,7 +460,7 @@ function HookStage({
                   <button
                     type="button"
                     onClick={() => setChosen(option.text)}
-                    className={`flex h-full w-full flex-col gap-1.5 rounded-lg border p-3 text-left transition ${
+                    className={`flex h-full w-full flex-col gap-1.5 rounded-lg border p-3 text-left transition-[background-color,color,border-color] duration-110 ${
                       chosen === option.text
                         ? "border-line-strong bg-chip"
                         : "border-line hover:border-line-strong"

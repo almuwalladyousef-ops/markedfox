@@ -69,7 +69,7 @@ export default async function WorkspacesPane() {
                     <input type="hidden" name="workspace_id" value={workspace.id} />
                     <button
                       type="submit"
-                      className="rounded-[10px] border border-line px-3.5 py-2 text-[13px] font-semibold text-ink transition-[border-color] duration-150 hover:border-accent"
+                      className="rounded-md border border-line px-3.5 py-2 text-[13px] font-semibold text-ink transition-[border-color] duration-110 hover:border-accent"
                     >
                       Switch to
                     </button>

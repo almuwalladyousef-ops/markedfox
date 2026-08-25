@@ -44,12 +44,12 @@ export function LoginForm({ next }: { next: string }) {
       <SubmitButton pending={pending}>Sign in</SubmitButton>
 
       <div className="flex flex-col gap-2 pt-1 text-[13px] text-muted">
-        <Link href="/reset-password" className="text-accent transition-[filter,scale] duration-150 hover:brightness-[1.08] active:scale-[0.97]">
+        <Link href="/reset-password" className="text-accent transition-opacity duration-110 hover:opacity-75">
           Forgot your password?
         </Link>
         <p>
           No account?{" "}
-          <Link href="/signup" className="text-accent transition-[filter,scale] duration-150 hover:brightness-[1.08] active:scale-[0.97]">
+          <Link href="/signup" className="text-accent transition-opacity duration-110 hover:opacity-75">
             Create one
           </Link>
         </p>

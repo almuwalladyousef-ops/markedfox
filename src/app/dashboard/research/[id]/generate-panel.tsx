@@ -39,7 +39,7 @@ export function GeneratePanel({
   const out = creditsLeft <= 0;
 
   return (
-    <section className="rounded-xl border border-line bg-panel p-5">
+    <section className="rounded-lg border border-line bg-panel p-5">
       <h2 className="text-[14.5px] font-semibold">Write from this video</h2>
       <p className="mt-1 text-[13px] text-faint">
         {hasBreakdown

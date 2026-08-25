@@ -126,7 +126,7 @@ export default async function DraftsPage({
             return (
               <div
                 key={draft.id}
-                className="group relative break-inside-avoid overflow-hidden rounded-xl border border-line bg-chip"
+                className="group relative break-inside-avoid overflow-hidden rounded-lg border border-line bg-chip"
               >
                 <Link
                   href={`/dashboard/new-post?draft=${draft.id}`}
@@ -140,7 +140,7 @@ export default async function DraftsPage({
                       alt=""
                       loading="lazy"
                       className={cx(
-                        "w-full object-cover transition-[filter] duration-300 group-hover:brightness-[1.06]",
+                        "w-full object-cover transition-[filter] duration-110 group-hover:brightness-[1.06]",
                         cover.type === "video" ? "aspect-[9/16]" : "aspect-[4/5]",
                       )}
                     />
@@ -175,7 +175,7 @@ export default async function DraftsPage({
                       {targets.length === 0 ? (
                         <span
                           className={cx(
-                            "rounded-full px-2 py-[3px] text-[11.5px] font-bold",
+                            "rounded-full px-2 py-0.5 text-[11.5px] font-bold",
                             // Over a photo the soft warn tint disappears into
                             // the scrim, and this is the one line on the tile
                             // that has to be read.
@@ -188,7 +188,7 @@ export default async function DraftsPage({
                       {draft.scheduled_for ? (
                         <span
                           className={cx(
-                            "rounded-full px-2 py-[3px] text-[11.5px] font-bold",
+                            "rounded-full px-2 py-0.5 text-[11.5px] font-bold",
                             cover
                               ? "bg-black/55 text-white"
                               : "bg-accent-soft text-accent",
@@ -199,7 +199,7 @@ export default async function DraftsPage({
                       ) : (
                         <span
                           className={cx(
-                            "rounded-full px-2 py-[3px] text-[11.5px] font-bold",
+                            "rounded-full px-2 py-0.5 text-[11.5px] font-bold",
                             cover ? "bg-black/55 text-white" : "bg-chip text-muted",
                           )}
                         >
@@ -209,7 +209,7 @@ export default async function DraftsPage({
                       {draft.media.length > 1 ? (
                         <span
                           className={cx(
-                            "rounded-full px-2 py-[3px] text-[11.5px] font-bold",
+                            "rounded-full px-2 py-0.5 text-[11.5px] font-bold",
                             cover ? "bg-black/55 text-white" : "bg-chip text-muted",
                           )}
                         >
@@ -243,7 +243,7 @@ export default async function DraftsPage({
                     type="submit"
                     aria-label="Delete this draft"
                     title="Delete this draft"
-                    className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white transition-[background] duration-150 hover:bg-danger"
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white transition-[background-color] duration-110 hover:bg-danger"
                   >
                     <Icon name="close" className="h-3 w-3" strokeWidth={2.4} />
                   </button>

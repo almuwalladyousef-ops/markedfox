@@ -59,7 +59,7 @@ export function MobileShell({
           href="/dashboard/settings"
           title="Settings — account, billing and connected accounts"
           aria-label="Settings"
-          className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] text-muted"
+          className="flex h-[34px] w-[34px] items-center justify-center rounded-md text-muted"
         >
           <Icon name="settings" className="h-[19px] w-[19px]" />
         </Link>
@@ -84,7 +84,7 @@ export function MobileShell({
               title={row.tip}
               aria-current={on ? "page" : undefined}
               className={cx(
-                "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-[13px] py-[7px] text-[12.5px] font-semibold transition-[background,color] duration-150",
+                "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-[background-color,color] duration-110",
                 on
                   ? "border-ink bg-ink text-panel"
                   : "border-line bg-panel text-muted",

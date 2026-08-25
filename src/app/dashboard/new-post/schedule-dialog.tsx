@@ -30,7 +30,7 @@ type Props = {
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** One row, and the padding above the first one. Both are also written in the
- *  wheel's classes (`h-11`, `py-[66px]`); they are here as numbers because the
+ *  wheel's classes (`h-11`, `py-16`); they are here as numbers because the
  *  scroll position is computed from them rather than measured. */
 const ROW_HEIGHT = 44;
 /** Rows visible at once. Five, so there are two above and two below the one
@@ -177,7 +177,7 @@ function Wheel({
             onClick={() => onSelect(option.value)}
             style={{ height: ROW_HEIGHT }}
             className={cx(
-              "block w-full snap-center px-2 text-[16px] whitespace-nowrap transition-[color,opacity] duration-100",
+              "block w-full snap-center px-2 text-[16px] whitespace-nowrap transition-[color,opacity] duration-110",
               on ? "font-semibold text-ink" : "text-muted opacity-45 hover:opacity-80",
             )}
           >
@@ -254,13 +254,13 @@ export function ScheduleDialog({
         role="dialog"
         aria-modal="true"
         aria-label="Schedule post"
-        className="mf-modal relative w-full max-w-[440px] rounded-[28px] border border-line bg-panel p-7 shadow-[0_30px_80px_rgba(0,0,0,.28)]"
+        className="mf-modal relative w-full max-w-[440px] rounded-2xl border border-line bg-panel p-7 shadow-e2"
       >
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-4 right-4 text-faint transition-[color,scale] duration-150 hover:text-ink active:scale-90"
+          className="absolute top-4 right-4 text-faint transition-[color,scale] duration-110 hover:text-ink active:scale-90"
         >
           <Icon name="close" className="h-[18px] w-[18px]" />
         </button>

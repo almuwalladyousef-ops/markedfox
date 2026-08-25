@@ -47,7 +47,7 @@ export function Sidebar({
     <>
       {/* ── the dock ─────────────────────────────────────────────────── */}
       <aside className="sticky top-0 hidden h-screen shrink-0 py-3.5 pl-3.5 shell:flex">
-        <div className="flex w-[68px] flex-col items-center gap-2 rounded-[22px] border border-dock-line bg-dock pt-4 pb-3.5">
+        <div className="flex w-[68px] flex-col items-center gap-2 rounded-2xl border border-dock-line bg-dock pt-4 pb-3.5">
           {/* The dock is icon-only, so every one of these carries its name in
               a tooltip rather than in the browser's `title` bubble: that one
               waits a second, ignores the theme, and never appears for a
@@ -67,7 +67,7 @@ export function Sidebar({
             <Link
               href="/dashboard/new-post"
               aria-label="New post"
-              className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-accent text-accent-ink shadow-[0_8px_20px_var(--accent-glow)] transition-transform duration-150 hover:scale-[1.06] active:scale-[0.94]"
+              className="flex h-11 w-11 items-center justify-center rounded-lg bg-accent text-accent-ink transition-[opacity,scale] duration-110 hover:opacity-90 active:scale-[0.94]"
             >
               <Icon name="plus" className="h-5 w-5" strokeWidth={2.2} />
             </Link>
@@ -83,7 +83,7 @@ export function Sidebar({
                     aria-label={s.label}
                     aria-current={on ? "page" : undefined}
                     className={cx(
-                      "flex h-11 w-11 items-center justify-center rounded-[15px] transition-[background,color,scale] duration-150 active:scale-[0.92]",
+                      "flex h-11 w-11 items-center justify-center rounded-lg transition-[background-color,color,scale] duration-110 active:scale-[0.92]",
                       on
                         ? "bg-accent text-accent-ink"
                         : "text-dock-idle hover:text-dock-hover",
@@ -102,7 +102,7 @@ export function Sidebar({
               aria-label="Settings"
               aria-current={onSettings ? "page" : undefined}
               className={cx(
-                "flex h-11 w-11 items-center justify-center rounded-[15px] transition-[background,color,scale] duration-150 active:scale-[0.92]",
+                "flex h-11 w-11 items-center justify-center rounded-lg transition-[background-color,color,scale] duration-110 active:scale-[0.92]",
                 onSettings
                   ? "bg-accent text-accent-ink"
                   : "text-dock-idle hover:text-dock-hover",
@@ -116,7 +116,7 @@ export function Sidebar({
 
       {/* ── the contextual rail ──────────────────────────────────────── */}
       <aside className="sticky top-0 hidden h-screen w-[236px] shrink-0 py-3.5 pl-3 shell:flex">
-        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto rounded-[22px] border border-line bg-panel/75 px-3 pt-[18px] pb-3.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto rounded-2xl border border-line bg-panel px-3 pt-4 pb-3.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="mb-2.5">
             <WorkspaceSwitcher
               workspaces={workspaces}
@@ -159,15 +159,15 @@ export function Sidebar({
           {/* The space's usage meter, real numbers from the entitlement
               snapshot. No bar on an unlimited figure — a full bar and a bar
               with no ceiling look identical and mean opposite things. */}
-          <div className="mt-3 rounded-[15px] border border-line bg-panel px-3.5 py-[13px]">
+          <div className="mt-3 border-t border-line px-1 pt-3.5">
             <p className="text-[12px] font-bold text-ink">{space.meter.title}</p>
             <p className="mt-1 mb-2 text-[11.5px]/[16px] text-faint">
               {space.meter.note}
             </p>
             {space.meter.pct === null ? null : (
-              <div className="h-[5px] overflow-hidden rounded-full bg-chip">
+              <div className="h-1 overflow-hidden rounded-sm bg-chip">
                 <div
-                  className="h-full rounded-full bg-accent"
+                  className="h-full rounded-sm bg-accent"
                   style={{ width: `${space.meter.pct}%` }}
                 />
               </div>

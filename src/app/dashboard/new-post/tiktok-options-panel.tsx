@@ -318,7 +318,7 @@ export function TikTokOptionsPanel({
               <label className="flex cursor-pointer items-start gap-2.5">
                 <input
                   type="checkbox"
-                  className="mt-[3px] h-[15px] w-[15px] accent-[var(--accent)]"
+                  className="mt-0.5 h-[15px] w-[15px] accent-[var(--accent)]"
                   checked={Boolean(options.brand_organic)}
                   onChange={(e) => set({ brand_organic: e.target.checked })}
                 />
@@ -333,7 +333,7 @@ export function TikTokOptionsPanel({
               <label className="flex cursor-pointer items-start gap-2.5">
                 <input
                   type="checkbox"
-                  className="mt-[3px] h-[15px] w-[15px] accent-[var(--accent)]"
+                  className="mt-0.5 h-[15px] w-[15px] accent-[var(--accent)]"
                   checked={Boolean(options.brand_content)}
                   onChange={(e) => set({ brand_content: e.target.checked })}
                 />

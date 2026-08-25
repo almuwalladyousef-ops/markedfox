@@ -51,7 +51,7 @@ export default async function ResearchProjectsPage() {
           {projects.map((project) => (
             <li
               key={project.id}
-              className="flex items-start gap-4 rounded-2xl border border-line bg-panel px-5 py-4 transition-[border-color] duration-150 hover:border-accent"
+              className="flex items-start gap-4 rounded-2xl border border-line bg-panel px-5 py-4 transition-[border-color] duration-110 hover:border-accent"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-3">
@@ -74,7 +74,7 @@ export default async function ResearchProjectsPage() {
                 <button
                   type="submit"
                   aria-label={`Delete ${project.name}`}
-                  className="rounded-lg p-1.5 text-faint transition-[background,color] duration-150 hover:bg-chip hover:text-danger"
+                  className="rounded-lg p-1.5 text-faint transition-[background-color,color] duration-110 hover:bg-chip hover:text-danger"
                 >
                   <Icon name="close" className="h-3.5 w-3.5" />
                 </button>

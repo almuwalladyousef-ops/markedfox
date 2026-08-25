@@ -98,7 +98,7 @@ export function Tooltip({
             // over the panel-coloured rail was a label you had to look for.
             // The ink pair inverts with the theme and is the one surface in
             // the app guaranteed to contrast with whatever is behind it.
-            "pointer-events-none absolute z-[70] rounded-lg bg-ink px-2.5 py-1.5 text-[12.5px] font-semibold whitespace-nowrap text-bg shadow-[0_6px_20px_rgba(0,0,0,.28)]",
+            "pointer-events-none absolute z-[70] rounded-lg bg-ink px-2.5 py-1.5 text-[12.5px] font-semibold whitespace-nowrap text-bg shadow-e2",
             // The origin is the trigger, not the tooltip's own centre — a
             // label that grows out of the icon it belongs to reads as
             // attached to it.

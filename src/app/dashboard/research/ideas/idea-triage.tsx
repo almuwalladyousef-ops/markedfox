@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/icons";
-import { Busy, Button, Card, CardTitle, cx, EmptyState, Eyebrow, inputClass, Kbd, MetricPills, Pill, StickyPane, TwoPane } from "@/components/ui";
+import { Busy, Button, buttonClass, Card, CardTitle, cx, EmptyState, Eyebrow, inputClass, Kbd, MetricPills, Pill, StickyPane, TwoPane } from "@/components/ui";
 import {
   createScriptDraftAction,
   setIdeaNoteAction,
@@ -132,7 +132,7 @@ export function IdeaTriage({
                 type="button"
                 onClick={() => setIndex(position)}
                 className={cx(
-                  "flex w-full gap-3 rounded-xl border p-3 text-left transition-[background,border-color] duration-150",
+                  "flex w-full gap-3 rounded-lg border p-3 text-left transition-[background-color,border-color] duration-110",
                   active
                     ? "border-accent bg-accent-soft"
                     : "border-line bg-panel hover:border-line-strong",
@@ -208,7 +208,7 @@ export function IdeaTriage({
               <button
                 ref={discardRef}
                 type="submit"
-                className="flex items-center gap-2 rounded-[10px] border border-line px-3.5 py-2 text-[13px] font-semibold text-muted transition-[border-color,color] duration-150 hover:border-danger hover:text-danger"
+                className="flex items-center gap-2 rounded-md border border-line px-3.5 py-2 text-[13px] font-semibold text-muted transition-[border-color,color] duration-110 hover:border-danger hover:text-danger"
               >
                 Discard
                 <Kbd>D</Kbd>
@@ -231,7 +231,7 @@ export function IdeaTriage({
               <button
                 ref={scriptRef}
                 type="submit"
-                className="flex items-center gap-2 rounded-[10px] bg-accent px-3.5 py-2 text-[13px] font-semibold text-accent-ink transition-[filter,scale] duration-150 hover:brightness-[1.08] active:scale-[0.97]"
+                className={buttonClass("primary", "sm")}
               >
                 Create script
                 <Kbd className="border-accent-ink/40 bg-transparent text-accent-ink">
@@ -274,7 +274,7 @@ export function IdeaTriage({
                 target="_blank"
                 rel="noreferrer noopener"
                 title="Watch the original"
-                className="group relative block w-[180px] shrink-0 overflow-hidden rounded-xl bg-chip"
+                className="group relative block w-[180px] shrink-0 overflow-hidden rounded-lg bg-chip"
               >
                 {selected.video.thumbnail_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -336,7 +336,7 @@ export function IdeaTriage({
 }
 
 const ACTION_BUTTON =
-  "flex items-center gap-2 rounded-[10px] border border-line px-3.5 py-2 text-[13px] font-semibold text-muted transition-[border-color,color] duration-150 hover:border-line-strong hover:text-ink";
+  "flex items-center gap-2 rounded-md border border-line px-3.5 py-2 text-[13px] font-semibold text-muted transition-[border-color,color] duration-110 hover:border-line-strong hover:text-ink";
 
 function AnalysisBlock({
   title,

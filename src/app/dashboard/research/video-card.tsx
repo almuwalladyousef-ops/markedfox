@@ -49,7 +49,7 @@ export function VideoCard({
   return (
     <article
       className={cx(
-        "group relative flex flex-col overflow-hidden rounded-2xl border bg-panel transition-[border-color] duration-150 hover:border-accent",
+        "group relative flex flex-col overflow-hidden rounded-2xl border bg-panel transition-[border-color] duration-110 hover:border-accent",
         tier === "validated"
           ? "border-ok"
           : tier === "outlier"
@@ -67,7 +67,7 @@ export function VideoCard({
             src={video.thumbnail_url}
             alt=""
             loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+            className="h-full w-full object-cover transition-transform duration-160 group-hover:scale-[1.02]"
           />
         ) : null}
 
@@ -90,10 +90,10 @@ export function VideoCard({
         {/* The hover sheet. Both actions are links rather than buttons so a
             middle-click opens them in a tab, which is how people actually work
             through a feed. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-2 gap-1.5 bg-gradient-to-t from-black/90 to-transparent p-2 opacity-0 transition-[opacity,translate] duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-2 gap-1.5 bg-gradient-to-t from-black/90 to-transparent p-2 opacity-0 transition-[opacity,translate] duration-160 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
           <Link
             href={href}
-            className="flex-1 rounded-[9px] bg-accent px-2.5 py-2 text-center text-[13px] font-semibold text-accent-ink"
+            className="flex-1 rounded-md bg-accent px-2.5 py-2 text-center text-[13px] font-semibold text-accent-ink"
           >
             {analyzed ? "Open analysis" : "Analyze video"}
           </Link>
@@ -103,7 +103,7 @@ export function VideoCard({
             rel="noreferrer"
             title="Play in new tab"
             aria-label="Play in new tab"
-            className="flex items-center rounded-[9px] border border-white/30 bg-black/60 px-2.5 text-white"
+            className="flex items-center rounded-md border border-white/30 bg-black/60 px-2.5 text-white"
           >
             <Icon name="external" className="h-3.5 w-3.5" />
           </a>

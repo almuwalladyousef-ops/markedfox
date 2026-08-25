@@ -181,7 +181,7 @@ export default async function ResearchVideoPage({
                 href={video.url}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="absolute inset-0 flex items-center justify-center bg-black/30 text-white/80 opacity-0 transition-[opacity] duration-150 hover:opacity-100"
+                className="absolute inset-0 flex items-center justify-center bg-black/30 text-white/80 opacity-0 transition-[opacity] duration-110 hover:opacity-100"
                 aria-label="Play on the platform"
               >
                 <Icon name="play" className="h-11 w-11" strokeWidth={1.4} />
@@ -237,7 +237,7 @@ export default async function ResearchVideoPage({
               <input type="hidden" name="video_id" value={id} />
               <button
                 type="submit"
-                className="w-full rounded-[10px] border border-line-strong bg-panel px-3 py-2 text-[14px] text-ink transition-colors hover:border-accent hover:text-accent"
+                className="w-full rounded-md border border-line-strong bg-panel px-3 py-2 text-[14px] text-ink transition-colors hover:border-accent hover:text-accent"
               >
                 Fetch transcript
                 <span className="ml-2 text-[13px] text-faint">Free</span>
@@ -291,7 +291,7 @@ export default async function ResearchVideoPage({
                 {forThisVideo.map((script) => (
                   <li
                     key={script.id}
-                    className="rounded-xl border border-line bg-panel p-4"
+                    className="rounded-lg border border-line bg-panel p-4"
                   >
                     <p className="flex items-center gap-2 text-[13px] text-faint">
                       <Pill>{script.kind}</Pill>

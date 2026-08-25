@@ -30,17 +30,19 @@
   --danger-soft: rgba(220, 38, 38, 0.09);
   --sky: #0284c7;
   --sky-soft: rgba(2, 132, 199, 0.11);
-  --shadow: 0 16px 40px rgba(18, 18, 28, 0.10);
+  /* Two elevations and nothing else. A minimal surface earns its separation
+     from a hairline, not from a shadow: `e1` is the sliver under something
+     that sits one layer up in place (a segmented thumb, a toggle knob), and
+     `e2` is the only real shadow in the app, under something that floats free
+     of the page (a popover, a dialog, a sheet). A card gets neither. */
+  --elev1: 0 1px 2px rgba(18, 18, 28, 0.07);
+  --elev2: 0 8px 24px rgba(18, 18, 28, 0.10);
   /* The dock is ink-dark in both themes, so its colours are its own tokens
      rather than reuses of --text (which flips to near-white in dark). */
   --dock: #1b1b20;
   --dock-line: #1b1b20;
   --dock-idle: #9a9aa6;
   --dock-hover: #ffffff;
-  /* The page-level wash behind everything: a faint pool of accent. */
-  --wash: rgba(234, 88, 12, 0.05);
-  /* The glow under the one accent button, in the dock and on the mobile FAB. */
-  --accent-glow: rgba(234, 88, 12, 0.35);
   /* The hairline every platform mark carries. It has to flip with the theme:
      YouTube's white ground disappears into a light card, and the three black
      marks (X, Threads, TikTok) disappear into a dark one. A contrast-side
@@ -71,13 +73,12 @@
   --danger-soft: rgba(239, 68, 68, 0.12);
   --sky: #38bdf8;
   --sky-soft: rgba(56, 189, 248, 0.13);
-  --shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  --elev1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --elev2: 0 8px 24px rgba(0, 0, 0, 0.45);
   --dock: #17171b;
   --dock-line: #2a2a31;
   --dock-idle: #8d8d99;
   --dock-hover: #f2f2f5;
-  --wash: rgba(251, 109, 36, 0.05);
-  --accent-glow: rgba(251, 109, 36, 0.32);
   --platform-edge: rgba(255, 255, 255, 0.17);
 }
 
@@ -110,7 +111,31 @@
 
   --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
-  --shadow-panel: var(--shadow);
+
+  /* ── corners ──────────────────────────────────────────────────────────────
+
+     Four steps and `full`, and every name Tailwind ships is mapped onto one of
+     them so a stray `rounded-3xl` cannot quietly invent a 24px corner. Before
+     this the app carried twenty-three different radii and three of them
+     (`rounded-lg`, `rounded-xl`, `rounded-2xl`) were doing the same job — a
+     bordered container — at three different values on adjacent screens.
+
+     The rule for picking one, and it is a rule rather than a preference: the
+     radius follows the height of the thing. Controls under 32px take `md`,
+     controls and tiles above it take `lg`, a surface that holds other surfaces
+     takes `xl`, hairline-thin bars take `sm`, and anything circular is
+     `full`. */
+  --radius-xs: 6px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --radius-3xl: 18px;
+  --radius-4xl: 18px;
+
+  --shadow-e1: var(--elev1);
+  --shadow-e2: var(--elev2);
 
   /* Two layout breakpoints of our own: `shell` is where the sidebar becomes
      the bottom tab bar, `wide` is where the two-column research and builder
@@ -120,9 +145,10 @@
 }
 
 body {
-  background:
-    radial-gradient(1200px 600px at 80% -10%, var(--wash), transparent 60%),
-    var(--bg);
+  /* Flat. The radial pool of accent that used to sit behind everything read as
+     a gradient nobody asked for on every single screen, and it was the reason
+     a white card never quite looked white. */
+  background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -160,6 +186,20 @@ input[type="time"] {
   --mf-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --mf-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --mf-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Three durations, and which one a thing gets is decided by what the user is
+     waiting on rather than by how big the movement is.
+
+     `fast` is every answer to a pointer — hover, press, focus, a colour
+     changing. At 110ms it lands inside the window where the interface still
+     reads as instant, and the previous 150ms across all 84 of these was the
+     single largest reason the app felt a beat behind the cursor.
+
+     `base` is something moving to a new place while the user watches it.
+     `slow` is only for a surface arriving from off-screen. */
+  --mf-fast: 110ms;
+  --mf-base: 160ms;
+  --mf-slow: 240ms;
 }
 
 @theme inline {
@@ -170,6 +210,7 @@ input[type="time"] {
   --ease-in-out: var(--mf-ease-in-out);
   --ease-drawer: var(--mf-ease-drawer);
   --default-transition-timing-function: var(--mf-ease-out);
+  --default-transition-duration: var(--mf-fast);
 }
 
 /* ── entrances ──────────────────────────────────────────────────────────────
@@ -185,7 +226,7 @@ input[type="time"] {
 
 /* The dim behind a dialog. */
 .mf-overlay {
-  transition: opacity 180ms var(--mf-ease-out);
+  transition: opacity var(--mf-fast) var(--mf-ease-out);
   opacity: 1;
 }
 @starting-style {
@@ -199,8 +240,8 @@ input[type="time"] {
    `scale(0)`: nothing in the world appears out of nothing. */
 .mf-modal {
   transition:
-    transform 200ms var(--mf-ease-out),
-    opacity 200ms var(--mf-ease-out);
+    transform var(--mf-base) var(--mf-ease-out),
+    opacity var(--mf-base) var(--mf-ease-out);
   transform: scale(1);
   opacity: 1;
 }
@@ -216,8 +257,8 @@ input[type="time"] {
    two sizes: a sheet rises by its own height, a dialog scales in place. */
 .mf-sheet {
   transition:
-    transform 300ms var(--mf-ease-drawer),
-    opacity 200ms var(--mf-ease-out);
+    transform var(--mf-slow) var(--mf-ease-drawer),
+    opacity var(--mf-base) var(--mf-ease-out);
   transform: translateY(0);
   opacity: 1;
 }
@@ -230,8 +271,8 @@ input[type="time"] {
 @media (min-width: 880px) {
   .mf-sheet {
     transition:
-      transform 200ms var(--mf-ease-out),
-      opacity 200ms var(--mf-ease-out);
+      transform var(--mf-base) var(--mf-ease-out),
+      opacity var(--mf-base) var(--mf-ease-out);
     transform: scale(1);
   }
   @starting-style {
@@ -248,8 +289,8 @@ input[type="time"] {
 .mf-popover {
   transform-origin: var(--mf-popover-origin, top center);
   transition:
-    transform 170ms var(--mf-ease-out),
-    opacity 170ms var(--mf-ease-out);
+    transform var(--mf-fast) var(--mf-ease-out),
+    opacity var(--mf-fast) var(--mf-ease-out);
   transform: scale(1);
   opacity: 1;
 }
@@ -269,7 +310,7 @@ input[type="time"] {
    `animation-duration:` and no animation at all. */
 .mf-enter {
   animation-name: mf-enter;
-  animation-duration: 260ms;
+  animation-duration: var(--mf-base);
   animation-timing-function: var(--mf-ease-out);
   animation-fill-mode: both;
   animation-delay: var(--mf-stagger, 0ms);
@@ -278,7 +319,7 @@ input[type="time"] {
 @keyframes mf-enter {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(5px);
   }
 }
 
@@ -309,7 +350,7 @@ input[type="time"] {
     animation-delay: 0ms !important;
     transition-property: opacity, color, background-color, border-color,
       box-shadow, fill, stroke !important;
-    transition-duration: 150ms !important;
+    transition-duration: var(--mf-fast) !important;
     scroll-behavior: auto !important;
   }
 
@@ -327,7 +368,7 @@ input[type="time"] {
    declaration. */
 .mf-tooltip-in {
   animation-name: mf-tooltip;
-  animation-duration: 125ms;
+  animation-duration: var(--mf-fast);
   animation-timing-function: var(--mf-ease-out);
   animation-fill-mode: both;
 }

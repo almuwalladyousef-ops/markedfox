@@ -189,7 +189,7 @@ export default async function ResearchPage({
                 id="feed-sort"
                 name="sort"
                 defaultValue={parsed.form.sort}
-                className="rounded-[9px] border border-line bg-panel px-3 py-[7px] text-[13px] font-semibold text-ink outline-none focus:border-accent"
+                className="rounded-md border border-line bg-panel px-3 py-1.5 text-[13px] font-semibold text-ink outline-none focus:border-accent"
               >
                 {(Object.keys(SORT_LABELS) as FeedSort[]).map((key) => (
                   <option key={key} value={key}>
@@ -272,7 +272,7 @@ export default async function ResearchPage({
                     required
                     maxLength={60}
                     placeholder="Save this filter as…"
-                    className="w-full rounded-[10px] border border-line bg-chip px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
+                    className="w-full rounded-md border border-line bg-chip px-3 py-2 text-[13px] text-ink outline-none focus:border-accent"
                   />
                   <Button type="submit" size="xs">
                     Save
