@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ComponentProps, ReactNode } from "react";
+import type { CSSProperties, ComponentProps, ReactNode } from "react";
 
 // The shared vocabulary. Before this file the dashboard had two visual
 // dialects — the publisher's `rounded-lg border-neutral-900` one and the
@@ -260,8 +260,13 @@ export function StickyPane({
 
 // ── buttons ────────────────────────────────────────────────────────────────
 
+// `active:scale-[0.97]` is the reason `transform` is in the transition list.
+// It is the app's single most-repeated piece of feedback: a button that does
+// not move under the press leaves the user unsure the press landed, and the
+// doubt costs more than the 150ms. A disabled button is pinned back to 1 —
+// two variants beat one on specificity, so the order here is not luck.
 const BUTTON_BASE =
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap transition-[background,color,border-color,filter] duration-150 disabled:cursor-not-allowed disabled:opacity-45";
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap transition-[background,color,border-color,filter,scale] duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100";
 
 const BUTTON_TONE = {
   primary: "bg-accent text-accent-ink font-semibold hover:brightness-[1.08]",
@@ -321,18 +326,95 @@ export function ButtonLink({
  *  square that still clears a comfortable pointer target on a dense row, and
  *  the mobile layouts pad around it to reach 44px. */
 export const iconButtonClass =
-  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[11px] border border-line bg-panel text-muted transition-[background,color,border-color] duration-150 hover:bg-chip hover:text-ink disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[11px] border border-line bg-panel text-muted transition-[background,color,border-color,scale] duration-150 hover:bg-chip hover:text-ink active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100";
 
 /** A link or button that reads as text rather than as a control: the "Delete",
  *  "Hide this", "+ Add a follow-up" affordances. */
+// Named properties rather than a bare `transition`: the shorthand utility
+// animates a dozen of them, including `transform` and `box-shadow`, which
+// nothing here changes and every one of which the browser then watches.
 export const textButtonClass =
-  "text-[13px] font-semibold text-accent transition hover:brightness-[1.08] disabled:opacity-45";
+  "text-[13px] font-semibold text-accent transition-[color,filter] duration-150 hover:brightness-[1.08] active:brightness-90 disabled:opacity-45";
 
 export const quietButtonClass =
-  "text-[13px] text-faint transition hover:text-ink disabled:opacity-45";
+  "text-[13px] text-faint transition-colors duration-150 hover:text-ink active:text-muted disabled:opacity-45";
 
 export const destructiveButtonClass =
-  "text-[13px] text-faint transition hover:text-danger disabled:opacity-45";
+  "text-[13px] text-faint transition-colors duration-150 hover:text-danger active:brightness-90 disabled:opacity-45";
+
+// ── waiting ────────────────────────────────────────────────────────────────
+
+/**
+ * The one spinner.
+ *
+ * Before this, every asynchronous control in the app swapped its label —
+ * "Save" became "Saving…" — and nothing else on screen moved. That reads as a
+ * typo rather than as work in progress, and it silently resizes the button
+ * underneath the pointer. A turning ring costs 14px and answers the only
+ * question the user has.
+ *
+ * It spins fast (700ms) deliberately: a spinner cannot make a request finish
+ * sooner, and the speed of the spin is the only thing about it that changes
+ * how long the wait feels.
+ */
+export function Spinner({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      aria-hidden
+      className={cx("mf-spin h-[14px] w-[14px] shrink-0", className)}
+    >
+      <circle
+        cx="8"
+        cy="8"
+        r="6.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        opacity="0.25"
+      />
+      <path
+        d="M8 1.5A6.5 6.5 0 0 1 14.5 8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * A button label that is waiting on something. The spinner replaces nothing —
+ * it is added beside the word — so the control does not jump width between
+ * its two states any more than the words themselves do.
+ */
+export function Busy({
+  busy,
+  children,
+}: {
+  busy: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      {busy ? <Spinner /> : null}
+      {children}
+    </>
+  );
+}
+
+/**
+ * The per-item delay for a first-paint stagger, as an inline style.
+ *
+ * Deliberately capped: past the eighth item the delay is zero, so a long grid
+ * finishes arriving at the same moment a short one does. A stagger is
+ * decoration, and a decoration that makes the tenth row wait half a second is
+ * just a slow page.
+ */
+export function staggerStyle(index: number, step = 40, cap = 8) {
+  return { "--mf-stagger": `${Math.min(index, cap) * step}ms` } as CSSProperties;
+}
 
 // ── segmented control ──────────────────────────────────────────────────────
 
@@ -343,6 +425,9 @@ export const segmentedTrack =
 
 export function segmentedItem(selected: boolean, className?: string): string {
   return cx(
+    // No press scale here on purpose. This is the calendar's Month/Week/Day
+    // and the feed's filters — pressed tens of times a session, and at that
+    // frequency motion reads as lag rather than as feedback.
     "rounded-[9px] px-[18px] py-2 text-[13.5px] font-semibold transition-[background,color,box-shadow] duration-150",
     selected
       ? "bg-panel text-ink shadow-[0_1px_2px_rgba(24,24,27,.06)]"
@@ -355,7 +440,7 @@ export function segmentedItem(selected: boolean, className?: string): string {
  *  feed's minimum-multiple, the composer's account chips. */
 export function chipToggle(selected: boolean, className?: string): string {
   return cx(
-    "inline-flex items-center gap-2 rounded-full border-[1.5px] px-[15px] py-[7px] text-[13px] font-semibold transition-[background,color,border-color] duration-150",
+    "inline-flex items-center gap-2 rounded-full border-[1.5px] px-[15px] py-[7px] text-[13px] font-semibold transition-[background,color,border-color,scale] duration-150 active:scale-[0.96]",
     selected
       ? "border-accent bg-accent-soft text-ink"
       : "border-line bg-panel text-muted hover:border-line-strong hover:text-ink",
@@ -402,7 +487,7 @@ export function Toggle({
       onClick={onClick}
       disabled={disabled}
       className={cx(
-        "relative h-[26px] w-[46px] shrink-0 rounded-full transition-[background-color] duration-[180ms] disabled:cursor-not-allowed disabled:opacity-45",
+        "relative h-[26px] w-[46px] shrink-0 rounded-full transition-[background-color] duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-45",
         on ? "bg-accent" : "bg-line hover:bg-line-strong",
         className,
       )}
@@ -410,7 +495,7 @@ export function Toggle({
       <span
         aria-hidden
         className={cx(
-          "absolute top-[3px] left-0 h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.22)] transition-transform duration-[180ms]",
+          "absolute top-[3px] left-0 h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.22)] transition-transform duration-150 ease-out",
           on ? "translate-x-[23px]" : "translate-x-[3px]",
         )}
       />
@@ -438,7 +523,7 @@ export function ToggleForm({
       type="submit"
       aria-label={label}
       className={cx(
-        "relative h-[26px] w-[46px] shrink-0 rounded-full transition-[background-color] duration-[180ms]",
+        "relative h-[26px] w-[46px] shrink-0 rounded-full transition-[background-color] duration-150 ease-out",
         on ? "bg-accent" : "bg-line hover:bg-line-strong",
         className,
       )}
@@ -446,7 +531,7 @@ export function ToggleForm({
       <span
         aria-hidden
         className={cx(
-          "absolute top-[3px] left-0 h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.22)] transition-transform duration-[180ms]",
+          "absolute top-[3px] left-0 h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,.22)] transition-transform duration-150 ease-out",
           on ? "translate-x-[23px]" : "translate-x-[3px]",
         )}
       />

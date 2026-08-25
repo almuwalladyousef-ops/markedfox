@@ -50,7 +50,7 @@ export default async function NewRulePage({
       <Page>
         <Link
           href="/dashboard/automations"
-          className="text-[13px] font-semibold text-faint transition hover:text-ink"
+          className="text-[13px] font-semibold text-faint transition-colors hover:text-ink"
         >
           ← Automations
         </Link>
@@ -68,7 +68,7 @@ export default async function NewRulePage({
     <Page width="max-w-[1080px]">
       <Link
         href="/dashboard/automations/new"
-        className="text-[13px] font-semibold text-faint transition hover:text-ink"
+        className="text-[13px] font-semibold text-faint transition-colors hover:text-ink"
       >
         ← Starting points
       </Link>

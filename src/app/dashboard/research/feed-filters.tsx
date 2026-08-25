@@ -62,7 +62,7 @@ export function FeedFilters({
           // once a filter is already applied.
           <Link
             href="/dashboard/research"
-            className="text-[13px] font-semibold text-faint transition hover:text-ink"
+            className="text-[13px] font-semibold text-faint transition-colors hover:text-ink"
           >
             Clear
           </Link>

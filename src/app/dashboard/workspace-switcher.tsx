@@ -1,9 +1,15 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import {
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 
 import { Icon, PlanDiamond } from "@/components/icons";
-import { cx } from "@/components/ui";
+import { Busy, cx } from "@/components/ui";
 import {
   createWorkspaceAction,
   switchWorkspaceAction,
@@ -73,6 +79,32 @@ export function WorkspaceSwitcher({
 }) {
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+
+  // Pressing anywhere else closes it, and so does Escape. Neither existed
+  // before, which left re-pressing the trigger as the only way out of a menu
+  // the user had already decided against — and the trigger is exactly where
+  // the pointer is not, once they have looked away.
+  //
+  // `pointerdown` rather than `click`: the menu should be gone by the time the
+  // press it was dismissed by has finished, not a beat afterwards. The
+  // listener is only attached while the menu is open, so a closed switcher
+  // costs nothing.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
   const [state, formAction, pending] = useActionState(
     createWorkspaceAction,
     INITIAL,
@@ -82,7 +114,7 @@ export function WorkspaceSwitcher({
   const name = active?.name ?? "Workspace";
 
   return (
-    <div className="relative">
+    <div ref={root} className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -101,13 +133,32 @@ export function WorkspaceSwitcher({
             <span className="truncate text-[13px] font-bold">{name}</span>
           )}
         </span>
-        <Icon name="chevronDown" className="h-[13px] w-[13px] text-faint" />
+        <Icon
+          name="chevronDown"
+          className={cx(
+            "h-[13px] w-[13px] text-faint transition-transform duration-150",
+            open ? "rotate-180" : null,
+          )}
+        />
       </button>
 
       {open ? (
         <div
+          // The menu grows out of the control it belongs to. A popover that
+          // scales from its own centre looks like it arrived from somewhere
+          // else, and `transform-origin: center` is the default, so this is a
+          // thing you have to say rather than a thing you get.
+          style={
+            {
+              // The compact trigger is a small tile at the right end of the
+              // mobile bar and the menu hangs off it; the full one spans the
+              // rail and the menu sits directly under it.
+              "--mf-popover-origin":
+                variant === "compact" ? "top right" : "top center",
+            } as CSSProperties
+          }
           className={cx(
-            "absolute z-40 mt-2 rounded-[14px] border border-line bg-panel p-1.5 shadow-[0_16px_40px_rgba(24,24,27,.12)]",
+            "mf-popover absolute z-40 mt-2 rounded-[14px] border border-line bg-panel p-1.5 shadow-[0_16px_40px_rgba(24,24,27,.12)]",
             variant === "compact" ? "right-0 w-56" : "right-0 left-0",
           )}
         >
@@ -173,9 +224,9 @@ export function WorkspaceSwitcher({
                   <button
                     type="submit"
                     disabled={pending}
-                    className="rounded-[9px] bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-accent-ink disabled:opacity-45"
+                    className="inline-flex items-center gap-1.5 rounded-[9px] bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-accent-ink transition-[filter,scale] duration-150 hover:brightness-[1.08] active:scale-[0.97] disabled:opacity-45 disabled:active:scale-100"
                   >
-                    {pending ? "Creating…" : "Create"}
+                    <Busy busy={pending}>{pending ? "Creating…" : "Create"}</Busy>
                   </button>
                   <button
                     type="button"

@@ -52,7 +52,7 @@ export function OnboardingPanel({
                 {question.options.map((option) => (
                   <label
                     key={option.value}
-                    className="cursor-pointer rounded-full border border-line px-3.5 py-2 text-[13px] text-muted transition hover:border-line-strong has-checked:border-accent has-checked:bg-accent-soft has-checked:text-accent"
+                    className="cursor-pointer rounded-full border border-line px-3.5 py-2 text-[13px] text-muted transition-colors hover:border-line-strong has-checked:border-accent has-checked:bg-accent-soft has-checked:text-accent"
                   >
                     <input
                       type="radio"
@@ -75,7 +75,7 @@ export function OnboardingPanel({
               type="submit"
               name="skipped"
               value="1"
-              className="text-[13px] text-faint transition hover:text-ink"
+              className="text-[13px] text-faint transition-colors hover:text-ink"
             >
               Skip
             </button>
@@ -97,7 +97,7 @@ export function OnboardingPanel({
         <form action={dismissOnboardingAction}>
           <button
             type="submit"
-            className="text-[11.5px] text-faint transition hover:text-ink"
+            className="text-[11.5px] text-faint transition-colors hover:text-ink"
           >
             Hide this
           </button>

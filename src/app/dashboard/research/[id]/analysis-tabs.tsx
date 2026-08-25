@@ -81,7 +81,7 @@ export function AnalysisTabs({
                     setCopied(true);
                     setTimeout(() => setCopied(false), 1500);
                   }}
-                  className="text-[13px] text-faint transition hover:text-ink"
+                  className="text-[13px] text-faint transition-colors hover:text-ink"
                 >
                   {copied ? "Copied" : "Copy"}
                 </button>

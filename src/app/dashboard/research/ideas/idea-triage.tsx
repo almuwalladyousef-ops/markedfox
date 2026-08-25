@@ -4,20 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/icons";
-import {
-  Button,
-  Card,
-  CardTitle,
-  EmptyState,
-  Eyebrow,
-  Kbd,
-  MetricPills,
-  Pill,
-  StickyPane,
-  TwoPane,
-  cx,
-  inputClass,
-} from "@/components/ui";
+import { Busy, Button, Card, CardTitle, cx, EmptyState, Eyebrow, inputClass, Kbd, MetricPills, Pill, StickyPane, TwoPane } from "@/components/ui";
 import {
   createScriptDraftAction,
   setIdeaNoteAction,
@@ -244,7 +231,7 @@ export function IdeaTriage({
               <button
                 ref={scriptRef}
                 type="submit"
-                className="flex items-center gap-2 rounded-[10px] bg-accent px-3.5 py-2 text-[13px] font-semibold text-accent-ink transition-[filter] duration-150 hover:brightness-[1.08]"
+                className="flex items-center gap-2 rounded-[10px] bg-accent px-3.5 py-2 text-[13px] font-semibold text-accent-ink transition-[filter,scale] duration-150 hover:brightness-[1.08] active:scale-[0.97]"
               >
                 Create script
                 <Kbd className="border-accent-ink/40 bg-transparent text-accent-ink">
@@ -397,7 +384,9 @@ function NoteCard({ ideaId, note }: { ideaId: string; note: string | null }) {
         />
         <div className="flex items-center gap-3">
           <Button type="submit" size="sm" disabled={pending}>
-            {pending ? "Saving…" : "Save note"}
+            <Busy busy={pending}>
+              {pending ? "Saving…" : "Save note"}
+            </Busy>
           </Button>
           {state.message ? (
             <span

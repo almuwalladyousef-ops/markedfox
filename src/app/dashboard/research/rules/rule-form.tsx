@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 
 import { Icon } from "@/components/icons";
-import { Button, Card, Field, Notice, Toggle, inputClass } from "@/components/ui";
+import { Busy, Button, Card, Field, inputClass, Notice, Toggle } from "@/components/ui";
 import {
   saveAutomationAction,
   type StudioFormState,
@@ -129,7 +129,9 @@ export function RuleForm({
 
         <div className="flex gap-2">
           <Button type="submit" tone="primary" size="sm" disabled={pending}>
-            {pending ? "Saving…" : rule ? "Save changes" : "Add rule"}
+            <Busy busy={pending}>
+              {pending ? "Saving…" : rule ? "Save changes" : "Add rule"}
+            </Busy>
           </Button>
           {onDone ? (
             <Button type="button" size="sm" onClick={onDone}>

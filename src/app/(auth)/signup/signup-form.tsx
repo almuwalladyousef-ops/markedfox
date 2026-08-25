@@ -26,7 +26,7 @@ export function SignupForm({ plan }: { plan?: IntendedPlan }) {
         <FormMessage state={state} />
         <Link
           href="/login"
-          className="text-[13px] text-accent hover:brightness-[1.08]"
+          className="text-[13px] text-accent transition-[filter,scale] duration-150 hover:brightness-[1.08] active:scale-[0.97]"
         >
           Back to sign in
         </Link>
@@ -78,7 +78,7 @@ export function SignupForm({ plan }: { plan?: IntendedPlan }) {
 
       <p className="pt-1 text-[13px] text-muted">
         Already have an account?{" "}
-        <Link href="/login" className="text-accent hover:brightness-[1.08]">
+        <Link href="/login" className="text-accent transition-[filter,scale] duration-150 hover:brightness-[1.08] active:scale-[0.97]">
           Sign in
         </Link>
       </p>

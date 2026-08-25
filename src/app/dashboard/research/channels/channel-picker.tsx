@@ -4,17 +4,7 @@ import { useActionState, useState } from "react";
 
 import { Icon } from "@/components/icons";
 import { PlatformTile } from "@/components/platform-icon";
-import {
-  Button,
-  Eyebrow,
-  Kbd,
-  Notice,
-  Pill,
-  cx,
-  formatCount,
-  segmentedItem,
-  segmentedTrack,
-} from "@/components/ui";
+import { Busy, Button, cx, Eyebrow, formatCount, Kbd, Notice, Pill, segmentedItem, segmentedTrack } from "@/components/ui";
 import { SIZE_TIERS, type ChannelCandidate } from "@/lib/research/discover";
 import {
   addChannelsAction,
@@ -366,7 +356,9 @@ export function ChannelPicker({
             disabled={adding}
             className="ml-auto"
           >
-            {adding ? "Saving…" : "Save to watchlist"}
+            <Busy busy={adding}>
+              {adding ? "Saving…" : "Save to watchlist"}
+            </Busy>
           </Button>
         </form>
       ) : null}

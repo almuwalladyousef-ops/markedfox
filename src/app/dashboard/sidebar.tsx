@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Icon } from "@/components/icons";
+import { Tooltip } from "@/components/tooltip";
 import { FoxMark, cx } from "@/components/ui";
 import { activeRowHref, activeSpace, type ShellSpaceId } from "@/lib/shell";
 import type { Workspace } from "@/lib/workspaces/store";
@@ -47,62 +48,69 @@ export function Sidebar({
       {/* ── the dock ─────────────────────────────────────────────────── */}
       <aside className="sticky top-0 hidden h-screen shrink-0 py-3.5 pl-3.5 shell:flex">
         <div className="flex w-[68px] flex-col items-center gap-2 rounded-[22px] border border-dock-line bg-dock pt-4 pb-3.5">
-          <Link
-            href="/dashboard"
-            title="MarkedFox — home"
-            aria-label="MarkedFox home"
-            className="mb-1.5 flex w-11 justify-center"
-          >
-            <FoxMark className="w-11" />
-          </Link>
+          {/* The dock is icon-only, so every one of these carries its name in
+              a tooltip rather than in the browser's `title` bubble: that one
+              waits a second, ignores the theme, and never appears for a
+              keyboard. On primary navigation it is not good enough. */}
+          <Tooltip label="Home" className="mb-1.5 w-11 justify-center">
+            <Link
+              href="/dashboard"
+              aria-label="MarkedFox home"
+              className="flex w-11 justify-center"
+            >
+              <FoxMark className="w-11" />
+            </Link>
+          </Tooltip>
 
           {/* The app's one accent button. */}
-          <Link
-            href="/dashboard/new-post"
-            title="New post — the composer"
-            aria-label="New post"
-            className="mb-1.5 flex h-11 w-11 items-center justify-center rounded-[16px] bg-accent text-accent-ink shadow-[0_8px_20px_var(--accent-glow)] transition-transform duration-150 hover:scale-[1.06]"
-          >
-            <Icon name="plus" className="h-5 w-5" strokeWidth={2.2} />
-          </Link>
+          <Tooltip label="New post" className="mb-1.5">
+            <Link
+              href="/dashboard/new-post"
+              aria-label="New post"
+              className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-accent text-accent-ink shadow-[0_8px_20px_var(--accent-glow)] transition-transform duration-150 hover:scale-[1.06] active:scale-[0.94]"
+            >
+              <Icon name="plus" className="h-5 w-5" strokeWidth={2.2} />
+            </Link>
+          </Tooltip>
 
           <div className="flex flex-1 flex-col gap-1.5">
             {spaces.map((s) => {
               const on = !onSettings && s.id === spaceId;
               return (
-                <Link
-                  key={s.id}
-                  href={s.firstHref}
-                  title={s.tip}
-                  aria-label={s.label}
-                  aria-current={on ? "page" : undefined}
-                  className={cx(
-                    "flex h-11 w-11 items-center justify-center rounded-[15px] transition-[background,color] duration-150",
-                    on
-                      ? "bg-accent text-accent-ink"
-                      : "text-dock-idle hover:text-dock-hover",
-                  )}
-                >
-                  <Icon name={s.icon} className="h-[21px] w-[21px]" />
-                </Link>
+                <Tooltip key={s.id} label={s.tip ?? s.label}>
+                  <Link
+                    href={s.firstHref}
+                    aria-label={s.label}
+                    aria-current={on ? "page" : undefined}
+                    className={cx(
+                      "flex h-11 w-11 items-center justify-center rounded-[15px] transition-[background,color,scale] duration-150 active:scale-[0.92]",
+                      on
+                        ? "bg-accent text-accent-ink"
+                        : "text-dock-idle hover:text-dock-hover",
+                    )}
+                  >
+                    <Icon name={s.icon} className="h-[21px] w-[21px]" />
+                  </Link>
+                </Tooltip>
               );
             })}
           </div>
 
-          <Link
-            href="/dashboard/settings"
-            title="Settings — account, billing and connected accounts"
-            aria-label="Settings"
-            aria-current={onSettings ? "page" : undefined}
-            className={cx(
-              "flex h-11 w-11 items-center justify-center rounded-[15px] transition-[background,color] duration-150",
-              onSettings
-                ? "bg-accent text-accent-ink"
-                : "text-dock-idle hover:text-dock-hover",
-            )}
-          >
-            <Icon name="settings" className="h-[21px] w-[21px]" />
-          </Link>
+          <Tooltip label="Settings — account, billing and connected accounts">
+            <Link
+              href="/dashboard/settings"
+              aria-label="Settings"
+              aria-current={onSettings ? "page" : undefined}
+              className={cx(
+                "flex h-11 w-11 items-center justify-center rounded-[15px] transition-[background,color,scale] duration-150 active:scale-[0.92]",
+                onSettings
+                  ? "bg-accent text-accent-ink"
+                  : "text-dock-idle hover:text-dock-hover",
+              )}
+            >
+              <Icon name="settings" className="h-[21px] w-[21px]" />
+            </Link>
+          </Tooltip>
         </div>
       </aside>
 

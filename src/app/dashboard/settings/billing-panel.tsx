@@ -5,11 +5,12 @@ import { useActionState, useState } from "react";
 import { Icon } from "@/components/icons";
 import { PlatformTile } from "@/components/platform-icon";
 import {
+  Busy,
   Button,
   Card,
+  cx,
   Notice,
   Pill,
-  cx,
   segmentedItem,
   segmentedTrack,
 } from "@/components/ui";
@@ -80,7 +81,9 @@ export function BillingPanel({
           </p>
           <form action={portalAction}>
             <Button type="submit" size="sm" disabled={portalPending}>
-              {portalPending ? "Opening…" : "Manage billing on Stripe"}
+              <Busy busy={portalPending}>
+                {portalPending ? "Opening…" : "Manage billing on Stripe"}
+              </Busy>
               <Icon name="external" className="h-3.5 w-3.5" />
             </Button>
           </form>
@@ -171,7 +174,9 @@ export function BillingPanel({
                         className="w-full"
                         disabled={checkoutPending}
                       >
-                        {checkoutPending ? "Opening…" : `Switch to ${plan.name}`}
+                        <Busy busy={checkoutPending}>
+                          {checkoutPending ? "Opening…" : `Switch to ${plan.name}`}
+                        </Busy>
                       </Button>
                     </form>
                   ) : (

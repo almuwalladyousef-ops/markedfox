@@ -4,20 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { Icon } from "@/components/icons";
-import {
-  Button,
-  Card,
-  Eyebrow,
-  Notice,
-  StickyPane,
-  TwoPane,
-  chipToggle,
-  cx,
-  destructiveButtonClass,
-  segmentedItem,
-  segmentedTrack,
-  textButtonClass,
-} from "@/components/ui";
+import { Busy, Button, Card, chipToggle, cx, destructiveButtonClass, Eyebrow, Notice, segmentedItem, segmentedTrack, StickyPane, textButtonClass, TwoPane } from "@/components/ui";
 import { saveRuleAction, type RuleFormState } from "@/lib/dm/actions";
 import type { BuilderAccount } from "@/lib/dm/builder-accounts";
 import type { RuleTemplate } from "@/lib/dm/templates";
@@ -928,11 +915,13 @@ export function RuleBuilder({ accounts, rule, template }: Props) {
 
         <div className="flex items-center gap-4">
           <Button type="submit" tone="primary" disabled={pending}>
-            {pending ? "Saving…" : rule ? "Save changes" : "Turn it on"}
+            <Busy busy={pending}>
+              {pending ? "Saving…" : rule ? "Save changes" : "Turn it on"}
+            </Busy>
           </Button>
           <Link
             href="/dashboard/automations"
-            className="text-[14px] text-muted transition hover:text-ink"
+            className="text-[14px] text-muted transition-colors hover:text-ink"
           >
             Cancel
           </Link>

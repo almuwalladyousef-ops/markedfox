@@ -140,7 +140,7 @@ export default async function DraftsPage({
                       alt=""
                       loading="lazy"
                       className={cx(
-                        "w-full object-cover transition duration-300 group-hover:brightness-[1.06]",
+                        "w-full object-cover transition-[filter] duration-300 group-hover:brightness-[1.06]",
                         cover.type === "video" ? "aspect-[9/16]" : "aspect-[4/5]",
                       )}
                     />
@@ -236,7 +236,7 @@ export default async function DraftsPage({
                     should ever mean. */}
                 <form
                   action={deleteDraftAction}
-                  className="absolute top-2 left-2 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100"
+                  className="absolute top-2 left-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
                 >
                   <input type="hidden" name="post_id" value={draft.id} />
                   <button

@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 
-import { Button, Notice, cx, inputClass } from "@/components/ui";
+import { Busy, Button, cx, inputClass, Notice } from "@/components/ui";
 import {
   changePasswordAction,
   updateAvatarAction,
@@ -51,7 +51,9 @@ export function PasswordForm() {
         />
       </label>
       <Button type="submit" tone="primary" size="sm" className="w-fit" disabled={pending}>
-        {pending ? "Saving…" : "Change password"}
+        <Busy busy={pending}>
+          {pending ? "Saving…" : "Change password"}
+        </Busy>
       </Button>
     </form>
   );
@@ -94,7 +96,9 @@ export function ProfileForm({
         </span>
       </label>
       <Button type="submit" tone="primary" size="sm" className="w-fit" disabled={pending}>
-        {pending ? "Saving…" : "Save"}
+        <Busy busy={pending}>
+          {pending ? "Saving…" : "Save"}
+        </Busy>
       </Button>
     </form>
   );
@@ -175,8 +179,10 @@ export function AvatarForm({
         )}
         <div className="flex flex-wrap items-center gap-2.5">
           {uploadsEnabled ? (
-            <label className="cursor-pointer rounded-[10px] border border-line bg-panel px-3.5 py-2 text-[13px] font-semibold text-ink transition-[border-color] duration-150 hover:border-line-strong">
-              {busy ? "Uploading…" : "Choose a picture"}
+            <label className="inline-flex items-center justify-center gap-2 cursor-pointer rounded-[10px] border border-line bg-panel px-3.5 py-2 text-[13px] font-semibold text-ink transition-[border-color] duration-150 hover:border-line-strong">
+              <Busy busy={busy}>
+                {busy ? "Uploading…" : "Choose a picture"}
+              </Busy>
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -215,7 +221,9 @@ export function AvatarForm({
         className="w-fit"
         disabled={pending || busy}
       >
-        {pending ? "Saving…" : "Save picture"}
+        <Busy busy={pending}>
+          {pending ? "Saving…" : "Save picture"}
+        </Busy>
       </Button>
     </form>
   );

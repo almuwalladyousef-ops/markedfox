@@ -125,7 +125,7 @@ export default function PricingPage() {
         Questions?{" "}
         <Link
           href="mailto:support@markedfox.com"
-          className="text-accent hover:brightness-[1.08]"
+          className="text-accent transition-[filter,scale] duration-150 hover:brightness-[1.08] active:scale-[0.97]"
         >
           support@markedfox.com
         </Link>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Icon, PlanDiamond } from "@/components/icons";
+import { overlayProps, useEscape } from "@/components/overlay";
 import { PlatformTile } from "@/components/platform-icon";
 import { Button, ButtonLink, FoxMark, Pill, cx } from "@/components/ui";
 import { disconnectAccountAction } from "@/lib/connections/actions";
@@ -236,17 +237,11 @@ function UpgradeDialog({
   row: PlatformRow;
   onClose: () => void;
 }) {
+  useEscape(onClose);
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-[400px] rounded-2xl border border-line bg-panel p-6 shadow-panel"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <div {...overlayProps(onClose, "centre", "z-50")} role="dialog" aria-modal="true">
+      <div className="mf-modal w-full max-w-[400px] rounded-2xl border border-line bg-panel p-6 shadow-panel">
         <FoxMark className="h-[38px]" />
         <h3 className="font-display mt-3 text-[19px] font-bold tracking-[-0.01em] text-ink">
           {!row.included

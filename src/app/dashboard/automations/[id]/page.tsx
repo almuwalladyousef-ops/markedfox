@@ -37,7 +37,7 @@ export default async function EditRulePage({ params }: { params: Promise<{ id: s
     <Page width="max-w-[1060px]">
       <Link
         href="/dashboard/automations"
-        className="text-[12.5px] font-medium text-faint transition hover:text-ink"
+        className="text-[12.5px] font-medium text-faint transition-colors hover:text-ink"
       >
         ← Automations
       </Link>

@@ -123,7 +123,7 @@ export default async function ResearchVideoPage({
     <Page width="max-w-[1160px]">
       <Link
         href="/dashboard/research"
-        className="text-[13.5px] font-medium text-faint transition hover:text-ink"
+        className="text-[13.5px] font-medium text-faint transition-colors hover:text-ink"
       >
         ← Videos
       </Link>
@@ -237,7 +237,7 @@ export default async function ResearchVideoPage({
               <input type="hidden" name="video_id" value={id} />
               <button
                 type="submit"
-                className="w-full rounded-[10px] border border-line-strong bg-panel px-3 py-2 text-[14px] text-ink transition hover:border-accent hover:text-accent"
+                className="w-full rounded-[10px] border border-line-strong bg-panel px-3 py-2 text-[14px] text-ink transition-colors hover:border-accent hover:text-accent"
               >
                 Fetch transcript
                 <span className="ml-2 text-[13px] text-faint">Free</span>

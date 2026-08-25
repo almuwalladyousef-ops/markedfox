@@ -6,14 +6,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon, PlanDiamond, type IconName } from "@/components/icons";
 import { PlatformIcon, PlatformTile } from "@/components/platform-icon";
 import {
+  Busy,
   Button,
-  FoxMark,
-  Notice,
-  SectionHeading,
   buttonClass,
   cx,
+  FoxMark,
   iconButtonClass,
   inputClass,
+  Notice,
+  SectionHeading,
 } from "@/components/ui";
 
 import {
@@ -1291,6 +1292,16 @@ export function Composer({
           </h1>
         </div>
 
+        {/* The five steps replace one another in place. Without a
+            transition that is a hard cut between two full screens, and a cut
+            gives the eye nothing to follow — the person has to re-find where
+            they are. Keyed on `step` so React remounts the branch, which is
+            what re-runs the entrance.
+
+            It is a short fade and 8px of rise, not a slide: this is a
+            replacement, not a journey through a carousel, and a horizontal
+            slide would claim a direction the flow does not have. */}
+        <div key={step} className="mf-enter">
         {step === "kind" ? (
           /* ── 1. what kind of post ─────────────────────────────────────── */
           /* No paragraph explaining the question: the five answers explain it
@@ -1856,6 +1867,7 @@ export function Composer({
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* ── the actions ─────────────────────────────────────────────────── */}
@@ -1882,7 +1894,9 @@ export function Composer({
                 disabled={savingDraft || submitting}
                 className="min-w-[138px] justify-center"
               >
-                {savingDraft ? "Saving…" : "Save draft"}
+                <Busy busy={savingDraft}>
+                  {savingDraft ? "Saving…" : "Save draft"}
+                </Busy>
               </Button>
             )}
             {isLast ? (
@@ -1928,13 +1942,15 @@ export function Composer({
                
                   className="min-w-[138px] justify-center"
                 >
-                  {submitting && mode === "now"
-                    ? editingMedia
-                      ? "Trimming…"
-                      : uploading
-                        ? "Uploading…"
-                        : "Working…"
-                    : "Post"}
+                  <Busy busy={submitting && mode === "now"}>
+                    {submitting && mode === "now"
+                      ? editingMedia
+                        ? "Trimming…"
+                        : uploading
+                          ? "Uploading…"
+                          : "Working…"
+                      : "Post"}
+                  </Busy>
                 </Button>
               </>
             ) : (

@@ -97,14 +97,14 @@ export function SiteFooter() {
                       {link.href.startsWith("mailto:") ? (
                         <a
                           href={link.href}
-                          className="text-[13px] text-muted transition hover:text-ink"
+                          className="text-[13px] text-muted transition-colors hover:text-ink"
                         >
                           {link.label}
                         </a>
                       ) : (
                         <Link
                           href={link.href}
-                          className="text-[13px] text-muted transition hover:text-ink"
+                          className="text-[13px] text-muted transition-colors hover:text-ink"
                         >
                           {link.label}
                         </Link>
