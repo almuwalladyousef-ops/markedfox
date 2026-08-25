@@ -35,6 +35,16 @@ export interface PlanLimits {
   dmSendsPerMonth: number;
   /** Pooled. */
   videoUploadMinutesPerMonth: number;
+  /**
+   * May this plan schedule a post for later, or only publish now and save
+   * drafts? Free is false (owner decision, 2026-08-25).
+   *
+   * It is the one gate here that costs us something real per use rather than
+   * per plan: a scheduled post's media is uploaded when the button is pressed
+   * and then sits in the bucket until the tick fires, so a free account can
+   * park storage for a fortnight at a time. Posting now spends it in minutes.
+   */
+  scheduling: boolean;
   funnels: boolean;
   /** Pooled. Studio's AI credits, spendable from any workspace. */
   researchCreditsPerMonth: number;
@@ -81,6 +91,8 @@ export type Action =
   | { type: "create_dm_rule" }
   | { type: "send_dm" }
   | { type: "upload_video"; minutes: number }
+  /** Setting a time on a post rather than publishing it now. */
+  | { type: "schedule_post" }
   | { type: "use_funnels" }
   /** Watching channels and reading the outlier feed. Gated on the plan having
    *  any research allowance at all, so Free and Pro see the upgrade prompt. */
@@ -100,6 +112,10 @@ export type DenialCode =
   | "dm_rule_cap"
   | "dm_send_cap"
   | "video_minutes_cap"
+  | "scheduling_locked"
+  /** Not a plan limit — a scheduled post holds its media in storage until it
+   *  goes out, and past a point that stops being transient. */
+  | "scheduled_media_too_large"
   | "funnels_locked"
   | "research_locked"
   | "research_credits_cap"
@@ -144,6 +160,12 @@ export function parsePlanLimits(json: unknown): PlanLimits {
     if (typeof v === "boolean") return v;
     throw new PlanLimitsParseError(`limits.${field} must be a boolean`);
   };
+  const optionalBoolean = (field: string, fallback: boolean): boolean => {
+    const v = o[field];
+    if (v === undefined || v === null) return fallback;
+    if (typeof v === "boolean") return v;
+    throw new PlanLimitsParseError(`limits.${field} must be a boolean`);
+  };
 
   const platformsRaw = o["platforms"];
   let platforms: Platform[] | null;
@@ -171,6 +193,14 @@ export function parsePlanLimits(json: unknown): PlanLimits {
     videoUploadMinutesPerMonth: requiredNumber(
       "video_upload_minutes_per_month",
     ),
+    // Optional, and true when absent, unlike every other field here.
+    //
+    // The migration that adds `scheduling` to plans.limits runs before the
+    // code that reads it, so in practice it is always there. If it somehow is
+    // not, the safe wrong answer is the generous one: a missing key must not
+    // quietly take scheduling away from someone paying for it. Free says
+    // false explicitly.
+    scheduling: optionalBoolean("scheduling", true),
     funnels: requiredBoolean("funnels"),
     researchCreditsPerMonth: requiredNumber("research_credits_per_month"),
     researchSourcesMax: nullableNumber("research_sources_max"),

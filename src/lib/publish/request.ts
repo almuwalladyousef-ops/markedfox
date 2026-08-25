@@ -123,7 +123,7 @@ export function parseCreatePostRequest(body: unknown, now = new Date()): ParsedR
         issue(`media[${i}]`, "Each media item must be an object.");
         return;
       }
-      const { url, type, mime } = item as Record<string, unknown>;
+      const { url, type, mime, bytes } = item as Record<string, unknown>;
       if (typeof url !== "string" || !url.trim()) {
         issue(`media[${i}].url`, "Media needs a URL.");
         return;
@@ -140,6 +140,12 @@ export function parseCreatePostRequest(body: unknown, now = new Date()): ParsedR
         url: url.trim(),
         type,
         ...(typeof mime === "string" ? { mime } : {}),
+        // Carried through when it is a sane number and dropped otherwise —
+        // it only ever feeds a message, so a missing or silly value costs
+        // nothing and is not worth a field error over.
+        ...(typeof bytes === "number" && Number.isFinite(bytes) && bytes > 0
+          ? { bytes }
+          : {}),
       });
     });
   }

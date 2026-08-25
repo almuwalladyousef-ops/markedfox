@@ -5,7 +5,12 @@ import {
   checkUpload,
   formatBytes,
   MAX_IMAGE_BYTES,
-  MAX_VIDEO_BYTES,
+  MAX_LONG_VIDEO_BYTES,
+  MAX_PARTS,
+  MAX_SHORT_VIDEO_BYTES,
+  MIN_PART_BYTES,
+  partCountFor,
+  partSizeFor,
   publicUrlFor,
 } from "./policy";
 
@@ -60,11 +65,55 @@ describe("checkUpload", () => {
     }
   });
 
-  it("holds videos to 300MB, at the boundary", () => {
-    expect(checkUpload("video/mp4", MAX_VIDEO_BYTES).ok).toBe(true);
-    expect(checkUpload("video/mp4", MAX_VIDEO_BYTES + 1).ok).toBe(false);
+  it("holds a short video to 1GB, at the boundary", () => {
+    expect(checkUpload("video/mp4", MAX_SHORT_VIDEO_BYTES).ok).toBe(true);
+    expect(checkUpload("video/mp4", MAX_SHORT_VIDEO_BYTES + 1).ok).toBe(false);
     // A video is allowed to be far larger than an image.
     expect(checkUpload("video/mp4", MAX_IMAGE_BYTES + 1).ok).toBe(true);
+  });
+
+  it("holds a long video to YouTube's ceiling instead", () => {
+    expect(
+      checkUpload("video/mp4", MAX_SHORT_VIDEO_BYTES + 1, "long").ok,
+    ).toBe(true);
+    expect(checkUpload("video/mp4", MAX_LONG_VIDEO_BYTES, "long").ok).toBe(true);
+    expect(checkUpload("video/mp4", MAX_LONG_VIDEO_BYTES + 1, "long").ok).toBe(
+      false,
+    );
+  });
+
+  // The refusal has to say what to do about it, or "Short videos must be
+  // under 1GB" reads as "this app cannot take my file".
+  it("points a too-large short video at the Long video option", () => {
+    const over = checkUpload("video/mp4", MAX_SHORT_VIDEO_BYTES + 1);
+    expect(over.ok).toBe(false);
+    if (!over.ok) expect(over.reason).toContain("Long video");
+  });
+
+  it("judges an image by the same number whatever the post is", () => {
+    expect(checkUpload("image/jpeg", MAX_IMAGE_BYTES + 1, "long").ok).toBe(false);
+  });
+});
+
+describe("part sizing", () => {
+  it("uses the floor part size until the part count would run out", () => {
+    expect(partSizeFor(1024)).toBe(MIN_PART_BYTES);
+    expect(partSizeFor(MIN_PART_BYTES * 100)).toBe(MIN_PART_BYTES);
+  });
+
+  // R2 allows 10,000 parts and no more, so past ~640GB the part size has to
+  // grow. The ceiling is 256GB, but the arithmetic should not depend on that.
+  it("grows the part size rather than exceeding the part cap", () => {
+    const huge = MIN_PART_BYTES * MAX_PARTS * 3;
+    const part = partSizeFor(huge);
+    expect(part).toBeGreaterThan(MIN_PART_BYTES);
+    expect(partCountFor(huge, part)).toBeLessThanOrEqual(MAX_PARTS);
+  });
+
+  it("keeps every real file inside the part cap", () => {
+    for (const size of [1, MIN_PART_BYTES + 1, MAX_LONG_VIDEO_BYTES]) {
+      expect(partCountFor(size, partSizeFor(size))).toBeLessThanOrEqual(MAX_PARTS);
+    }
   });
 });
 

@@ -52,6 +52,16 @@ export interface MediaRef {
   url: string;
   type: "image" | "video";
   mime?: string;
+  /**
+   * Size of the file, as the browser reported it when it was uploaded.
+   *
+   * Only used to explain a refusal in words the user can act on ("that clip
+   * is 12GB"). It is never the thing that enforces a limit — the size a tab
+   * claims is the size a tab chose to claim. What actually bounds an upload
+   * is that we sign exactly the parts we are willing to accept, and that a
+   * single PUT cannot exceed R2's own 5GiB ceiling.
+   */
+  bytes?: number;
 }
 
 // Per-platform publish options the user chose in the composer — TikTok's

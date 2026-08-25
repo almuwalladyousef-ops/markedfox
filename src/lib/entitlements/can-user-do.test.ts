@@ -21,6 +21,7 @@ const FREE_LIMITS: PlanLimits = {
   dmRulesMax: 1,
   dmSendsPerMonth: 200,
   videoUploadMinutesPerMonth: 60,
+  scheduling: false,
   funnels: false,
   researchCreditsPerMonth: 0,
   researchSourcesMax: 0,
@@ -37,6 +38,7 @@ const PRO_LIMITS: PlanLimits = {
   dmRulesMax: null,
   dmSendsPerMonth: 10000,
   videoUploadMinutesPerMonth: 600,
+  scheduling: true,
   funnels: true,
   researchCreditsPerMonth: 0,
   researchSourcesMax: 0,
@@ -239,6 +241,7 @@ describe("parsePlanLimits", () => {
     dm_rules_max: 1,
     dm_sends_per_month: 200,
     video_upload_minutes_per_month: 60,
+    scheduling: false,
     funnels: false,
     research_credits_per_month: 0,
     research_sources_max: 0,
@@ -259,6 +262,22 @@ describe("parsePlanLimits", () => {
     expect(parsed.postsPerDay).toBeNull();
     expect(parsed.platforms).toBeNull();
     expect(parsed.dmRulesMax).toBeNull();
+  });
+
+  // `scheduling` arrived after the rows did, so unlike everything else here
+  // it is optional — and it defaults the generous way. A migration that has
+  // not landed yet must not quietly take scheduling away from someone paying
+  // for it; the Free row says false out loud.
+  it("treats a missing scheduling key as allowed", () => {
+    const withoutScheduling: Record<string, unknown> = { ...VALID_JSONB };
+    delete withoutScheduling.scheduling;
+    expect(parsePlanLimits(withoutScheduling).scheduling).toBe(true);
+  });
+
+  it("still refuses a scheduling key that is not a boolean", () => {
+    expect(() =>
+      parsePlanLimits({ ...VALID_JSONB, scheduling: "yes" }),
+    ).toThrow(PlanLimitsParseError);
   });
 
   it("throws on malformed rows instead of silently granting or denying", () => {
@@ -317,5 +336,48 @@ describe("canUserDo — research", () => {
         credits: 1,
       }),
     ).toBe("research_credits_cap");
+  });
+});
+
+describe("scheduling", () => {
+  const free = (): EntitlementSnapshot => ({
+    planId: "free",
+    limits: FREE_LIMITS,
+    usage: ZERO_USAGE,
+  });
+  const pro = (): EntitlementSnapshot => ({
+    planId: "pro",
+    limits: PRO_LIMITS,
+    usage: ZERO_USAGE,
+  });
+
+  it("refuses a scheduled post on Free", () => {
+    expect(denialCode(free(), { type: "schedule_post" })).toBe(
+      "scheduling_locked",
+    );
+  });
+
+  // The refusal has to name the two things that still work, or it reads as
+  // "you cannot post", which is not what it says.
+  it("says what Free can still do", () => {
+    const decision = canUserDo(free(), { type: "schedule_post" });
+    expect(decision.allowed).toBe(false);
+    if (!decision.allowed) {
+      expect(decision.reason).toContain("post now");
+      expect(decision.reason).toContain("draft");
+    }
+  });
+
+  it("allows it on a paid plan", () => {
+    expect(canUserDo(pro(), { type: "schedule_post" }).allowed).toBe(true);
+  });
+
+  // Publishing now is untouched by any of this — the gate is about how long
+  // we hold the media, not about whether the person may post.
+  it("leaves publish-now alone on Free", () => {
+    expect(
+      canUserDo(free(), { type: "publish_post", platform: "instagram" })
+        .allowed,
+    ).toBe(true);
   });
 });
