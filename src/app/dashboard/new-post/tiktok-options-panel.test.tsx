@@ -62,9 +62,17 @@ describe("TikTokOptionsPanel", () => {
 
   it("greys out interactions the creator has disabled and hides duet/stitch for photos", () => {
     const html = render();
-    // duet disabled in the fixture → its checkbox is disabled
-    expect(html).toMatch(/<input type="checkbox"[^>]*disabled=""[^>]*\/>Duet/);
-    expect(html).toMatch(/Comment/);
+    // Duet is disabled in the fixture, so its switch must be disabled. The
+    // control is a Toggle rather than a checkbox now; what matters — and what
+    // the audit checks — is that creator_info's answer reaches it.
+    const duet = html.match(/<button[^>]*aria-label="Allow duet"[^>]*>/)?.[0];
+    expect(duet).toBeDefined();
+    expect(duet).toContain('disabled=""');
+    expect(duet).toContain('aria-checked="false"');
+    // Comment is not disabled in the fixture, and must not have been swept up.
+    const comment = html.match(/<button[^>]*aria-label="Allow comments"[^>]*>/)?.[0];
+    expect(comment).toBeDefined();
+    expect(comment).not.toContain('disabled=""');
     const photo = render({ hasVideo: false });
     expect(photo).not.toContain("Duet");
     expect(photo).not.toContain("Stitch");

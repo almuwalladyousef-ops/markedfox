@@ -10,6 +10,7 @@ import type {
   PlatformAdapter,
   PublishResult,
 } from "./types";
+import { optionValue } from "./publish-options";
 
 // Facebook Pages, on the same Meta app as Instagram.
 //
@@ -256,7 +257,7 @@ export const facebook: PlatformAdapter = {
     return exchangeForLongLived(tokens.accessToken);
   },
 
-  async publish({ caption, media, tokens, platformAccountId }) {
+  async publish({ caption, media, tokens, platformAccountId, options }) {
     const token = tokens.accessToken;
 
     // Text-only: the plain feed post, and the reason capabilities.text is true.
@@ -271,11 +272,17 @@ export const facebook: PlatformAdapter = {
     const first = media[0];
 
     if (first.type === "video") {
+      const title = optionValue("facebook", options, "title");
       const out = await graph<{ id: string }>(`/${platformAccountId}/videos`, {
         method: "POST",
         searchParams: {
           file_url: first.url,
           description: caption,
+          ...(typeof title === "string" && title ? { title } : {}),
+          // Only sent to turn it off: Facebook's default is embeddable.
+          ...(optionValue("facebook", options, "embeddable") === false
+            ? { embeddable: "false" }
+            : {}),
           access_token: token,
         },
       });

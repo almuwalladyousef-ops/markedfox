@@ -2,8 +2,8 @@ import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
 // The shared vocabulary. Before this file the dashboard had two visual
-// dialects — the publisher's `rounded-md border-neutral-900` one and the
-// research pages' `rounded-xl border-neutral-800` one — and the on/off toggle
+// dialects — the publisher's `rounded-lg border-neutral-900` one and the
+// research pages' `rounded-2xl border-neutral-800` one — and the on/off toggle
 // was written from scratch three times. Neither is a bug on its own; together
 // they make every new page a coin flip about which dialect to copy.
 //
@@ -276,10 +276,10 @@ const BUTTON_TONE = {
 } as const;
 
 const BUTTON_SIZE = {
-  xs: "rounded-[9px] px-[11px] py-[6px] text-[12.5px]",
-  sm: "rounded-[10px] px-[14px] py-[8px] text-[13px]",
-  md: "rounded-[11px] px-[18px] py-[11px] text-[14.5px]",
-  lg: "rounded-[13px] px-[22px] py-[13px] text-[15px]",
+  xs: "rounded-[11px] px-[12px] py-[6px] text-[12.5px]",
+  sm: "rounded-[13px] px-[15px] py-[8px] text-[13px]",
+  md: "rounded-[15px] px-[19px] py-[11px] text-[14.5px]",
+  lg: "rounded-[18px] px-[23px] py-[13px] text-[15px]",
 } as const;
 
 export type ButtonTone = keyof typeof BUTTON_TONE;
@@ -321,7 +321,7 @@ export function ButtonLink({
  *  square that still clears a comfortable pointer target on a dense row, and
  *  the mobile layouts pad around it to reach 44px. */
 export const iconButtonClass =
-  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] border border-line bg-panel text-muted transition-[background,color,border-color] duration-150 hover:bg-chip hover:text-ink disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[11px] border border-line bg-panel text-muted transition-[background,color,border-color] duration-150 hover:bg-chip hover:text-ink disabled:cursor-not-allowed disabled:opacity-40";
 
 /** A link or button that reads as text rather than as a control: the "Delete",
  *  "Hide this", "+ Add a follow-up" affordances. */
@@ -457,7 +457,7 @@ export function ToggleForm({
 // ── inputs ─────────────────────────────────────────────────────────────────
 
 export const inputClass =
-  "w-full rounded-[10px] border border-line bg-chip px-3.5 py-[10px] text-[14.5px] text-ink outline-none transition-[border-color] duration-150 placeholder:text-faint focus:border-accent";
+  "w-full rounded-[13px] border border-line bg-chip px-3.5 py-[10px] text-[14.5px] text-ink outline-none transition-[border-color] duration-150 placeholder:text-faint focus:border-accent";
 
 export function Field({
   label,
@@ -541,7 +541,7 @@ export function Notice({
   return (
     <div
       className={cx(
-        "rounded-xl border px-4 py-3 text-[13.5px]/[20px] text-pretty",
+        "rounded-2xl border px-4 py-3 text-[13.5px]/[20px] text-pretty",
         NOTICE_TONE[tone],
         className,
       )}
@@ -600,7 +600,7 @@ export function Stat({
   note?: string;
 }) {
   return (
-    <div className="rounded-xl bg-chip px-4 py-3">
+    <div className="rounded-2xl bg-chip px-4 py-3">
       <dt className="text-[12.5px] text-faint" title={note}>
         {label}
       </dt>
@@ -692,7 +692,7 @@ export function MetricPills({
   engagement: number | null;
   viewsLabel?: string;
 }) {
-  const pill = "rounded-lg px-2 py-[3px] text-[11.5px] font-bold";
+  const pill = "rounded-xl px-2 py-[3px] text-[11.5px] font-bold";
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {score ? (
@@ -733,7 +733,7 @@ export function Kbd({
   return (
     <kbd
       className={cx(
-        "inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-md border border-line-strong bg-chip px-1.5 font-sans text-[11.5px] font-bold text-faint",
+        "inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-lg border border-line-strong bg-chip px-1.5 font-sans text-[11.5px] font-bold text-faint",
         className,
       )}
     >

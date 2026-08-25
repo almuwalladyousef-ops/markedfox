@@ -1870,15 +1870,21 @@ export function Composer({
       <div className="sticky bottom-[calc(70px+env(safe-area-inset-bottom))] z-40 mt-8 py-3.5 shell:bottom-0">
         <div className="mx-auto flex max-w-[1000px] flex-col items-center gap-1.5">
           <div className="flex items-center gap-2.5">
-            <Button
-              type="button"
-              tone="quiet"
-              onClick={saveDraft}
-              disabled={savingDraft || submitting}
-              className="min-w-[138px] justify-center"
-            >
-              {savingDraft ? "Saving…" : "Save draft"}
-            </Button>
+            {/* Two buttons at the end, not three: the reference has Schedule
+                and Post there, and a third one that quietly does something
+                else is the one people press by accident. Save draft is on
+                every earlier step, which is where drafts are actually made. */}
+            {isLast ? null : (
+              <Button
+                type="button"
+                tone="quiet"
+                onClick={saveDraft}
+                disabled={savingDraft || submitting}
+                className="min-w-[138px] justify-center"
+              >
+                {savingDraft ? "Saving…" : "Save draft"}
+              </Button>
+            )}
             {isLast ? (
               <>
                 {/* Two buttons rather than one button and a mode switch. The
