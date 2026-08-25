@@ -10,6 +10,7 @@ import type {
   PlatformAdapter,
   PublishResult,
 } from "./types";
+import { optionValue } from "./publish-options";
 
 // Snapchat Public Profile API — Spotlight posts to a creator's Public Profile.
 //
@@ -230,7 +231,13 @@ export const snapchat: PlatformAdapter = {
     });
   },
 
-  async publish({ caption, media, tokens, platformAccountId }): Promise<PublishResult> {
+  async publish({
+    caption,
+    media,
+    tokens,
+    platformAccountId,
+    options,
+  }): Promise<PublishResult> {
     const video = media.find((m) => m.type === "video");
     if (!video || media.length !== 1) {
       throw new PlatformApiError(
@@ -394,8 +401,12 @@ export const snapchat: PlatformAdapter = {
       body: JSON.stringify({
         media_id: mediaId,
         ...(caption ? { description: caption } : {}),
-        locale: "en_US",
-        skip_save_to_profile: false,
+        // Both of these were hardcoded here, which is exactly why they are
+        // worth offering: they are real choices the API takes, and pretending
+        // otherwise just meant everyone got en_US and a profile save.
+        locale: optionValue("snapchat", options, "locale") ?? "en_US",
+        skip_save_to_profile:
+          optionValue("snapchat", options, "save_to_profile") === false,
       }),
     });
 

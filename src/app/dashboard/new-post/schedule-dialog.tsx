@@ -29,9 +29,15 @@ type Props = {
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** One row, and the padding above the first one. Both are also written in the
- *  wheel's classes (`h-9`, `py-[48px]`); they are here as numbers because the
+ *  wheel's classes (`h-11`, `py-[66px]`); they are here as numbers because the
  *  scroll position is computed from them rather than measured. */
-const ROW_HEIGHT = 36;
+const ROW_HEIGHT = 44;
+/** Rows visible at once. Five, so there are two above and two below the one
+ *  you are choosing — enough context to flick through without the column
+ *  becoming the whole dialog. */
+const VISIBLE_ROWS = 5;
+const WHEEL_HEIGHT = ROW_HEIGHT * VISIBLE_ROWS;
+const WHEEL_PADDING = ROW_HEIGHT * 2;
 
 function toLocalValue(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -68,6 +74,11 @@ function Wheel({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const index = options.findIndex((option) => option.value === value);
+  /** Set while this component is the one moving the scroll, so the scroll
+   *  handler does not treat its own correction as the user turning the wheel
+   *  and fight it. */
+  const settingScroll = useRef(false);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Bring the selection into view whenever it changes from outside — opening
   // the dialog, or another wheel rolling the day over.
@@ -81,8 +92,50 @@ function Wheel({
   useEffect(() => {
     const node = ref.current;
     if (!node || index < 0) return;
-    node.scrollTop = index * ROW_HEIGHT;
+    const target = index * ROW_HEIGHT;
+    // Already there — including when the user just scrolled it there, which
+    // must not be yanked back mid-flick.
+    if (Math.abs(node.scrollTop - target) < 1) return;
+    settingScroll.current = true;
+    node.scrollTop = target;
+    settingScroll.current = false;
   }, [index]);
+
+  useEffect(
+    () => () => {
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+    },
+    [],
+  );
+
+  /** Turning the wheel, dragging the scrollbar, flicking on a trackpad — all
+   *  of them move the scroll, and the value follows what is under the band.
+   *  Without this the column moved and the selection stayed behind, which is
+   *  the one thing a picker must not do. */
+  const onScroll = () => {
+    const node = ref.current;
+    if (!node || settingScroll.current) return;
+    const nearest = Math.round(node.scrollTop / ROW_HEIGHT);
+    const clamped = Math.min(Math.max(0, nearest), options.length - 1);
+    const option = options[clamped];
+    if (option && option.value !== value) onSelect(option.value);
+
+    // Snap to the row once the flick has stopped. CSS scroll-snap does this
+    // on a real touchscreen but not for a mouse wheel, and a column resting
+    // between two rows reads as broken.
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => {
+      const current = ref.current;
+      if (!current) return;
+      const settled = Math.min(
+        Math.max(0, Math.round(current.scrollTop / ROW_HEIGHT)),
+        options.length - 1,
+      );
+      settingScroll.current = true;
+      current.scrollTop = settled * ROW_HEIGHT;
+      settingScroll.current = false;
+    }, 90);
+  };
 
   return (
     <div
@@ -90,6 +143,7 @@ function Wheel({
       role="listbox"
       aria-label={label}
       tabIndex={0}
+      onScroll={onScroll}
       onKeyDown={(event) => {
         if (event.key === "ArrowDown" || event.key === "ArrowUp") {
           event.preventDefault();
@@ -102,9 +156,14 @@ function Wheel({
         // animates, so opening the dialog showed every wheel sliding up from
         // the top instead of already being on the chosen value — and a read
         // straight after the write returned the old position.
-        "h-[132px] snap-y snap-mandatory overflow-y-auto py-[48px] text-center outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "snap-y snap-mandatory overflow-y-auto text-center outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         className,
       )}
+      style={{
+        height: WHEEL_HEIGHT,
+        paddingTop: WHEEL_PADDING,
+        paddingBottom: WHEEL_PADDING,
+      }}
     >
       {options.map((option) => {
         const on = option.value === value;
@@ -115,9 +174,10 @@ function Wheel({
             role="option"
             aria-selected={on}
             onClick={() => onSelect(option.value)}
+            style={{ height: ROW_HEIGHT }}
             className={cx(
-              "block h-9 w-full snap-center px-2 text-[14px] whitespace-nowrap transition-[color,font-weight] duration-100",
-              on ? "font-bold text-ink" : "text-faint hover:text-muted",
+              "block w-full snap-center px-2 text-[16px] whitespace-nowrap transition-[color,opacity] duration-100",
+              on ? "font-semibold text-ink" : "text-muted opacity-45 hover:opacity-80",
             )}
           >
             {option.label}
@@ -204,7 +264,7 @@ export function ScheduleDialog({
         role="dialog"
         aria-modal="true"
         aria-label="Schedule post"
-        className="relative w-full max-w-[380px] rounded-[22px] border border-line bg-panel p-6 shadow-[0_30px_80px_rgba(0,0,0,.28)]"
+        className="relative w-full max-w-[440px] rounded-[28px] border border-line bg-panel p-7 shadow-[0_30px_80px_rgba(0,0,0,.28)]"
       >
         <button
           type="button"
@@ -215,7 +275,7 @@ export function ScheduleDialog({
           <Icon name="close" className="h-[18px] w-[18px]" />
         </button>
 
-        <h2 className="font-display text-center text-[17px] font-bold text-ink">
+        <h2 className="font-display text-center text-[19px] font-bold text-ink">
           Schedule post
         </h2>
         <p className="mx-auto mt-1 max-w-[280px] text-center text-[12.5px]/[18px] text-pretty text-faint">
@@ -227,9 +287,10 @@ export function ScheduleDialog({
         <div className="relative mt-4">
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-1/2 h-9 -translate-y-1/2 rounded-lg bg-chip"
+            className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 rounded-2xl bg-chip"
+            style={{ height: ROW_HEIGHT }}
           />
-          <div className="relative grid grid-cols-[1.6fr_0.7fr_0.7fr_0.8fr] gap-1">
+          <div className="relative grid grid-cols-[1.7fr_0.6fr_0.6fr_0.8fr] gap-1">
             <Wheel
               label="Date"
               options={days}
@@ -277,7 +338,7 @@ export function ScheduleDialog({
           tone="ink"
           onClick={onConfirm}
           disabled={busy || inPast}
-          className="mt-4 w-full justify-center"
+          className="mt-5 w-full justify-center rounded-2xl py-3"
         >
           {confirmLabel}
         </Button>

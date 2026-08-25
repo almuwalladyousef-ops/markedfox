@@ -209,6 +209,73 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
         placeholder: "Original audio",
         help: "What the audio is called when somebody taps it.",
       },
+      {
+        kind: "toggle",
+        key: "is_trial",
+        icon: "spark",
+        label: "Trial",
+        default: false,
+        showHelp: true,
+        help: "Shown to non-followers first and kept off your profile. Instagram decides whether a trial is actually applied — it is newer than the publishing API, so this is sent with the reel and may simply be ignored until Instagram accepts it. Everything else about the post publishes either way.",
+      },
+    ],
+  },
+
+  facebook: {
+    title: "Share on Facebook",
+    note: "These settings are only for Facebook.",
+    videoOnly: true,
+    fields: [
+      {
+        kind: "text",
+        key: "title",
+        icon: "scripts",
+        label: "Title",
+        maxLength: 255,
+        placeholder: "Taken from the caption",
+        help: "Shown above the video on the Page, separately from the caption.",
+      },
+      {
+        kind: "toggle",
+        key: "embeddable",
+        icon: "external",
+        label: "Allow embedding",
+        default: true,
+        help: "Lets other sites embed this video in their own pages.",
+      },
+    ],
+  },
+
+  snapchat: {
+    title: "Share on Snapchat",
+    note: "These settings are only for Snapchat.",
+    videoOnly: true,
+    fields: [
+      {
+        kind: "toggle",
+        key: "save_to_profile",
+        icon: "grid",
+        label: "Save to your profile",
+        default: true,
+        help: "Off means it goes to Spotlight without being kept on your public profile.",
+      },
+      {
+        kind: "select",
+        key: "locale",
+        icon: "link",
+        label: "Language",
+        choices: [
+          { value: "en_US", label: "English (US)" },
+          { value: "en_GB", label: "English (UK)" },
+          { value: "es_ES", label: "Spanish" },
+          { value: "fr_FR", label: "French" },
+          { value: "de_DE", label: "German" },
+          { value: "pt_BR", label: "Portuguese (Brazil)" },
+          { value: "ar_AE", label: "Arabic" },
+        ],
+        default: "en_US",
+        help: "Which audience Snapchat shows the Spotlight to.",
+      },
     ],
   },
 };

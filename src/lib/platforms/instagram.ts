@@ -552,6 +552,13 @@ export const instagram: PlatformAdapter = {
               ...(typeof audioName === "string" && audioName
                 ? { audio_name: audioName }
                 : {}),
+              // Sent only when asked for. Instagram's trials are newer than
+              // the publishing API, so this may be ignored — Graph drops
+              // parameters it does not know rather than failing, which is why
+              // sending it cannot break the post.
+              ...(optionValue("instagram", options, "is_trial") === true
+                ? { is_trial: "true" }
+                : {}),
             }
           : { image_url: item.url, caption },
         item.type === "video",
