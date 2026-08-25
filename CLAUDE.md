@@ -1428,3 +1428,67 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   still do not match his references and the specific differences have not been
   named — ask before rebuilding again. Apple's design guidance arrived at the
   very end and is applied only as far as the corner radii.
+
+- **2026-08-25 (later) — the motion pass.** The app was reviewed against Emil
+  Kowalski's design-engineering principles and every finding fixed. See
+  `sessions/2026-08-25-motion-pass.md`. Merged and deployed: live at `f3bdffb`.
+
+  The structural half was already sound; the motion layer was missing almost
+  entirely. Before this, `src/` held **zero** `:active` press states, zero
+  custom easing curves, no entrance on any of the three dialogs, no
+  `prefers-reduced-motion` rule, and no spinner.
+
+  *Foundations.* Three easing curves in `globals.css`, with the strong ease-out
+  installed as `--default-transition-timing-function` — which fixes every
+  `transition-[…] duration-150` already written in the app without touching one
+  of them. Four entrance classes built on `@starting-style` (`.mf-overlay`,
+  `.mf-modal`, `.mf-sheet`, `.mf-popover`), so a React conditional render
+  animates in with no mounted-flag effect. Enter-only by design: React unmounts
+  on the same tick, so there is no exit frame to transition from. Nothing
+  scales from `scale(0)`. A reduced-motion block that keeps colour and opacity
+  and stops everything positional, with the spinner as the one exception.
+
+  *Press feedback* in `BUTTON_BASE` and on every other control primitive, plus
+  the seventeen bespoke buttons carrying `hover:brightness-[1.08]`. The
+  segmented control is deliberately exempt — pressed tens of times a session,
+  where motion reads as lag rather than as feedback.
+
+  *The three dialogs* were written separately and their differences were
+  accidents: one closed on Escape and two did not, three different backdrop
+  opacities, and two checked the backdrop on `click` rather than `mousedown` —
+  so selecting text inside a dialog and releasing outside it closed the dialog
+  and took the selection with it. `src/components/overlay.tsx` now holds
+  `useEscape()` and `overlayProps()` and all three use them. The calendar's
+  post detail is a real bottom sheet on a phone and a centred dialog above the
+  `shell` breakpoint.
+
+  *A real tooltip* replaces the browser's `title` attribute on the icon-only
+  dock: a delay on the first, **none on the next**, which is why "did another
+  one just close" is module state rather than component state. Plus a spinner
+  at 25 call sites that previously only swapped a label, named transition
+  properties on the 56 elements using the bare `transition` utility, a
+  fade-and-rise between the composer's five steps, and a capped stagger on
+  Home's grid.
+
+  *Two review findings that were wrong, recorded because they are easy to
+  re-derive:* Tailwind v4 already wraps every `hover:` utility in
+  `@media (hover: hover)`, and it compiles `scale-*`/`translate-*` to the
+  standalone `scale`/`translate` properties — so a transition list naming only
+  `transform` would have caught none of the press states.
+
+  *One bug worth keeping:* `.mf-enter` first shipped as an `animation`
+  shorthand containing `var()` beside an `animation-delay`. Lightning CSS
+  expands a shorthand when a longhand sits next to it and cannot expand one
+  holding a `var()`, so it emitted an empty `animation-duration` and the
+  entrance silently did nothing. It type-checked, built and passed all 567
+  tests in that state; only reading the computed rule in the browser caught it.
+
+  567 tests, build, typecheck and lint green. Clicked through signed-in in
+  light and dark at 1280×720 and 375×812 with seeded connections and a
+  scheduled post, including the drag-from-inside-a-dialog case that used to
+  dismiss it, the sheet caught mid-rise at `translateY(100%)`, and a live
+  spinner during a real data export. **Not verified:**
+  `prefers-reduced-motion` under an actual OS setting — the rule was read back
+  from the deployed stylesheet and is correct, but nothing exercised it with
+  the preference on.
+
