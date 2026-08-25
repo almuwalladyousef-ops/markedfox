@@ -1,5 +1,6 @@
 "use client";
 
+import { Icon, type IconName } from "@/components/icons";
 import { PlatformBadge } from "@/components/platform-icon";
 import { Card, CardTitle, Toggle } from "@/components/ui";
 import type { PlatformOptionSpec } from "@/lib/platforms/publish-options";
@@ -39,8 +40,20 @@ export function PlatformOptionsPanel({
     onChange({ ...values, [key]: value });
   };
 
+  /** The glyph beside a label. Optional in the declaration, so a field with
+   *  none simply indents to match the ones that have one. */
+  const glyph = (field: { icon?: IconName }) =>
+    field.icon ? (
+      <Icon
+        name={field.icon}
+        className="mt-[3px] h-[17px] w-[17px] shrink-0 text-muted"
+      />
+    ) : (
+      <span aria-hidden className="w-[17px] shrink-0" />
+    );
+
   const fields = (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col divide-y divide-line">
       {spec.fields.map((field) => {
           const id = `${platform}-${field.key}`;
           if (field.kind === "toggle") {
@@ -56,15 +69,18 @@ export function PlatformOptionsPanel({
               <div
                 key={field.key}
                 title={field.showHelp ? undefined : field.help}
-                className="flex items-start justify-between gap-4"
+                className="flex items-start justify-between gap-4 py-3"
               >
-                <label htmlFor={id} className="min-w-0">
+                <label htmlFor={id} className="flex min-w-0 gap-2.5 text-pretty">
+                  {glyph(field)}
+                  <span className="min-w-0">
                   <span className="text-sm text-ink">{field.label}</span>
                   {field.help && field.showHelp ? (
                     <span className="mt-0.5 block text-xs text-faint">
                       {field.help}
                     </span>
                   ) : null}
+                  </span>
                 </label>
                 <Toggle
                   id={id}
@@ -80,24 +96,36 @@ export function PlatformOptionsPanel({
           if (field.kind === "select") {
             const value = String(values[field.key] ?? field.default);
             return (
-              <div key={field.key} title={field.showHelp ? undefined : field.help}>
-                <label htmlFor={id} className="text-sm text-ink">
-                  {field.label}
-                </label>
-                <select
-                  id={id}
-                  value={value}
-                  onChange={(event) => set(field.key, event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-line bg-chip px-3 py-2 text-sm text-ink outline-none focus:border-line-strong"
-                >
-                  {field.choices.map((choice) => (
-                    <option key={choice.value} value={choice.value}>
-                      {choice.label}
-                    </option>
-                  ))}
-                </select>
+              <div
+                key={field.key}
+                title={field.showHelp ? undefined : field.help}
+                className="py-3"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <label htmlFor={id} className="flex min-w-0 items-center gap-2.5 text-sm text-ink">
+                    {glyph(field)}
+                    {field.label}
+                  </label>
+                  {/* The value reads as the answer, on the right, the way a
+                      settings row does — the select itself is transparent and
+                      right-aligned over it rather than a boxed field. */}
+                  <select
+                    id={id}
+                    value={value}
+                    onChange={(event) => set(field.key, event.target.value)}
+                    className="max-w-[55%] shrink-0 cursor-pointer truncate rounded-lg border-0 bg-transparent py-1 pr-1 text-right text-sm text-muted outline-none hover:text-ink focus:text-ink"
+                  >
+                    {field.choices.map((choice) => (
+                      <option key={choice.value} value={choice.value}>
+                        {choice.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 {field.help && field.showHelp ? (
-                  <p className="mt-1 text-xs text-faint">{field.help}</p>
+                  <p className="mt-1 pl-[27px] text-xs text-faint">
+                    {field.help}
+                  </p>
                 ) : null}
               </div>
             );
@@ -105,8 +133,16 @@ export function PlatformOptionsPanel({
 
           const text = String(values[field.key] ?? "");
           return (
-            <div key={field.key} title={field.showHelp ? undefined : field.help}>
-              <label htmlFor={id} className="text-sm text-ink">
+            <div
+              key={field.key}
+              title={field.showHelp ? undefined : field.help}
+              className="py-3"
+            >
+              <label
+                htmlFor={id}
+                className="flex items-center gap-2.5 text-sm text-ink"
+              >
+                {glyph(field)}
                 {field.label}
               </label>
               {field.multiline ? (
@@ -117,7 +153,7 @@ export function PlatformOptionsPanel({
                   maxLength={field.maxLength}
                   placeholder={field.placeholder}
                   onChange={(event) => set(field.key, event.target.value)}
-                  className="mt-1 w-full resize-y rounded-lg border border-line bg-chip px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-line-strong"
+                  className="mt-1 ml-[27px] w-[calc(100%-27px)] resize-y rounded-lg border border-line bg-chip px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-line-strong"
                 />
               ) : (
                 <input
@@ -126,10 +162,10 @@ export function PlatformOptionsPanel({
                   maxLength={field.maxLength}
                   placeholder={field.placeholder}
                   onChange={(event) => set(field.key, event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-line bg-chip px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-line-strong"
+                  className="mt-1 ml-[27px] w-[calc(100%-27px)] rounded-lg border border-line bg-chip px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-line-strong"
                 />
               )}
-              <p className="mt-1 flex justify-between text-xs text-faint">
+              <p className="mt-1 ml-[27px] flex justify-between text-xs text-faint">
                 <span>{field.showHelp ? field.help : ""}</span>
                 {text ? (
                   <span
@@ -149,9 +185,9 @@ export function PlatformOptionsPanel({
 
   if (variant === "split") {
     return (
-      <section className="grid gap-x-8 gap-y-4 border-t border-line py-6 wide:grid-cols-[minmax(0,270px)_minmax(0,1fr)]">
+      <section className="grid gap-x-6 gap-y-3 border-t border-line py-6 wide:grid-cols-[minmax(0,190px)_minmax(0,1fr)]">
         <div>
-          <h3 className="font-display flex items-center gap-2 text-[17px] font-bold tracking-[-0.01em] text-ink">
+          <h3 className="font-display flex items-center gap-2 text-[15.5px] font-bold tracking-[-0.01em] text-ink">
             <PlatformBadge platform={platform} className="h-6 w-6" />
             {spec.title}
           </h3>
