@@ -435,6 +435,8 @@ Supabase under the role account matters more than any other account decision her
 | **Workspaces** | 2 | 5 | 10 | Unlimited |
 | **Accounts per workspace** | 3 | Unlimited | Unlimited | Unlimited |
 | Posts *(pooled)* | 2/day | Unlimited | Unlimited | Unlimited |
+| Scheduling | ✗ | ✓ | ✓ | ✓ |
+| Video upload | 1GB short · 256GB long | 1GB short · 256GB long | 1GB short · 256GB long | Raised |
 | Platforms | Instagram, Facebook, Threads, TikTok, YouTube | All | All | All |
 | X *(pooled)* | ✗ | 300/mo, no external links | 300/mo, no external links | Raised |
 | DM rules *(pooled)* | 1 | Unlimited | Unlimited | Raised |
@@ -464,6 +466,19 @@ total.
 outside the plan wears a 💎 badge, and toggling it opens an upgrade prompt
 naming what the plan gives. A user should see what upgrading buys, not a dead
 row. The same applies to "+ New workspace" past the plan's count.
+
+**Scheduling is a paid feature (owner decision, 2026-08-25).** Free can
+publish now and save drafts; it cannot set a time. The reason is a real cost
+rather than packaging, which makes it the one gate here that is not arbitrary:
+a scheduled post's media is uploaded when the button is pressed and then sits
+in R2 until the tick fires, which may be weeks. Media is transient by design in
+this product, and a free account parking storage indefinitely is the single way
+that stops being true. For the same reason **no plan may schedule a video over
+5GB** — publishing one now is unaffected at any size the platform will take.
+
+**Upload ceilings are per kind of post, not per plan.** A short video or story
+is 1GB; a long video is 256GB, which is YouTube's own ceiling. Above 4GB the
+browser uploads in parts, because R2 refuses a single PUT over 5GiB.
 
 **X is the permanent exception to "unlimited".** Every other platform costs $0
 per post; X bills $0.015, or $0.20 with a link. So it is excluded from Free
@@ -1492,3 +1507,61 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   from the deployed stylesheet and is correct, but nothing exercised it with
   the preference on.
 
+- **2026-08-25 (later still) — bigger files, and scheduling becomes a paid
+  feature.** See `sessions/2026-08-25-upload-limits-and-scheduling.md`. Merged
+  and deployed.
+
+  Four owner decisions in one thread: a short video may be **1GB**, a long one
+  **whatever YouTube allows** (256GB), **Free cannot schedule**, and **nothing
+  over 5GB may be scheduled on any plan**. Plus: leaving the composer at any
+  point throws the post away — only Save draft and Schedule keep anything.
+
+  *Sizes.* `checkUpload` takes the kind of post as context, so the same clip is
+  refused as a Short and accepted as a Long video; the refusal says so rather
+  than only naming the number. The per-row error is **derived at render** and
+  not stored, because the kind can change after the file was picked and a
+  stored refusal would survive the person doing exactly what it told them.
+
+  *Multipart upload, which the 256GB figure required.* R2 refuses a single PUT
+  over 5GiB, so this could not be a constant change — above 4GiB the browser
+  uploads in parts. One request signs every part URL at once (ten thousand
+  round trips is the alternative); `File.slice` keeps one part in memory, so a
+  200GB file is not 200GB of RAM. **Completion deliberately takes no ETags from
+  the browser**: `ListParts` gives the server the same list from the other end,
+  which removes both the CORS expose-header requirement and any need to trust
+  the tab across ten thousand requests — and the server refuses to assemble
+  anything short of the expected count, because a truncated video that
+  publishes is worse than an upload that fails loudly. It is also what makes
+  the ceiling *binding* rather than declared: an upload can only be as large as
+  the parts we agreed to sign, where a single PUT's length is only ever the
+  browser's claim.
+
+  *Scheduling.* `plans.limits.scheduling`, false on Free
+  (`20260825000000_scheduling_is_a_paid_feature.sql`, additive to the jsonb so
+  the running release was unaffected). `parsePlanLimits` treats a **missing**
+  key as `true`, unlike every other field, which throws — a migration that has
+  not landed must not quietly take scheduling from someone paying for it. The
+  gate is checked before the row is written, before the bytes move when the
+  browser declares `intent: "schedule"`, and on Edit time — the last mattering
+  for exactly one case, someone who scheduled on Pro and has since dropped to
+  Free. Both refusals open a dialog offering "Post now instead"; neither is a
+  disabled button, per the standing rule against dead controls.
+
+  *One bug worth keeping.* `CompleteMultipartUpload` answered `InvalidPart: One
+  or more of the specified parts could not be found` with nothing missing.
+  `ListParts` returns each ETag with its quotes as entities — `&quot;abc&quot;`
+  — and the code escaped the `&` a second time on the way back out, mangling
+  every ETag into a value R2 had never issued. The message reads like a missing
+  part rather than a corrupted one. `decodeXml`/`escapeXml` now live in their
+  own pure module with the double-escape case pinned by a test.
+
+  584 tests, build, typecheck and lint green; migration applied and read back
+  from the rows. Proven signed-in and straight at the API: `scheduling_locked`
+  on Free, `scheduled_media_too_large` at 6GB with 4GB accepted, `use_multipart`
+  at 8GB, and multipart refused for a scheduled 8GB. Against the live bucket:
+  create → part PUT → complete → object readable at exactly the right size →
+  deleted; then two parts declared and one sent, complete refused with "1 of 2
+  parts", abort, 404. **Not verified:** the browser half of a multipart PUT —
+  the bucket's CORS allow-list has no entry for the auto-assigned dev-server
+  origin, and the single-PUT path fails identically from it, which is how the
+  cause was placed.

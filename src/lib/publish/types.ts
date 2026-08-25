@@ -123,6 +123,8 @@ export type TargetFailureCode =
   | "dm_rule_cap"
   | "dm_send_cap"
   | "video_minutes_cap"
+  | "scheduling_locked"
+  | "scheduled_media_too_large"
   | "funnels_locked"
   | "research_locked"
   | "research_credits_cap"

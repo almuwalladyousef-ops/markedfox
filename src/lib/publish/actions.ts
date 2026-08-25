@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth/session";
+import { canUserDo } from "@/lib/entitlements/can-user-do";
+import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import { createClient } from "@/lib/supabase/server";
 
 // Cancels a post that has not been claimed yet. The `.eq("status",
@@ -41,6 +43,27 @@ export async function reschedulePostAction(formData: FormData): Promise<void> {
   if (Number.isNaN(when.getTime()) || when.getTime() <= Date.now()) return;
 
   const supabase = await createClient();
+
+  // The same gate the composer's Schedule button is behind. It matters here
+  // for exactly one case: someone who scheduled posts on a paid plan and has
+  // since dropped to Free. Those posts still go out — they were committed
+  // under the plan that allowed them — but pushing one further into the
+  // future is asking the bucket to hold its media for longer, which is the
+  // thing Free does not include.
+  const { data: post } = await supabase
+    .from("scheduled_posts")
+    .select("workspace_id")
+    .eq("id", postId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!post) return;
+  const snapshot = await getEntitlementSnapshot(
+    supabase,
+    user.id,
+    String(post.workspace_id),
+  );
+  if (!canUserDo(snapshot, { type: "schedule_post" }).allowed) return;
+
   const { error } = await supabase
     .from("scheduled_posts")
     .update({ scheduled_for: when.toISOString() })

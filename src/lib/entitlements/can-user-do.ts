@@ -134,6 +134,16 @@ export function canUserDo(
       return { allowed: true };
     }
 
+    case "schedule_post": {
+      if (!limits.scheduling) {
+        return deny(
+          "scheduling_locked",
+          `Scheduling is not included in the ${snapshot.planId} plan — you can still post now, or save this as a draft`,
+        );
+      }
+      return { allowed: true };
+    }
+
     case "use_research": {
       if (limits.researchCreditsPerMonth <= 0) {
         return deny(

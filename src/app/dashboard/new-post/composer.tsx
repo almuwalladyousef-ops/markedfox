@@ -1,13 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon, PlanDiamond, type IconName } from "@/components/icons";
 import { PlatformIcon, PlatformTile } from "@/components/platform-icon";
+import { overlayProps } from "@/components/overlay";
 import {
   Busy,
   Button,
+  ButtonLink,
   buttonClass,
   cx,
   FoxMark,
@@ -24,7 +26,16 @@ import {
   type TikTokPublishOptions,
 } from "@/lib/platforms/tiktok-options";
 import { NO_EDIT, hasEdits, type MediaEdit } from "@/lib/media/edit";
-import { checkUpload } from "@/lib/media/policy";
+import {
+  checkUpload,
+  formatBytes,
+  MAX_SCHEDULED_VIDEO_BYTES,
+  maxVideoBytesFor,
+  SINGLE_PUT_MAX_BYTES,
+  type UploadContext,
+  type UploadIntent,
+} from "@/lib/media/policy";
+import { uploadFile } from "@/lib/media/upload-client";
 import { validatePublishOptions } from "@/lib/platforms/publish-options";
 import type { OptionSpecs } from "@/lib/publish/specs";
 import type {
@@ -93,6 +104,10 @@ type Props = {
   gates: Partial<Record<string, PlatformGate>>;
   planId: string;
   xLinksAllowed: boolean;
+  /** Free cannot set a time (owner decision, 2026-08-25). The button is still
+   *  there and still pressable — pressing it explains what Pro adds, which is
+   *  the house rule about never rendering a dead control. */
+  schedulingAllowed: boolean;
   /** R2 is provisioned, so the file picker can be offered. */
   uploadsEnabled: boolean;
   usage: {
@@ -311,6 +326,7 @@ export function Composer({
   gates,
   planId,
   xLinksAllowed,
+  schedulingAllowed,
   uploadsEnabled,
   usage,
 }: Props) {
@@ -385,6 +401,10 @@ export function Composer({
   const [dragging, setDragging] = useState(false);
   /** The schedule dialog is open. */
   const [pickingTime, setPickingTime] = useState(false);
+  /** Why Schedule refused, when it did: the plan, or the size of the file. */
+  const [scheduleBlocked, setScheduleBlocked] = useState<
+    "plan" | "size" | null
+  >(null);
   // A reopened draft already has its answers, so it starts on the caption
   // rather than asking somebody to re-declare what they are posting.
   const [kind, setKind] = useState<PostKind | null>(() => {
@@ -429,6 +449,15 @@ export function Composer({
   // its bytes are still on the machine — it is exactly as much "a video going
   // to Instagram" as an uploaded one, and every rule the composer checks runs
   // off the type rather than the URL.
+  /**
+   * Which video ceiling this post is judged against — 1GB for a short one,
+   * YouTube's own 256GB for a full-length upload.
+   *
+   * A story rides with `short`: it is sixty seconds by definition, and there
+   * is no reason for it to be the size of a feature film.
+   */
+  const uploadContext: UploadContext = kind === "longVideo" ? "long" : "short";
+
   const mediaRefs: MediaRef[] = useMemo(
     () =>
       media
@@ -436,26 +465,54 @@ export function Composer({
         .map((m) => ({
           url: m.url.trim() || PENDING_MEDIA_URL,
           type: m.type,
+          ...(m.file ? { bytes: m.file.size } : {}),
         })),
     [media],
   );
+  /**
+   * A video too large to sit in the bucket until its time comes.
+   *
+   * Not a size limit on the post — it can be published now at any size the
+   * platform will take. It is a limit on how long we are willing to hold it,
+   * which is why it only bites on Schedule.
+   */
+  const oversizedForSchedule = media.find(
+    (m) => m.type === "video" && m.file && m.file.size > MAX_SCHEDULED_VIDEO_BYTES,
+  );
+
+  /**
+   * Why a row cannot be used, whether that is something that happened to it
+   * (an upload that failed) or something about it (too large for this kind of
+   * post).
+   *
+   * Derived rather than stored, because the second half depends on `kind` and
+   * `kind` can change after the file was picked: going back to step 1 and
+   * switching Short to Long has to un-refuse a 3GB clip, which is exactly what
+   * the refusal told the person to do.
+   */
+  const errorOf = useCallback(
+    (row: MediaRow): string | undefined => {
+      if (row.error) return row.error;
+      if (!row.file) return undefined;
+      const check = checkUpload(row.file.type, row.file.size, uploadContext);
+      return check.ok ? undefined : check.reason;
+    },
+    [uploadContext],
+  );
+
   /** Bytes are in flight. Only true during a commit now, never while editing. */
   const uploading = media.some((m) => m.progress !== undefined);
   /** ffmpeg is running on one of the clips. */
   const editingMedia = media.some((m) => m.editing);
-  /** Files chosen but not yet in storage — what a commit has to upload, and
-   *  what would be lost by closing the tab. */
-  const pendingCount = media.filter((m) => m.file && !m.url.trim()).length;
-
-  // Deferring the upload means a picked file lives in this tab and nowhere
-  // else until the post is committed, so closing it loses the bytes. The old
-  // flow never needed this warning, because it uploaded on pick.
-  useEffect(() => {
-    if (pendingCount === 0) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [pendingCount]);
+  // There is deliberately no "are you sure you want to leave?" here.
+  //
+  // A post in progress is not saved anywhere and is not meant to be: leaving
+  // at any point throws it away, and the only two things that keep anything
+  // are Save draft and Schedule (owner decision, 2026-08-25). A file that was
+  // picked and not committed was never uploaded, so nothing is orphaned by
+  // walking away — and a browser confirmation that says "changes you made may
+  // not be saved" about work we have already decided not to save is a prompt
+  // that asks a question with only one honest answer.
 
   // Every `blob:` URL handed out is held by the document until it is revoked.
   // Through a ref, because the cleanup has to run on unmount with the final
@@ -615,7 +672,8 @@ export function Composer({
       }
     }
     for (const row of media) {
-      if (row.error) out.push({ platform: null, message: row.error });
+      const rowError = errorOf(row);
+      if (rowError) out.push({ platform: null, message: rowError });
     }
     if (kind === "story") {
       // The kind is real and the flow is real; the publish call per platform
@@ -645,6 +703,7 @@ export function Composer({
     tiktokOptions,
     platformOptions,
     hasVideo,
+    errorOf,
   ]);
 
   const contentReady = selected.length > 0 && issues.length === 0;
@@ -681,10 +740,14 @@ export function Composer({
    * rather than at the one moment the person least wants to hear it.
    */
   const addFiles = (files: File[]) => {
+    // Judged against `uploadContext`, so the same clip can be refused as a
+    // Short and accepted as a Long video. Going back and changing the kind
+    // re-runs this — see the effect below — because otherwise the first
+    // answer would stick and the fix would look like it had not worked.
     setMedia((prev) => [
       ...prev,
       ...files.map((file) => {
-        const check = checkUpload(file.type, file.size);
+        const check = checkUpload(file.type, file.size, uploadContext);
         return {
           key: takeKey(),
           url: "",
@@ -703,68 +766,40 @@ export function Composer({
     ]);
   };
 
-  /** PUT one file to R2 with a URL the server signs, reporting progress into
-   *  its row. The bytes never pass through our box — see
-   *  /api/media/upload-url. XMLHttpRequest rather than fetch purely because it
-   *  reports progress, which matters for a 300MB video. */
-  const uploadOne = async (row: MediaRow, file: File): Promise<MediaRef> => {
+  /**
+   * Get one file into R2, reporting progress into its row.
+   *
+   * The two paths — one signed PUT, or a run of signed parts — live in
+   * `upload-client.ts`; which one is used depends only on the size, and
+   * nothing here needs to know. The bytes never pass through our box either
+   * way, which on a 1 vCPU / 2GB droplet is the difference between one person
+   * uploading a video and every other request stalling behind it.
+   */
+  const uploadOne = async (
+    row: MediaRow,
+    file: File,
+    intent: UploadIntent,
+  ): Promise<MediaRef> => {
     updateMedia(row.key, { progress: 0, error: undefined });
 
-    const response = await fetch("/api/media/upload-url", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        workspaceId,
-        contentType: file.type,
-        sizeBytes: file.size,
-      }),
-    });
-    const body = (await response.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
-    if (!response.ok) {
-      throw new Error(String(body.message ?? "That file was refused."));
-    }
-
-    const { uploadUrl, publicUrl, headers, kind } = body as {
-      uploadUrl: string;
-      publicUrl: string;
-      headers: Record<string, string>;
-      kind: MediaRef["type"];
-    };
-
-    await new Promise<void>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("PUT", uploadUrl);
-      for (const [name, value] of Object.entries(headers)) {
-        xhr.setRequestHeader(name, value);
-      }
-      xhr.upload.onprogress = (event) => {
-        if (!event.lengthComputable) return;
-        updateMedia(row.key, {
-          progress: Math.round((event.loaded / event.total) * 100),
-        });
-      };
-      xhr.onload = () =>
-        xhr.status >= 200 && xhr.status < 300
-          ? resolve()
-          : reject(new Error(`Upload failed (HTTP ${xhr.status}).`));
-      xhr.onerror = () =>
-        reject(new Error("Upload failed — check your connection."));
-      xhr.send(file);
+    const uploaded = await uploadFile({
+      file,
+      workspaceId,
+      context: uploadContext,
+      intent,
+      onProgress: (percent) => updateMedia(row.key, { progress: percent }),
     });
 
     // The URL goes back on the row, so a publish that fails downstream — a
     // dead token, a platform refusing the caption — can be retried without
-    // sending the same 300MB again.
+    // sending the same file again.
     updateMedia(row.key, {
-      url: publicUrl,
-      type: kind,
+      url: uploaded.url,
+      type: uploaded.type,
       progress: undefined,
       error: undefined,
     });
-    return { url: publicUrl, type: kind };
+    return uploaded;
   };
 
   /**
@@ -777,12 +812,16 @@ export function Composer({
    * Throws on the first failure, and the caller posts nothing — a partial
    * upload must never become a post missing half its carousel.
    */
-  const commitMedia = async (): Promise<MediaRef[]> => {
+  const commitMedia = async (intent: UploadIntent): Promise<MediaRef[]> => {
     const refs: MediaRef[] = [];
     for (const row of media) {
       const existing = row.url.trim();
       if (existing) {
-        refs.push({ url: existing, type: row.type });
+        refs.push({
+          url: existing,
+          type: row.type,
+          ...(row.file ? { bytes: row.file.size } : {}),
+        });
         continue;
       }
       if (!row.file) continue;
@@ -810,7 +849,7 @@ export function Composer({
         }
       }
 
-      refs.push(await uploadOne(row, file));
+      refs.push(await uploadOne(row, file, intent));
     }
     return refs;
   };
@@ -874,7 +913,10 @@ export function Composer({
       // whose video only ever existed in a tab that has since been closed.
       let refs: MediaRef[];
       try {
-        refs = await commitMedia();
+        // A draft is not scheduled even when a time is sitting in the field
+        // — nothing is due until it is actually posted — so its media is
+        // uploaded under the ordinary rules.
+        refs = await commitMedia("now");
         assertNoPending(refs);
       } catch (error) {
         setOutcome({
@@ -948,7 +990,7 @@ export function Composer({
       // be in storage before the row is written, not at the scheduled minute.
       let refs: MediaRef[];
       try {
-        refs = await commitMedia();
+        refs = await commitMedia(when);
         assertNoPending(refs);
       } catch (error) {
         setOutcome({
@@ -1001,6 +1043,15 @@ export function Composer({
           status: post.status,
           results: (body.results as TargetOutcome[]) ?? [],
         });
+        return;
+      }
+      // The server has the last word on scheduling, and it says it in a
+      // sentence: "your plan does not allow this post" would be both vague
+      // and wrong, since posting now is exactly what it does allow.
+      if (body.error === "schedule_denied") {
+        setScheduleBlocked(
+          body.code === "scheduled_media_too_large" ? "size" : "plan",
+        );
         return;
       }
       const details = Array.isArray(body.issues)
@@ -1409,6 +1460,20 @@ export function Composer({
                     : "Drag photos here"}
               </p>
               {filePicker}
+              {uploadsEnabled ? (
+                <p className="max-w-[26rem] text-center text-[12.5px]/[18px] text-pretty text-faint">
+                  {wantsVideo
+                    ? `MP4 or MOV, up to ${formatBytes(maxVideoBytesFor(uploadContext))}${
+                        uploadContext === "long"
+                          ? " — YouTube's own ceiling"
+                          : ""
+                      }.`
+                    : "JPEG, PNG or WebP, up to 8MB."}
+                  {wantsVideo && uploadContext === "long"
+                    ? ` Anything over ${formatBytes(SINGLE_PUT_MAX_BYTES)} uploads in parts.`
+                    : ""}
+                </p>
+              ) : null}
               {/* A deployment with no object storage cannot take a file at
                   all, so the one control it has is a URL. One field rather
                   than the old repeating list: every platform fetches the media
@@ -1458,13 +1523,13 @@ export function Composer({
                   />
                 ) : null}
               </div>
-              {media.some((m) => m.error) ? (
+              {media.some((m) => errorOf(m)) ? (
                 <ul className="flex flex-col gap-1">
                   {media
-                    .filter((m) => m.error)
+                    .filter((m) => errorOf(m))
                     .map((m) => (
                       <li key={m.key} className="text-[12.5px] text-danger">
-                        {m.error}
+                        {errorOf(m)}
                       </li>
                     ))}
                 </ul>
@@ -1908,6 +1973,17 @@ export function Composer({
                   type="button"
                   tone="ink"
                   onClick={() => {
+                    // Never a disabled button and never the word "Locked":
+                    // pressing it on Free explains what Pro adds, which is
+                    // the only version of this that sells anything.
+                    if (!schedulingAllowed) {
+                      setScheduleBlocked("plan");
+                      return;
+                    }
+                    if (oversizedForSchedule) {
+                      setScheduleBlocked("size");
+                      return;
+                    }
                     const now = new Date();
                     if (!scheduledFor) {
                       setScheduledFor(
@@ -1920,7 +1996,6 @@ export function Composer({
                     setPickingTime(true);
                   }}
                   disabled={busy || !contentReady}
-               
                   className="min-w-[138px] justify-center"
                 >
                   {submitting && mode === "schedule"
@@ -1998,6 +2073,66 @@ export function Composer({
             void submit("schedule");
           }}
         />
+      ) : null}
+
+      {scheduleBlocked ? (
+        <div {...overlayProps(() => setScheduleBlocked(null), "centre", "z-[60]")}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Scheduling"
+            className="mf-modal w-full max-w-[420px] rounded-[24px] border border-line bg-panel p-7 shadow-[0_30px_80px_rgba(0,0,0,.28)]"
+          >
+            <h2 className="font-display text-[19px] font-bold text-ink">
+              {scheduleBlocked === "plan"
+                ? "Scheduling is on the paid plans"
+                : "That file is too large to schedule"}
+            </h2>
+            <p className="mt-2.5 text-[14.5px]/[22px] text-pretty text-muted">
+              {scheduleBlocked === "plan" ? (
+                <>
+                  On {planId} you can post now and save drafts. Setting a time
+                  means holding the post — and any file that goes with it —
+                  until its turn comes, and that is what the paid plans cover.
+                </>
+              ) : (
+                <>
+                  A scheduled video has to be under{" "}
+                  {formatBytes(MAX_SCHEDULED_VIDEO_BYTES)}, because we hold it
+                  in storage until its time comes. This one is{" "}
+                  {formatBytes(oversizedForSchedule?.file?.size ?? 0)}. Post it
+                  now instead, or trim it down first.
+                </>
+              )}
+            </p>
+            <div className="mt-6 flex flex-wrap items-center gap-2.5">
+              {scheduleBlocked === "plan" ? (
+                <ButtonLink href="/pricing" tone="primary">
+                  See plans
+                </ButtonLink>
+              ) : null}
+              <Button
+                type="button"
+                tone={scheduleBlocked === "plan" ? "secondary" : "primary"}
+                onClick={() => {
+                  setScheduleBlocked(null);
+                  setMode("now");
+                  void submit("now");
+                }}
+                disabled={!canSubmitNow}
+              >
+                Post now instead
+              </Button>
+              <Button
+                type="button"
+                tone="ghost"
+                onClick={() => setScheduleBlocked(null)}
+              >
+                Not now
+              </Button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

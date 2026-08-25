@@ -145,6 +145,7 @@ export default async function ComposePage({
           gates={gates}
           planId={snapshot.planId}
           xLinksAllowed={snapshot.limits.xLinksAllowed}
+          schedulingAllowed={snapshot.limits.scheduling}
           uploadsEnabled={isMediaStorageConfigured()}
           usage={{
             postsToday: snapshot.usage.postsToday,
