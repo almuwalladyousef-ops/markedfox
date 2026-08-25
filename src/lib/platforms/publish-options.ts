@@ -1,3 +1,5 @@
+import type { IconName } from "@/components/icons";
+
 import type { Platform, PlatformPublishOptions } from "./types";
 
 // The per-platform settings a post carries, declared as data.
@@ -24,6 +26,14 @@ import type { Platform, PlatformPublishOptions } from "./types";
 type FieldBase = {
   key: string;
   label: string;
+  /** Name from src/components/icons.tsx. A settings pane is a list of
+   *  same-shaped rows, and the glyph is what makes one findable by scanning
+   *  rather than by reading every label.
+   *
+   *  Typed as IconName rather than string: it was a string for one commit and
+   *  a name that did not exist compiled fine, then crashed the settings step
+   *  at render. */
+  icon?: IconName;
   help?: string;
   /** Print the help rather than hiding it behind hover. For consequences the
    *  label cannot imply: what the platform overrides, what the law requires. */
@@ -66,6 +76,7 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
       {
         kind: "select",
         key: "privacy_status",
+        icon: "eye",
         label: "Visibility",
         choices: [
           { value: "public", label: "Public" },
@@ -79,6 +90,7 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
       {
         kind: "text",
         key: "title",
+        icon: "scripts",
         label: "Title",
         maxLength: 100,
         placeholder: "Taken from the first line of the caption",
@@ -87,6 +99,7 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
       {
         kind: "text",
         key: "description",
+        icon: "doc",
         label: "Description",
         maxLength: 5000,
         multiline: true,
@@ -95,6 +108,7 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
       {
         kind: "text",
         key: "tags",
+        icon: "hooks",
         label: "Tags",
         maxLength: 400,
         placeholder: "comma, separated, tags",
@@ -102,6 +116,7 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
       {
         kind: "toggle",
         key: "add_shorts_tag",
+        icon: "spark",
         label: "Add #shorts to the title",
         default: false,
         help: "Only useful for vertical videos under three minutes.",
@@ -109,6 +124,7 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
       {
         kind: "select",
         key: "made_for_kids",
+        icon: "people",
         label: "Audience",
         choices: [
           { value: "no", label: "Not made for kids" },
@@ -128,6 +144,7 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
       {
         kind: "select",
         key: "reply_settings",
+        icon: "chat",
         label: "Who can reply",
         choices: [
           { value: "everyone", label: "Everyone" },
@@ -146,6 +163,7 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
       {
         kind: "select",
         key: "reply_control",
+        icon: "chat",
         label: "Who can reply",
         choices: [
           { value: "everyone", label: "Anyone" },
@@ -165,6 +183,7 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
       {
         kind: "toggle",
         key: "comment_enabled",
+        icon: "chat",
         label: "Allow comments",
         default: true,
         showHelp: true,
@@ -173,6 +192,7 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
       {
         kind: "select",
         key: "profile_display",
+        icon: "grid",
         label: "Profile display",
         choices: [
           { value: "grid", label: "Main grid and Reels tab" },
@@ -183,6 +203,7 @@ export const PUBLISH_OPTIONS: Partial<Record<Platform, PlatformOptionSpec>> = {
       {
         kind: "text",
         key: "audio_name",
+        icon: "templates",
         label: "Rename audio",
         maxLength: 60,
         placeholder: "Original audio",

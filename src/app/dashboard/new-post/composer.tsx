@@ -7,8 +7,6 @@ import { Icon, PlanDiamond, type IconName } from "@/components/icons";
 import { PlatformIcon, PlatformTile } from "@/components/platform-icon";
 import {
   Button,
-  Card,
-  Eyebrow,
   FoxMark,
   Notice,
   SectionHeading,
@@ -40,7 +38,8 @@ import { captionLength, validateContent } from "@/lib/publish/validate";
 
 import { MediaEdits } from "./media-edits";
 import { PlatformOptionsPanel } from "./platform-options-panel";
-import { PostPreview } from "./post-preview";
+import { ReviewStage } from "./review-stage";
+import { ScheduleDialog } from "./schedule-dialog";
 import { TikTokOptionsPanel, type ContextState } from "./tiktok-options-panel";
 
 // The composer. One caption, any combination of connected accounts, optional
@@ -272,6 +271,28 @@ const DESTINATION: Record<PostKind, Partial<Record<Platform, string>>> = {
 /** Kinds that carry a video file, so the file step asks for one. */
 const VIDEO_KINDS: PostKind[] = ["video", "longVideo", "story"];
 
+/** The two tilted cards over the drop zone. Drawn rather than an illustration
+ *  file: it is two rounded rectangles and a glyph, and it has to take the
+ *  theme's own colours in both light and dark. */
+function DropMark({ kind }: { kind: "video" | "photo" }) {
+  return (
+    <span aria-hidden className="relative mb-1 block h-[62px] w-[86px]">
+      <span className="absolute top-1 left-0 flex h-[52px] w-[46px] -rotate-[14deg] items-center justify-center rounded-[13px] bg-gradient-to-br from-[#f472b6] to-[#a855f7] shadow-[0_8px_18px_rgba(168,85,247,.28)]">
+        <Icon
+          name={kind === "video" ? "play" : "image"}
+          className="h-5 w-5 text-white"
+        />
+      </span>
+      <span className="absolute top-0 right-0 flex h-[52px] w-[46px] rotate-[12deg] items-center justify-center rounded-[13px] bg-gradient-to-br from-[#fb7185] to-[#e11d48] shadow-[0_8px_18px_rgba(225,29,72,.28)]">
+        <Icon
+          name={kind === "video" ? "play" : "image"}
+          className="h-5 w-5 text-white"
+        />
+      </span>
+    </span>
+  );
+}
+
 // datetime-local wants "YYYY-MM-DDTHH:MM" in local time.
 function toLocalInputValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -358,10 +379,11 @@ export function Composer({
   const [scheduledFor, setScheduledFor] = useState(
     draft?.scheduledFor ? toLocalInputValue(new Date(draft.scheduledFor)) : "",
   );
-  // The picker's lower bound. Set from event handlers, never during render —
-  // the clock is impure and React wants render idempotent.
-  const [minSchedule, setMinSchedule] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  /** A file is being dragged over the drop zone. */
+  const [dragging, setDragging] = useState(false);
+  /** The schedule dialog is open. */
+  const [pickingTime, setPickingTime] = useState(false);
   // A reopened draft already has its answers, so it starts on the caption
   // rather than asking somebody to re-declare what they are posting.
   const [kind, setKind] = useState<PostKind | null>(() => {
@@ -639,20 +661,10 @@ export function Composer({
     );
   };
 
-  const addMedia = () => {
-    setMedia((prev) => [...prev, { key: takeKey(), url: "", type: "image" }]);
-  };
   const updateMedia = (key: number, patch: Partial<MediaRow>) =>
     setMedia((prev) =>
       prev.map((m) => (m.key === key ? { ...m, ...patch } : m)),
     );
-  const removeMedia = (key: number) =>
-    setMedia((prev) => {
-      const row = prev.find((m) => m.key === key);
-      if (row?.previewUrl) URL.revokeObjectURL(row.previewUrl);
-      return prev.filter((m) => m.key !== key);
-    });
-
   /**
    * Take a file, do not upload it.
    *
@@ -1215,93 +1227,9 @@ export function Composer({
     </div>
   );
 
-  // The media list under the frame: filenames, upload progress, and the URL
-  // rows for a deployment with no object storage.
-  const mediaList =
-    media.length > 0 ? (
-      <ul className="mt-4 flex flex-col gap-2.5">
-        {media.map((row, index) => {
-          const isUpload = row.progress !== undefined || Boolean(row.name);
-          return (
-            <li key={row.key} className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2.5">
-                <span
-                  aria-hidden
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-chip text-faint"
-                >
-                  <Icon
-                    name={row.type === "video" ? "play" : "image"}
-                    className="h-4 w-4"
-                  />
-                </span>
-                {isUpload ? (
-                  <span className="min-w-0 flex-1 truncate text-[13px] text-muted">
-                    {row.name ?? "Uploaded file"}
-                    {row.editing ? (
-                      <span className="ml-2 text-faint">{row.editing}</span>
-                    ) : row.progress !== undefined ? (
-                      <span className="ml-2 text-faint">{row.progress}%</span>
-                    ) : row.url ? (
-                      <span className="ml-2 text-ok">uploaded</span>
-                    ) : row.file ? (
-                      // Says where the file actually is. "Ready" used to mean
-                      // "already in storage"; now it would be a lie.
-                      <span className="ml-2 text-faint">on this device</span>
-                    ) : null}
-                  </span>
-                ) : (
-                  <input
-                    type="url"
-                    value={row.url}
-                    placeholder="https://…"
-                    aria-label={`Media ${index + 1} URL`}
-                    onChange={(e) => updateMedia(row.key, { url: e.target.value })}
-                    onBlur={(e) =>
-                      updateMedia(row.key, {
-                        type: VIDEO_EXTENSIONS.test(e.target.value)
-                          ? "video"
-                          : row.type,
-                      })
-                    }
-                    className={cx(inputClass, "min-w-0 flex-1 text-[13px]")}
-                  />
-                )}
-                <button
-                  type="button"
-                  onClick={() => removeMedia(row.key)}
-                  aria-label={`Remove media ${index + 1}`}
-                  className="p-1.5 text-faint transition-[color] duration-150 hover:text-danger"
-                >
-                  <Icon name="close" className="h-4 w-4" />
-                </button>
-              </div>
-              {row.progress !== undefined ? (
-                <div
-                  className="h-1 w-full overflow-hidden rounded-full bg-chip"
-                  role="progressbar"
-                  aria-valuenow={row.progress}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label={`Uploading ${row.name ?? "file"}`}
-                >
-                  <div
-                    className="h-full bg-ok transition-[width] duration-150"
-                    style={{ width: `${row.progress}%` }}
-                  />
-                </div>
-              ) : null}
-              {row.error ? (
-                <p className="text-[12.5px] text-danger">{row.error}</p>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-    ) : null;
-
   const wantsVideo = kind !== null && VIDEO_KINDS.includes(kind);
   const filePicker = uploadsEnabled ? (
-    <label className={cx(buttonClass("ink", "md"), "cursor-pointer")}>
+    <label className={cx(buttonClass("primary", "md"), "cursor-pointer")}>
       <Icon name="plus" className="h-4 w-4" strokeWidth={2.1} />
       Select from computer
       <input
@@ -1371,8 +1299,8 @@ export function Composer({
              description, made five short choices look like a form. The
              description now lives on the hover title, where it is there when
              somebody wants it and silent when they do not. */
-          <div className="flex min-h-[46vh] flex-col items-center justify-center">
-            <ul className="flex flex-wrap justify-center gap-2.5">
+          <div className="flex min-h-[38vh] flex-col items-center justify-center">
+            <ul className="flex flex-wrap justify-center gap-1.5">
               {KINDS.map((option) => {
                 const on = kind === option.id;
                 return (
@@ -1432,33 +1360,82 @@ export function Composer({
              frame saying a file would appear there — three pieces of furniture
              around one decision. */
           media.length === 0 ? (
-            <div className="flex min-h-[52vh] flex-col items-center justify-center gap-4">
-              <span
-                aria-hidden
-                className="flex h-16 w-16 items-center justify-center rounded-2xl bg-chip text-faint"
-              >
-                <Icon
-                  name={wantsVideo ? "play" : "image"}
-                  className="h-7 w-7"
-                />
-              </span>
-              <div className="flex flex-col items-center gap-2.5">
-                {filePicker}
-                <Button type="button" onClick={addMedia} tone="quiet">
-                  Paste a link
-                </Button>
-              </div>
-              <p className="text-[13px] text-faint">
-                {wantsVideo
-                  ? "MP4 or MOV up to 300MB"
-                  : "JPEG, PNG or WebP up to 8MB"}
+            /* A drop target rather than a column of controls. Dragging a clip
+               in from a folder is how people actually get a file here, and the
+               old version made that the one thing the screen did not offer. */
+            <div
+              onDragOver={(event) => {
+                if (!uploadsEnabled) return;
+                event.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={(event) => {
+                // Only when the pointer truly left, not when it crossed onto a
+                // child — dragleave fires for both and the zone flickered.
+                if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                  setDragging(false);
+                }
+              }}
+              onDrop={(event) => {
+                if (!uploadsEnabled) return;
+                event.preventDefault();
+                setDragging(false);
+                addFiles(Array.from(event.dataTransfer.files ?? []));
+              }}
+              className={cx(
+                "flex min-h-[56vh] flex-col items-center justify-center gap-4 rounded-3xl transition-[background,outline-color] duration-150",
+                dragging
+                  ? "bg-accent-soft outline outline-2 outline-dashed outline-accent"
+                  : "outline outline-2 outline-dashed outline-transparent",
+              )}
+            >
+              <DropMark kind={wantsVideo ? "video" : "photo"} />
+              <p className="text-[15px] font-semibold text-ink">
+                {dragging
+                  ? "Drop it"
+                  : wantsVideo
+                    ? "Drag videos here"
+                    : "Drag photos here"}
               </p>
+              {filePicker}
+              {/* A deployment with no object storage cannot take a file at
+                  all, so the one control it has is a URL. One field rather
+                  than the old repeating list: every platform fetches the media
+                  itself, so one public address is the whole input. */}
+              {!uploadsEnabled ? (
+                <input
+                  type="url"
+                  placeholder="https://… a public image or video"
+                  aria-label="Media URL"
+                  onChange={(event) => {
+                    const url = event.target.value.trim();
+                    setMedia(
+                      url
+                        ? [
+                            {
+                              key: 1,
+                              url,
+                              type: VIDEO_EXTENSIONS.test(url)
+                                ? "video"
+                                : "image",
+                            },
+                          ]
+                        : [],
+                    );
+                  }}
+                  className={cx(inputClass, "w-[340px] max-w-full")}
+                />
+              ) : null}
             </div>
           ) : (
             /* Once there is a file, it is the page: playing, centred, lifted
                off the background, with its two edits beside it. */
-            <div className="flex min-h-[52vh] flex-col items-center gap-5">
-              <div className="flex items-start gap-5">
+            /* The clip and its two edits, and nothing else. The filename row
+               with its remove button used to sit underneath; it repeated what
+               the frame already shows and put a destructive control directly
+               under the primary one. Changing your mind is the back arrow. */
+            <div className="flex min-h-[52vh] flex-col items-center justify-center gap-4">
+              <div className="flex items-start gap-4">
                 {mediaFrame}
                 {wantsVideo && firstRow ? (
                   <MediaEdits
@@ -1470,7 +1447,17 @@ export function Composer({
                   />
                 ) : null}
               </div>
-              {mediaList}
+              {media.some((m) => m.error) ? (
+                <ul className="flex flex-col gap-1">
+                  {media
+                    .filter((m) => m.error)
+                    .map((m) => (
+                      <li key={m.key} className="text-[12.5px] text-danger">
+                        {m.error}
+                      </li>
+                    ))}
+                </ul>
+              ) : null}
             </div>
           )
         ) : step === "caption" ? (
@@ -1538,7 +1525,7 @@ export function Composer({
                   The old row of links grew with the number of platforms, and
                   every one of them said almost the same thing. */}
               {selectedPlatforms.length > 1 ? (
-                <label className="flex cursor-pointer items-center gap-2.5 text-[14px] font-semibold text-ink">
+                <label className="flex cursor-pointer items-center gap-2.5 text-[13.5px] text-muted transition-[color] duration-150 hover:text-ink">
                   <input
                     type="checkbox"
                     checked={perPlatform}
@@ -1556,7 +1543,7 @@ export function Composer({
                           : {},
                       );
                     }}
-                    className="h-[17px] w-[17px] accent-[var(--accent)]"
+                    className="h-[15px] w-[15px] accent-[var(--accent)] opacity-70"
                   />
                   Write a different caption per platform
                 </label>
@@ -1596,16 +1583,18 @@ export function Composer({
                           aria-label={`Caption for ${labels[platform]}`}
                           className="min-w-0 flex-1 resize-y border-0 bg-transparent px-0 text-[14.5px]/[22px] text-ink outline-none placeholder:text-faint"
                         />
-                        {over || close ? (
-                          <span
-                            className={cx(
-                              "mt-1 shrink-0 text-[12px] tabular-nums",
-                              over ? "font-bold text-danger" : "text-faint",
-                            )}
-                          >
-                            {length.toLocaleString()}/{max.toLocaleString()}
-                          </span>
-                        ) : null}
+                        <span
+                          className={cx(
+                            "mt-1 shrink-0 text-[12px] tabular-nums",
+                            over
+                              ? "font-bold text-danger"
+                              : close
+                                ? "text-muted"
+                                : "text-faint",
+                          )}
+                        >
+                          {length.toLocaleString()}/{max.toLocaleString()}
+                        </span>
                       </li>
                     );
                   })}
@@ -1769,7 +1758,7 @@ export function Composer({
           </div>
         ) : step === "settings" ? (
           /* ── 4. what each platform asks for ───────────────────────────── */
-          <div className="grid items-start gap-9 wide:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
+          <div className="grid items-start gap-7 wide:grid-cols-[minmax(0,220px)_minmax(0,1fr)]">
             {mediaFrame}
             <div className="min-w-0">
               <SectionHeading title="Only what the platform's own API accepts appears here — a toggle that looks right and does nothing is worse than no toggle.">
@@ -1831,64 +1820,34 @@ export function Composer({
           </div>
         ) : (
           /* ── 5. preview and publish ───────────────────────────────────── */
-          <div className="grid items-start gap-9 wide:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
-            {mediaFrame}
-            <div className="flex min-w-0 flex-col gap-5">
-              <PostPreview
-                platforms={selectedPlatforms}
-                labels={labels}
-                caption={caption}
-                overrides={overrides}
-                media={mediaRefs}
-                scheduledFor={mode === "schedule" ? scheduledFor : null}
-                accountsByPlatform={Object.fromEntries(
-                  selectedPlatforms.map((platform) => [
-                    platform,
-                    selected
-                      .map((id) => accountById.get(id))
-                      .filter((account) => account?.platform === platform)
-                      .map((account) => account!.name),
-                  ]),
-                )}
-              />
+          /* One stage, centred, with no media frame beside it — the stage IS
+             the media. The old two-column layout showed the clip on the left
+             and a card printing the caption on the right, which is the post
+             described rather than the post shown. */
+          <div className="flex flex-col items-center gap-5">
+            <ReviewStage
+              platforms={selectedPlatforms}
+              labels={labels}
+              caption={caption}
+              overrides={overrides}
+              mediaUrl={preview?.url ?? null}
+              mediaType={preview?.type ?? null}
+              accountName={selectedAccounts[0]?.name ?? null}
+              accountAvatar={selectedAccounts[0]?.avatarUrl ?? null}
+            />
 
-              {/* No mode switch here any more: Schedule and Post at the
-                  bottom of the page ARE the choice, and a segmented control
-                  saying the same thing a foot below them was two ways to
-                  answer one question. Pressing Schedule opens this. */}
-              {mode === "schedule" ? (
-                <Card>
-                  <Eyebrow>When</Eyebrow>
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <input
-                      type="datetime-local"
-                      value={scheduledFor}
-                      min={minSchedule}
-                      onChange={(e) => setScheduledFor(e.target.value)}
-                      aria-label="Scheduled time"
-                      className={cx(inputClass, "w-auto")}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setMode("now")}
-                      className="text-[13px] font-semibold text-muted underline underline-offset-2 hover:text-ink"
-                    >
-                      Post now instead
-                    </button>
-                  </div>
-                  <p className="mt-3 text-[13px]/[19px] text-faint">
-                    It publishes on the server — no tab open, no reminder
-                    needed. Press Schedule again to set it.
-                  </p>
-                </Card>
-              ) : null}
-
-              <p className="text-[13px] text-faint">
-                Posts today: {usage.postsToday}
-                {usage.postsPerDay === null ? "" : ` / ${usage.postsPerDay}`}
-                {selectedPlatforms.includes("x")
-                  ? ` · X this month: ${usage.xPostsThisMonth} / ${usage.xPostsPerMonth}`
-                  : ""}
+            <div className="w-full max-w-[560px]">
+              <p
+                className="text-center text-[13px] text-faint"
+                title={
+                  mode === "schedule" && scheduledFor
+                    ? "Press Schedule to change the time."
+                    : undefined
+                }
+              >
+                {mode === "schedule" && scheduledFor
+                  ? `Goes out ${new Date(scheduledFor).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                  : `Posts today: ${usage.postsToday}${usage.postsPerDay === null ? "" : ` / ${usage.postsPerDay}`}`}
               </p>
 
               {outcome ? <OutcomePanel outcome={outcome} labels={labels} /> : null}
@@ -1910,12 +1869,13 @@ export function Composer({
           strip drawn under two buttons was a box around a box. */}
       <div className="sticky bottom-[calc(70px+env(safe-area-inset-bottom))] z-40 mt-8 py-3.5 shell:bottom-0">
         <div className="mx-auto flex max-w-[1000px] flex-col items-center gap-1.5">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Button
               type="button"
               tone="quiet"
               onClick={saveDraft}
               disabled={savingDraft || submitting}
+              className="min-w-[138px] justify-center"
             >
               {savingDraft ? "Saving…" : "Save draft"}
             </Button>
@@ -1928,22 +1888,20 @@ export function Composer({
                   type="button"
                   tone="ink"
                   onClick={() => {
-                    if (mode !== "schedule" || !scheduledFor) {
-                      const now = new Date();
-                      setMinSchedule(toLocalInputValue(now));
-                      if (!scheduledFor) {
-                        setScheduledFor(
-                          toLocalInputValue(
-                            new Date(now.getTime() + 60 * 60 * 1000),
-                          ),
-                        );
-                      }
-                      setMode("schedule");
-                      return;
+                    const now = new Date();
+                    if (!scheduledFor) {
+                      setScheduledFor(
+                        toLocalInputValue(
+                          new Date(now.getTime() + 60 * 60 * 1000),
+                        ),
+                      );
                     }
-                    void submit("schedule");
+                    setMode("schedule");
+                    setPickingTime(true);
                   }}
                   disabled={busy || !contentReady}
+               
+                  className="min-w-[138px] justify-center"
                 >
                   {submitting && mode === "schedule"
                     ? editingMedia
@@ -1961,6 +1919,8 @@ export function Composer({
                     void submit("now");
                   }}
                   disabled={!canSubmitNow}
+               
+                  className="min-w-[138px] justify-center"
                 >
                   {submitting && mode === "now"
                     ? editingMedia
@@ -1977,30 +1937,46 @@ export function Composer({
                 tone="primary"
                 onClick={forward}
                 disabled={holdup !== null}
+                title={holdup ?? undefined}
+                className="min-w-[138px] justify-center"
               >
                 Next
               </Button>
             )}
           </div>
-          <p
-            aria-live="polite"
-            className={cx(
-              "text-[13px]",
-              uploadNote ? "font-semibold text-ink" : "text-faint",
-            )}
-          >
-            {uploadNote ??
-              (isLast
-                ? pendingCount > 0
-                  ? mode === "now"
-                    ? `Your ${pendingCount === 1 ? "file uploads" : "files upload"} and the post goes out when you press publish.`
-                    : `Your ${pendingCount === 1 ? "file uploads" : "files upload"} when you schedule it, so it can go out without this tab open.`
-                  : "Nothing is sent until you press publish."
-                : (holdup ??
-                  `Next: ${steps[stepIndex + 1]?.title.toLowerCase()}.`))}
-          </p>
+          {/* Only ever the live one. A permanent sentence under the buttons
+              explaining what the next step is called was a caption on a
+              control that already says what it does. */}
+          {uploadNote ? (
+            <p
+              aria-live="polite"
+              className="text-[13px] font-semibold text-ink"
+            >
+              {uploadNote}
+            </p>
+          ) : null}
         </div>
       </div>
+
+      {pickingTime ? (
+        <ScheduleDialog
+          value={scheduledFor}
+          onChange={setScheduledFor}
+          busy={busy}
+          confirmLabel={submitting ? "Working…" : "Schedule"}
+          onClose={() => {
+            setPickingTime(false);
+            // Backing out of the dialog means the post is not scheduled, so
+            // the mode goes back with it — otherwise Post would still be
+            // sitting behind a mode that says "later".
+            setMode("now");
+          }}
+          onConfirm={() => {
+            setPickingTime(false);
+            void submit("schedule");
+          }}
+        />
+      ) : null}
     </div>
   );
 }
