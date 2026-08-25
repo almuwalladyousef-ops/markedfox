@@ -1565,3 +1565,75 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   the bucket's CORS allow-list has no entry for the auto-assigned dev-server
   origin, and the single-PUT path fails identically from it, which is how the
   cause was placed.
+
+- **2026-08-25 (later still) — the minimal pass.** See
+  `sessions/2026-08-25-minimal-pass.md`. Merged and deployed: live at
+  `113da9f`.
+
+  Owner brief: redesign the buttons, spacing, corners, the little elements and
+  the speed, fix the boxes, and make it minimal. A system pass, not a screen
+  pass — nothing here changes what the app does.
+
+  *Measured first.* The app carried **23 distinct corner radii** (now 5),
+  **18 box-shadow values** (now 2), **63 arbitrary pixel paddings** (now 0) and
+  **17 hand-rolled copies of `buttonClass`** (now 0). Three of those radii —
+  `rounded-lg`, `rounded-xl`, `rounded-2xl` — were doing the same job, a
+  bordered container, at three different values on adjacent screens. That is
+  why the interface read as assembled rather than designed.
+
+  *The rules, all mechanical so nobody has to guess.* **Corners follow height:**
+  a control under 32px takes `md` (10px), a control or tile above it `lg`
+  (14px), a surface holding other surfaces `2xl` (18px), a hairline bar `sm`,
+  anything circular `full` — and every remaining Tailwind radius name is mapped
+  onto one of them in `globals.css`, so a stray class cannot invent a sixth.
+  **Two elevations:** `--elev1` under something raised in place, `--elev2` under
+  something floating free of the page; a card gets neither and separates with a
+  hairline. **Three durations:** 110ms for every answer to a pointer, 160ms for
+  something moving on screen, 240ms for a surface arriving from off it.
+
+  *Speed, and it is real rather than cosmetic.* All 84 pointer responses moved
+  from 150ms to 110ms and `--default-transition-duration` carries that value, so
+  every bare `transition-*` in the codebase got faster without being edited. Six
+  sites using `transition` or `transition-all` now name the two or three
+  properties they change, and every `transition-[background,…]` was corrected to
+  `background-color` — the shorthand makes the browser watch background-image,
+  -position and -size for a change that only ever happens to the colour.
+
+  *Boxes.* `Stat` is no longer a box; it is the most-repeated element in the app
+  and every instance sat inside a `Card` inside a panel, so a number arrived
+  wrapped in three rectangles. New `StatRow` divides a row of them with a
+  hairline. The settings menu is one bordered list per group instead of thirteen
+  bordered rows inside a bordered column. The automations account list, the
+  research toolbar and the sidebar's usage meter lose their inner borders the
+  same way. `Notice` and `UpgradeCard` carry a left rule rather than a full
+  outline. The page-level radial accent wash is gone, which is why a white card
+  now looks white.
+
+  *Buttons.* Hover is a named colour, not a `brightness()` filter — that filter
+  is why `ink` needed 1.45 while `primary` needed 1.08 and `quiet` needed 0.97,
+  three numbers tuned by eye against three starting values, each behaving
+  differently in the other theme. And a disabled filled button loses its fill
+  instead of fading it: 45% of the accent is still unmistakably the accent, so
+  the washed-orange *Next* on the composer's first step read as the brand colour
+  rendering wrong rather than as a control not yet available.
+
+  *Little elements.* The last three text glyphs (`↗ ◎ ✳` on the research metric
+  pills) use the icon set, for the reason `icons.tsx` exists at all. **The
+  connected-accounts switches were still success green** where the shared toggle
+  had already been reversed to the accent — the screen a new user spends the
+  most time on was the one screen with a different "on" colour. The dock's New
+  post button no longer grows under the pointer; hover is a colour everywhere
+  else and scale is the press.
+
+  *Two real bugs found on the way.* The calendar printed "August 2026" twice,
+  as its heading and again as the range label directly underneath. The
+  composer's first step reserved 38vh of empty space between one row of five
+  pills and the button that answers them.
+
+  584 tests, build, typecheck and lint green. Clicked through signed-in with
+  seeded rows (five connections with profiles and media, seven posts across
+  every status, three automations, three research channels) in light and dark at
+  1440×900 and 375×812, across every dashboard screen plus the marketing and
+  auth pages, with the token values read back from the running page.
+  **Not verified:** `prefers-reduced-motion` under a real OS setting, unchanged
+  from the previous session.
