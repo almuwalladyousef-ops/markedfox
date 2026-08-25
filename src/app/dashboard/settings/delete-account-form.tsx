@@ -1,5 +1,6 @@
 "use client";
 
+import { Busy } from "@/components/ui";
 import { useActionState } from "react";
 
 import {
@@ -35,9 +36,11 @@ export function DeleteAccountForm() {
       <button
         type="submit"
         disabled={pending}
-        className="w-fit rounded-[10px] border border-danger px-4 py-2.5 text-[14px] font-semibold text-danger transition-[background,color] duration-150 hover:bg-danger hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+        className="inline-flex items-center justify-center gap-2 w-fit rounded-[10px] border border-danger px-4 py-2.5 text-[14px] font-semibold text-danger transition-[background,color] duration-150 hover:bg-danger hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
       >
-        {pending ? "Deleting…" : "Delete my account…"}
+        <Busy busy={pending}>
+          {pending ? "Deleting…" : "Delete my account…"}
+        </Busy>
       </button>
     </form>
   );

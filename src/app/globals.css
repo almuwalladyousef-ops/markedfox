@@ -139,3 +139,202 @@ input[type="time"] {
 [data-theme="dark"] {
   color-scheme: dark;
 }
+
+/* ── motion ─────────────────────────────────────────────────────────────────
+
+   The easing layer. The browser's built-in curves are too weak to read as
+   intentional, so the app carries three of its own and Tailwind's default
+   timing function is one of them — which is what fixes every existing
+   `transition-[…] duration-150` in the codebase without touching it.
+
+   `--mf-ease-out` is for anything entering, leaving, or responding to a
+   pointer: it starts fast, so the interface answers in the frame the user is
+   watching most closely. `--mf-ease-in-out` is for something already on
+   screen moving to a new place. `--mf-ease-drawer` is Ionic's iOS drawer
+   curve, used only by the sheet.
+
+   There is deliberately no ease-in anywhere: it delays the first movement,
+   which is the one part of an animation that decides whether the app feels
+   quick. */
+:root {
+  --mf-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --mf-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --mf-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@theme inline {
+  /* Overrides Tailwind's own `ease-out` / `ease-in-out` utilities and, more
+     importantly, the timing function every bare `transition-*` utility picks
+     up by default. */
+  --ease-out: var(--mf-ease-out);
+  --ease-in-out: var(--mf-ease-in-out);
+  --ease-drawer: var(--mf-ease-drawer);
+  --default-transition-timing-function: var(--mf-ease-out);
+}
+
+/* ── entrances ──────────────────────────────────────────────────────────────
+
+   Four classes rather than four hand-rolled mount effects. `@starting-style`
+   gives the browser the "before" frame of a freshly inserted element, so a
+   React conditional render animates in with no `useEffect(() => setMounted)`
+   dance.
+
+   These are enter-only. React unmounts on the same tick the state flips, so
+   there is no exit frame to transition from; a dialog closing is a cut, and a
+   cut on the way out is the cheap half to lose. */
+
+/* The dim behind a dialog. */
+.mf-overlay {
+  transition: opacity 180ms var(--mf-ease-out);
+  opacity: 1;
+}
+@starting-style {
+  .mf-overlay {
+    opacity: 0;
+  }
+}
+
+/* A centred dialog. It scales from its own centre because it is not anchored
+   to a trigger — that is what separates a modal from a popover. Never from
+   `scale(0)`: nothing in the world appears out of nothing. */
+.mf-modal {
+  transition:
+    transform 200ms var(--mf-ease-out),
+    opacity 200ms var(--mf-ease-out);
+  transform: scale(1);
+  opacity: 1;
+}
+@starting-style {
+  .mf-modal {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+}
+
+/* A panel that is a bottom sheet on a phone and a centred dialog above the
+   `shell` breakpoint. The two are different animations, not one animation at
+   two sizes: a sheet rises by its own height, a dialog scales in place. */
+.mf-sheet {
+  transition:
+    transform 300ms var(--mf-ease-drawer),
+    opacity 200ms var(--mf-ease-out);
+  transform: translateY(0);
+  opacity: 1;
+}
+@starting-style {
+  .mf-sheet {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+@media (min-width: 880px) {
+  .mf-sheet {
+    transition:
+      transform 200ms var(--mf-ease-out),
+      opacity 200ms var(--mf-ease-out);
+    transform: scale(1);
+  }
+  @starting-style {
+    .mf-sheet {
+      transform: scale(0.96);
+      opacity: 0;
+    }
+  }
+}
+
+/* A menu hanging off its trigger. `transform-origin` is the whole point:
+   scaling from the centre makes a dropdown look like it arrived from
+   somewhere else, and the default is the centre. */
+.mf-popover {
+  transform-origin: var(--mf-popover-origin, top center);
+  transition:
+    transform 170ms var(--mf-ease-out),
+    opacity 170ms var(--mf-ease-out);
+  transform: scale(1);
+  opacity: 1;
+}
+@starting-style {
+  .mf-popover {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+}
+
+/* The first paint of a grid or list. Short delays only — a stagger is
+   decoration, and a long one turns "loaded" into "loading". The delay is set
+   per item with `--mf-stagger`. */
+/* Longhands, not the `animation` shorthand. Lightning CSS expands a shorthand
+   when a longhand for the same property sits beside it, and it cannot expand
+   one containing `var()` — which silently produced an empty
+   `animation-duration:` and no animation at all. */
+.mf-enter {
+  animation-name: mf-enter;
+  animation-duration: 260ms;
+  animation-timing-function: var(--mf-ease-out);
+  animation-fill-mode: both;
+  animation-delay: var(--mf-stagger, 0ms);
+}
+
+@keyframes mf-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* The one spinner. Fast on purpose: a quicker spin makes the same wait feel
+   shorter, which is the only thing a spinner can actually change. */
+@keyframes mf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mf-spin {
+  animation: mf-spin 700ms linear infinite;
+}
+
+/* ── reduced motion ─────────────────────────────────────────────────────────
+
+   Fewer and gentler, not none. Colour and opacity still transition, because
+   those carry meaning — a button that changes colour with no transition reads
+   as a flicker. Everything positional stops: transforms, sheet slides,
+   staggers, and the smooth scrolling the schedule wheels rely on. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-property: opacity, color, background-color, border-color,
+      box-shadow, fill, stroke !important;
+    transition-duration: 150ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* The spinner is the exception: it is the only signal that anything is
+     happening, so it keeps turning — just slower and without the blur of
+     speed. */
+  .mf-spin {
+    animation: mf-spin 1600ms linear infinite !important;
+  }
+}
+
+/* The tooltip's entrance. It animates `transform`, which is free here:
+   Tailwind v4 compiles `-translate-y-1/2` to the standalone `translate`
+   property, so the centring and the entrance are not fighting over one
+   declaration. */
+.mf-tooltip-in {
+  animation-name: mf-tooltip;
+  animation-duration: 125ms;
+  animation-timing-function: var(--mf-ease-out);
+  animation-fill-mode: both;
+}
+
+@keyframes mf-tooltip {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}

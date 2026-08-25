@@ -12,6 +12,7 @@ import {
   Page,
   cx,
   formatCount,
+  staggerStyle,
 } from "@/components/ui";
 import {
   POST_TYPES,
@@ -604,14 +605,19 @@ function MediaGrid({
     // instantly, which is the entire argument for not using one layout.
     return (
       <div className="grid grid-cols-3 gap-[3px]">
-        {items.map((item) => (
+        {items.map((item, i) => (
           <a
             key={item.id}
             href={item.permalink ?? "#"}
             target={item.permalink ? "_blank" : undefined}
             rel="noreferrer"
+            // The stagger runs once, on the first paint of the grid, and only
+            // over the first handful of tiles — see `staggerStyle`. Past that
+            // it stops being a grid arriving and starts being a grid the user
+            // is waiting for.
+            style={staggerStyle(i)}
             className={cx(
-              "group relative block overflow-hidden bg-chip",
+              "mf-enter group relative block overflow-hidden bg-chip",
               shape === "square" ? "aspect-square" : "aspect-[9/16]",
             )}
           >
@@ -652,7 +658,7 @@ function MediaGrid({
   // tall ones or pad the short ones.
   return (
     <div className="columns-2 gap-2.5 shell:columns-3 wide:columns-4 [&>*]:mb-2.5">
-      {items.map((item) => {
+      {items.map((item, i) => {
         const metric = metricFor.get(item.connectionId) ?? "views";
         const headline = metric === "views" ? item.views : item.likes;
         return (
@@ -661,7 +667,8 @@ function MediaGrid({
             href={item.permalink ?? "#"}
             target={item.permalink ? "_blank" : undefined}
             rel="noreferrer"
-            className="group relative block break-inside-avoid overflow-hidden rounded-xl bg-chip"
+            style={staggerStyle(i)}
+            className="mf-enter group relative block break-inside-avoid overflow-hidden rounded-xl bg-chip"
           >
             {item.thumbnailUrl ? (
               // eslint-disable-next-line @next/next/no-img-element

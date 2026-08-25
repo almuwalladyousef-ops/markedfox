@@ -3,17 +3,7 @@
 import { useActionState, useState } from "react";
 
 import { Icon, type IconName } from "@/components/icons";
-import {
-  Button,
-  Card,
-  Notice,
-  Pill,
-  cx,
-  formatCount,
-  inputClass,
-  segmentedItem,
-  segmentedTrack,
-} from "@/components/ui";
+import { Busy, Button, Card, cx, formatCount, inputClass, Notice, Pill, segmentedItem, segmentedTrack } from "@/components/ui";
 import {
   generateDraftHooksAction,
   generateDraftScriptAction,
@@ -215,7 +205,9 @@ function TopicStage({ draft }: { draft: ScriptDraftRow }) {
         next="Research"
         actions={
           <Button type="submit" tone="primary" size="sm" disabled={pending}>
-            {pending ? "Saving…" : "Save & continue"}
+            <Busy busy={pending}>
+              {pending ? "Saving…" : "Save & continue"}
+            </Busy>
           </Button>
         }
       >
@@ -294,7 +286,9 @@ function ResearchStage({
           next="Hook"
           actions={
             <Button type="submit" tone="primary" size="sm" disabled={saving}>
-              {saving ? "Saving…" : "Save & continue"}
+              <Busy busy={saving}>
+                {saving ? "Saving…" : "Save & continue"}
+              </Busy>
             </Button>
           }
         >
@@ -391,7 +385,7 @@ function HookStage({
             <ul className="grid max-h-72 gap-2 overflow-y-auto sm:grid-cols-2">
               {visible.map((template) => (
                 <li key={template.id}>
-                  <label className="flex h-full cursor-pointer gap-2 rounded-lg border border-line p-3 transition hover:border-line-strong">
+                  <label className="flex h-full cursor-pointer gap-2 rounded-lg border border-line p-3 transition-colors hover:border-line-strong">
                     <input
                       type="checkbox"
                       name="template_id"
@@ -418,7 +412,9 @@ function HookStage({
             </ul>
             <div className="flex items-center gap-3">
               <Button type="submit" tone="primary" size="sm" disabled={generating}>
-                {generating ? "Generating…" : "Generate hooks"}
+                <Busy busy={generating}>
+                  {generating ? "Generating…" : "Generate hooks"}
+                </Busy>
               </Button>
               <span className="text-[13px] text-faint">
                 1 credit · {creditsLeft} left
@@ -447,7 +443,9 @@ function HookStage({
               size="sm"
               disabled={saving || !chosen.trim()}
             >
-              {saving ? "Saving…" : "Save & continue"}
+              <Busy busy={saving}>
+                {saving ? "Saving…" : "Save & continue"}
+              </Busy>
             </Button>
           }
         >
@@ -524,7 +522,9 @@ function StyleStage({ draft }: { draft: ScriptDraftRow }) {
         next="Script"
         actions={
           <Button type="submit" tone="primary" size="sm" disabled={pending}>
-            {pending ? "Saving…" : "Save & continue"}
+            <Busy busy={pending}>
+              {pending ? "Saving…" : "Save & continue"}
+            </Busy>
           </Button>
         }
       >
@@ -620,7 +620,9 @@ function ScriptStage({
                 </Button>
               ) : null}
               <Button type="submit" tone="primary" size="sm" disabled={saving}>
-                {saving ? "Saving…" : "Save"}
+                <Busy busy={saving}>
+                  {saving ? "Saving…" : "Save"}
+                </Busy>
               </Button>
             </>
           }

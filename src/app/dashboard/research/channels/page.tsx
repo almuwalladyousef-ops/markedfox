@@ -161,7 +161,7 @@ export default async function ChannelsPage() {
               {sources.map((source) => (
                 <li
                   key={source.id}
-                  className="flex items-center gap-2.5 rounded-lg px-2 py-2 transition hover:bg-chip"
+                  className="flex items-center gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-chip"
                 >
                   <span className="relative block h-8 w-8 shrink-0">
                     {source.thumbnail_url ? (

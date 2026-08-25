@@ -29,7 +29,7 @@ export default function AccountDeletedPage() {
       </p>
       <Link
         href="/"
-        className="mt-8 inline-block rounded-md border border-line px-4 py-2 text-sm text-ink transition hover:border-line-strong hover:text-white"
+        className="mt-8 inline-block rounded-md border border-line px-4 py-2 text-sm text-ink transition-colors hover:border-line-strong hover:text-white"
       >
         Back to markedfox.com
       </Link>

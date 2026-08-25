@@ -134,7 +134,7 @@ export function ActionStack({
           </select>
           <button
             type="submit"
-            className="rounded-lg border border-line px-3 py-2 text-[13px] text-ink transition hover:border-line-strong"
+            className="rounded-lg border border-line px-3 py-2 text-[13px] text-ink transition-colors hover:border-line-strong"
           >
             Add
           </button>
@@ -167,7 +167,7 @@ export function ActionStack({
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
         }}
-        className="flex w-full items-center justify-between rounded-lg border border-line px-3 py-2 text-[14.5px] text-ink transition hover:border-line-strong hover:text-ink"
+        className="flex w-full items-center justify-between rounded-lg border border-line px-3 py-2 text-[14.5px] text-ink transition-colors hover:border-line-strong hover:text-ink"
       >
         <span>{copied ? "Copied" : "Copy for an LLM"}</span>
         <Kbd>E</Kbd>
@@ -177,7 +177,7 @@ export function ActionStack({
         href={videoUrl}
         target="_blank"
         rel="noreferrer noopener"
-        className="flex w-full items-center justify-between rounded-lg border border-line px-3 py-2 text-[14.5px] text-ink transition hover:border-line-strong hover:text-ink"
+        className="flex w-full items-center justify-between rounded-lg border border-line px-3 py-2 text-[14.5px] text-ink transition-colors hover:border-line-strong hover:text-ink"
       >
         <span>Open original</span>
         <Kbd>O</Kbd>
@@ -212,7 +212,7 @@ function Row({
       disabled={disabled}
       className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-[14.5px] transition disabled:cursor-default disabled:opacity-60 ${
         tone === "primary"
-          ? "bg-accent font-medium text-accent-ink hover:brightness-[1.08]"
+          ? "bg-accent font-medium text-accent-ink transition-[filter,scale] duration-150 hover:brightness-[1.08] active:scale-[0.97]"
           : "border border-line text-ink hover:border-line-strong hover:text-ink"
       }`}
     >

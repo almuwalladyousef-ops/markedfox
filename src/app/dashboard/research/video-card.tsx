@@ -67,7 +67,7 @@ export function VideoCard({
             src={video.thumbnail_url}
             alt=""
             loading="lazy"
-            className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
           />
         ) : null}
 
@@ -90,7 +90,7 @@ export function VideoCard({
         {/* The hover sheet. Both actions are links rather than buttons so a
             middle-click opens them in a tab, which is how people actually work
             through a feed. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-2 gap-1.5 bg-gradient-to-t from-black/90 to-transparent p-2 opacity-0 transition group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-2 gap-1.5 bg-gradient-to-t from-black/90 to-transparent p-2 opacity-0 transition-[opacity,translate] duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
           <Link
             href={href}
             className="flex-1 rounded-[9px] bg-accent px-2.5 py-2 text-center text-[13px] font-semibold text-accent-ink"

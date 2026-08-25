@@ -101,7 +101,7 @@ export function PlanGrid({ plans }: { plans: MarketingPlan[] }) {
                 href={plan.cta.href}
                 className={`mt-6 rounded-[10px] px-4 py-2.5 text-center text-[13px] font-semibold transition ${
                   plan.highlight
-                    ? "bg-accent text-accent-ink hover:brightness-[1.08]"
+                    ? "bg-accent text-accent-ink transition-[filter,scale] duration-150 hover:brightness-[1.08] active:scale-[0.97]"
                     : "border border-line-strong text-ink hover:border-accent hover:text-accent"
                 }`}
               >

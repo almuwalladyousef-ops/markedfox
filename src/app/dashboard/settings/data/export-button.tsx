@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { Icon } from "@/components/icons";
-import { Button, Notice } from "@/components/ui";
+import { Busy, Button, Notice } from "@/components/ui";
 
 // A real download rather than a link, so a failure says so instead of
 // navigating to an error page and losing the settings screen underneath.
@@ -38,7 +38,9 @@ export function ExportButton() {
     <div className="flex flex-col gap-3">
       <Button type="button" size="sm" onClick={run} disabled={busy} className="w-fit">
         <Icon name="export" className="h-3.5 w-3.5" />
-        {busy ? "Preparing…" : "Export my data"}
+        <Busy busy={busy}>
+          {busy ? "Preparing…" : "Export my data"}
+        </Busy>
       </Button>
       {error ? <Notice tone="danger">{error}</Notice> : null}
     </div>

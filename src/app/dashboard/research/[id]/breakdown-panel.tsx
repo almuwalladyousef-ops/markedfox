@@ -1,5 +1,6 @@
 "use client";
 
+import { Busy } from "@/components/ui";
 import { useActionState } from "react";
 
 import {
@@ -54,9 +55,11 @@ export function BreakdownPanel({
             <button
               type="submit"
               disabled={!enabled || pending || creditsLeft <= 0}
-              className="shrink-0 rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-accent-ink transition hover:brightness-[1.08] disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 shrink-0 rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-accent-ink transition-[filter,opacity] hover:brightness-[1.08] disabled:opacity-50 active:scale-[0.97] disabled:active:scale-100"
             >
-              {pending ? "Analysing…" : "Break it down"}
+              <Busy busy={pending}>
+                {pending ? "Analysing…" : "Break it down"}
+              </Busy>
             </button>
           </form>
         )}

@@ -19,13 +19,13 @@ export function SiteHeader() {
         <nav className="flex items-center gap-4 shell:gap-6">
           <Link
             href="/pricing"
-            className="text-[13.5px] font-medium text-muted transition hover:text-ink"
+            className="text-[13.5px] font-medium text-muted transition-colors hover:text-ink"
           >
             Pricing
           </Link>
           <Link
             href="/login"
-            className="text-[13.5px] font-medium text-muted transition hover:text-ink"
+            className="text-[13.5px] font-medium text-muted transition-colors hover:text-ink"
           >
             Log in
           </Link>

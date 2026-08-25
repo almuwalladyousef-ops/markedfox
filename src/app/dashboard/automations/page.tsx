@@ -251,7 +251,7 @@ export default async function AutomationsPage({
           </select>
           <button
             type="submit"
-            className="rounded-[10px] border border-line-strong bg-panel px-3.5 py-[9px] text-[13px] text-ink transition hover:border-accent hover:text-accent"
+            className="rounded-[10px] border border-line-strong bg-panel px-3.5 py-[9px] text-[13px] text-ink transition-colors hover:border-accent hover:text-accent"
           >
             Filter
           </button>
@@ -404,7 +404,7 @@ export default async function AutomationsPage({
                       <div className="mt-4 flex items-center gap-4 text-[13px]">
                         <Link
                           href={`/dashboard/automations/${rule.id}`}
-                          className="font-semibold text-accent transition hover:brightness-[1.08]"
+                          className="font-semibold text-accent transition-[filter,scale] hover:brightness-[1.08] active:scale-[0.97]"
                         >
                           Edit
                         </Link>
@@ -412,7 +412,7 @@ export default async function AutomationsPage({
                           <input type="hidden" name="rule_id" value={rule.id} />
                           <button
                             type="submit"
-                            className="text-faint transition hover:text-danger"
+                            className="text-faint transition-colors hover:text-danger"
                           >
                             Delete
                           </button>
@@ -469,7 +469,7 @@ function AccountRow({ connection }: { connection: ConnectionRow }) {
             <input type="hidden" name="connection_id" value={connection.id} />
             <button
               type="submit"
-              className="text-[13px] text-faint transition hover:text-ink"
+              className="text-[13px] text-faint transition-colors hover:text-ink"
               title="Ask Instagram again to send this account's comments and messages here"
             >
               Refresh events

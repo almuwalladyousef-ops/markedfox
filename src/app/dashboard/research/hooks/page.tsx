@@ -217,7 +217,7 @@ export default async function HooksPage({
                     <button
                       type="submit"
                       aria-label="Delete"
-                      className="rounded px-1.5 py-1 text-[14.5px] text-faint transition hover:text-danger"
+                      className="rounded px-1.5 py-1 text-[14.5px] text-faint transition-colors hover:text-danger"
                     >
                       ×
                     </button>

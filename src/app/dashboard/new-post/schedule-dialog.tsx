@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon } from "@/components/icons";
+import { overlayProps, useEscape } from "@/components/overlay";
 import { Button, cx } from "@/components/ui";
 
 // The "Schedule post" dialog: four scrolling wheels — day, hour, minute,
@@ -201,13 +202,7 @@ export function ScheduleDialog({
 
   // Escape closes, and focus is trapped only as far as returning it on exit —
   // this is a small dialog, not a page.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useEscape(onClose);
 
   const days = useMemo(() => {
     const first = startOfDay(now);
@@ -254,23 +249,18 @@ export function ScheduleDialog({
   const inPast = selected.getTime() <= now.getTime();
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/35 px-4 backdrop-blur-[2px]"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
+    <div {...overlayProps(onClose, "centre", "z-[60]")}>
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Schedule post"
-        className="relative w-full max-w-[440px] rounded-[28px] border border-line bg-panel p-7 shadow-[0_30px_80px_rgba(0,0,0,.28)]"
+        className="mf-modal relative w-full max-w-[440px] rounded-[28px] border border-line bg-panel p-7 shadow-[0_30px_80px_rgba(0,0,0,.28)]"
       >
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-4 right-4 text-faint transition-[color] duration-150 hover:text-ink"
+          className="absolute top-4 right-4 text-faint transition-[color,scale] duration-150 hover:text-ink active:scale-90"
         >
           <Icon name="close" className="h-[18px] w-[18px]" />
         </button>

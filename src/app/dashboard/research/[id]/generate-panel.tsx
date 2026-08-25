@@ -65,7 +65,7 @@ export function GeneratePanel({
             <input
               name="topic"
               placeholder="Same structure, but about home espresso"
-              className="rounded-lg border border-line bg-chip px-3 py-2 text-[14.5px] outline-none transition focus:border-line-strong"
+              className="rounded-lg border border-line bg-chip px-3 py-2 text-[14.5px] outline-none transition-colors focus:border-line-strong"
             />
           </label>
 
@@ -78,7 +78,7 @@ export function GeneratePanel({
                 value={kind.id}
                 disabled={pending || out}
                 title={kind.hint}
-                className="rounded-lg border border-line-strong px-3 py-2 text-[13px] font-medium transition hover:bg-chip disabled:opacity-50"
+                className="rounded-lg border border-line-strong px-3 py-2 text-[13px] font-medium transition-[color,background-color,border-color,opacity] hover:bg-chip disabled:opacity-50"
               >
                 {kind.label}
               </button>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Busy } from "@/components/ui";
 import type { AuthFormState } from "@/lib/auth/actions";
 
 // Shared pieces for the four auth forms. Client components because they render
@@ -41,7 +42,7 @@ export function Field({
         aria-describedby={error ? errorId : hint ? hintId : undefined}
         /* 15px rather than 14: anything smaller makes iOS Safari zoom the
            whole page on focus, which reads as the form jumping away. */
-        className="rounded-[10px] border border-line bg-chip px-3 py-2.5 text-[15px] text-ink outline-none transition focus:border-accent aria-[invalid=true]:border-danger"
+        className="rounded-[10px] border border-line bg-chip px-3 py-2.5 text-[15px] text-ink outline-none transition-colors focus:border-accent aria-[invalid=true]:border-danger"
       />
       {error ? (
         <p id={errorId} className="text-[12.5px] text-danger">
@@ -67,9 +68,11 @@ export function SubmitButton({
     <button
       type="submit"
       disabled={pending}
-      className="mt-1 w-full rounded-[10px] bg-accent px-3 py-[11px] text-sm font-semibold text-accent-ink transition hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-45"
+      className="inline-flex items-center justify-center gap-2 mt-1 w-full rounded-[10px] bg-accent px-3 py-[11px] text-sm font-semibold text-accent-ink transition-[filter,opacity] hover:brightness-[1.08] disabled:cursor-not-allowed disabled:opacity-45 active:scale-[0.97] disabled:active:scale-100"
     >
-      {pending ? "Working…" : children}
+      <Busy busy={pending}>
+        {pending ? "Working…" : children}
+      </Busy>
     </button>
   );
 }

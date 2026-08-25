@@ -224,7 +224,7 @@ export default async function ResearchPage({
                         >
                           <a
                             href={`/dashboard/research?${params.toString()}`}
-                            className="min-w-0 flex-1 truncate text-[13.5px] text-muted transition hover:text-ink"
+                            className="min-w-0 flex-1 truncate text-[13.5px] text-muted transition-colors hover:text-ink"
                           >
                             {filter.name}
                           </a>
@@ -233,7 +233,7 @@ export default async function ResearchPage({
                             <button
                               type="submit"
                               aria-label={`Delete ${filter.name}`}
-                              className="px-1 text-faint transition hover:text-danger"
+                              className="px-1 text-faint transition-colors hover:text-danger"
                             >
                               ×
                             </button>

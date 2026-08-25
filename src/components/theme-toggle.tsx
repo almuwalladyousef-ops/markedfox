@@ -70,7 +70,7 @@ export function ThemeToggle({ initial }: { initial: Theme }) {
         apply(next);
         setTheme(next);
       }}
-      className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border border-line text-muted transition hover:border-line-strong hover:text-ink"
+      className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border border-line text-muted transition-colors hover:border-line-strong hover:text-ink"
     >
       {dark ? <SunIcon /> : <MoonIcon />}
     </button>

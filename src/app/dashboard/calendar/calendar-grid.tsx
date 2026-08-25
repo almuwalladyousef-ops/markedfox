@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
 
 import { Icon } from "@/components/icons";
+import { overlayProps, useEscape } from "@/components/overlay";
 import { PlatformIcon, PlatformTile } from "@/components/platform-icon";
 import {
   Button,
@@ -674,7 +675,7 @@ function PostCard({
       type="button"
       onClick={() => onOpen(post.id)}
       title={`${time ? `${time} · ` : ""}${post.targets.map((t) => t.name).join(", ")}\n${post.caption}`}
-      className="block w-full overflow-hidden rounded-lg border border-line bg-chip text-left transition hover:border-accent"
+      className="block w-full overflow-hidden rounded-lg border border-line bg-chip text-left transition-colors hover:border-accent"
     >
       <div className="relative h-[4.4rem]">
         {post.thumbnail ? (
@@ -812,17 +813,21 @@ function PostDetail({
   const at = new Date(post.at);
   const failures = post.targets.filter((target) => target.outcome === "failed");
 
+  useEscape(onClose);
+
   return (
+    // On a phone this is a bottom sheet, so it rises by its own height; above
+    // the `shell` breakpoint it is a centred dialog, so it scales in place.
+    // `mf-sheet` is both, because they are the same panel and not the same
+    // animation.
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 shell:items-center shell:p-6"
+      {...overlayProps(onClose, "sheet", "z-50")}
       role="dialog"
       aria-modal="true"
       aria-label="Post"
-      onClick={onClose}
     >
       <div
-        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-line bg-panel p-6 shell:rounded-2xl"
-        onClick={(event) => event.stopPropagation()}
+        className="mf-sheet max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-line bg-panel p-6 shell:rounded-2xl"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -852,7 +857,7 @@ function PostDetail({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="shrink-0 rounded-lg px-2 py-1 text-muted transition hover:bg-chip hover:text-ink"
+            className="shrink-0 rounded-lg px-2 py-1 text-muted transition-colors hover:bg-chip hover:text-ink"
           >
             ✕
           </button>
@@ -937,7 +942,7 @@ function PostDetail({
               {/* A <details> rather than a second dialog: this is one field
                   and a button. */}
               <details className="relative">
-                <summary className="cursor-pointer list-none rounded-lg border border-line px-[13px] py-2 text-xs font-medium text-muted transition hover:border-line-strong hover:text-ink">
+                <summary className="cursor-pointer list-none rounded-lg border border-line px-[13px] py-2 text-xs font-medium text-muted transition-colors hover:border-line-strong hover:text-ink">
                   Edit time
                 </summary>
                 <form

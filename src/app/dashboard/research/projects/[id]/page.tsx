@@ -60,7 +60,7 @@ export default async function ProjectPage({
       <header>
         <Link
           href="/dashboard/research/projects"
-          className="text-[13.5px] font-medium text-faint transition hover:text-ink"
+          className="text-[13.5px] font-medium text-faint transition-colors hover:text-ink"
         >
           ← Projects
         </Link>
@@ -136,7 +136,7 @@ export default async function ProjectPage({
                           </select>
                           <button
                             type="submit"
-                            className="ml-1 rounded-lg border border-line-strong px-2 py-1.5 text-[13px] transition hover:bg-chip"
+                            className="ml-1 rounded-lg border border-line-strong px-2 py-1.5 text-[13px] transition-colors hover:bg-chip"
                           >
                             Move
                           </button>
@@ -146,7 +146,7 @@ export default async function ProjectPage({
                           <button
                             type="submit"
                             aria-label="Remove from project"
-                            className="rounded px-2 py-1 text-faint transition hover:bg-chip hover:text-danger"
+                            className="rounded px-2 py-1 text-faint transition-colors hover:bg-chip hover:text-danger"
                           >
                             ×
                           </button>

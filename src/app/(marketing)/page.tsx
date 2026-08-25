@@ -67,13 +67,13 @@ export default function Home() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
               href="/signup"
-              className="rounded-xl bg-accent px-[22px] py-[13px] text-sm font-semibold text-accent-ink transition hover:brightness-[1.08]"
+              className="rounded-xl bg-accent px-[22px] py-[13px] text-sm font-semibold text-accent-ink transition-[filter,scale] hover:brightness-[1.08] active:scale-[0.97]"
             >
               Start free — no card
             </Link>
             <Link
               href="/pricing"
-              className="rounded-xl border border-line-strong px-[22px] py-[13px] text-sm font-medium text-ink transition hover:border-accent hover:text-accent"
+              className="rounded-xl border border-line-strong px-[22px] py-[13px] text-sm font-medium text-ink transition-colors hover:border-accent hover:text-accent"
             >
               See pricing
             </Link>
@@ -178,7 +178,7 @@ export default function Home() {
         </p>
         <Link
           href="/signup"
-          className="mt-8 inline-block rounded-xl bg-accent px-[22px] py-[13px] text-sm font-semibold text-accent-ink transition hover:brightness-[1.08]"
+          className="mt-8 inline-block rounded-xl bg-accent px-[22px] py-[13px] text-sm font-semibold text-accent-ink transition-[filter,scale] hover:brightness-[1.08] active:scale-[0.97]"
         >
           Start free
         </Link>

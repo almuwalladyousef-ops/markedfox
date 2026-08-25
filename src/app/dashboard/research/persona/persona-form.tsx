@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { Button, Card, Field, Notice, inputClass } from "@/components/ui";
+import { Busy, Button, Card, Field, inputClass, Notice } from "@/components/ui";
 import {
   savePersonaAction,
   type StudioFormState,
@@ -72,7 +72,9 @@ export function PersonaForm({ persona }: { persona: PersonaRow | null }) {
         ) : null}
 
         <Button type="submit" tone="primary" size="sm" className="w-fit" disabled={pending}>
-          {pending ? "Saving…" : "Save persona"}
+          <Busy busy={pending}>
+            {pending ? "Saving…" : "Save persona"}
+          </Busy>
         </Button>
       </form>
     </Card>
