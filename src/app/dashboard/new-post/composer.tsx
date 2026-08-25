@@ -2081,7 +2081,7 @@ export function Composer({
             role="dialog"
             aria-modal="true"
             aria-label="Scheduling"
-            className="mf-modal w-full max-w-[420px] rounded-[24px] border border-line bg-panel p-7 shadow-[0_30px_80px_rgba(0,0,0,.28)]"
+            className="mf-modal w-full max-w-[420px] rounded-2xl border border-line bg-panel p-6 shadow-e2"
           >
             <h2 className="font-display text-[19px] font-bold text-ink">
               {scheduleBlocked === "plan"
