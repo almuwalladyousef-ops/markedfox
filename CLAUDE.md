@@ -1714,3 +1714,20 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   genuinely broken build shows the screen instead of looping. All three
   boundaries call it and keep their design; each gained a "Reload the page"
   button beside "Try again", because retrying a stale tree fails identically.
+
+- **2026-08-29 (later still) — the landing page, rebuilt.** See
+  `sessions/2026-08-29-landing-rebuild.md`. The owner supplied three
+  reference landing pages (Linkme, ManyChat, Sandcastles) and asked for one
+  MarkedFox page that tells the whole story: find what works, post it
+  everywhere, let the comments sell, own the numbers, run it from one
+  place. Thirteen sections built from the product's own shapes in dark
+  mockup frames (`_components/home/mocks.tsx`), an interactive DM demo
+  running the app's real rule templates, the plan grid reading the same
+  rows as `/pricing` (now `_components/plans-data.ts`), and a 25-answer
+  categorised FAQ. Every capability the references sell that the app does
+  not have — commerce, paywalls, tips, courses, a bio link, native apps —
+  is absent rather than promised, and the platform-review status is stated
+  in the open. `marketing-copy.test.ts` pins no borrowed social proof, no
+  dead labels, and the X cap beside every "unlimited". 597 tests, build,
+  lint, typecheck and detector green; 0px overflow at 1440 and 390 in both
+  themes.

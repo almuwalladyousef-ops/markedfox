@@ -411,3 +411,30 @@ input[type="time"] {
     transform: scale(0.94);
   }
 }
+
+/* ── landing-page product mockups ──────────────────────────────────────────
+
+   The landing page draws the product inside dark frames in both themes: they
+   depict a phone and a screen, not the page around them, and a white mockup
+   beside a dark one would be a preview of two different products. The values
+   are the dark theme's own neutrals, scoped so nothing outside a mockup can
+   pick them up. */
+.mf-mock {
+  --mk-bg: #0f0f13;
+  --mk-panel: #17171c;
+  --mk-chip: #212128;
+  --mk-line: #2a2a32;
+  --mk-text: #f2f2f5;
+  --mk-muted: #a3a3ae;
+  --mk-faint: #7d7d89;
+  color: var(--mk-text);
+}
+
+/* A row of tabs that scrolls sideways on a phone without drawing a scrollbar
+   under itself. */
+.mf-noscroll {
+  scrollbar-width: none;
+}
+.mf-noscroll::-webkit-scrollbar {
+  display: none;
+}

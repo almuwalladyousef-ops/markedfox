@@ -26,9 +26,12 @@ const COLUMNS: { heading: string; links: { label: string; href: string }[] }[] =
   {
     heading: "Product",
     links: [
-      { label: "Publisher", href: "/#publisher" },
-      { label: "DM automation", href: "/#automation" },
+      { label: "How it works", href: "/#how" },
+      { label: "Publisher", href: "/#publish" },
+      { label: "DM automation", href: "/#automate" },
+      { label: "Research", href: "/#research" },
       { label: "Pricing", href: "/pricing" },
+      { label: "FAQ", href: "/#faq" },
     ],
   },
   {

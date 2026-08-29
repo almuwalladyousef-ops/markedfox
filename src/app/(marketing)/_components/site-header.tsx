@@ -20,6 +20,14 @@ export function SiteHeader() {
         </Link>
 
         <nav className="flex items-center gap-4 shell:gap-6">
+          {/* Hidden on a phone for the same reason the wordmark is: four
+              items is what fits beside the fox at 390px. */}
+          <Link
+            href="/#how"
+            className="hidden text-[13.5px] font-medium whitespace-nowrap text-muted transition-colors hover:text-ink sm:inline"
+          >
+            How it works
+          </Link>
           <Link
             href="/pricing"
             className="text-[13.5px] font-medium whitespace-nowrap text-muted transition-colors hover:text-ink"
