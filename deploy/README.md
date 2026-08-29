@@ -137,9 +137,30 @@ for development only.
 sudo bash /srv/markedfox/current/deploy/deploy.sh
 ```
 
-Snapshots, fetches `main`, installs, builds, restarts, then polls the app until
-it answers. It exits non-zero and prints the journal if the site does not come
-up — a deploy that leaves the site down must fail loudly.
+Snapshots, then fetches and builds `main` in a **second tree** at
+`/srv/markedfox/build`, swaps the finished `.next` into `/srv/markedfox/current`
+with the service stopped, and polls until the app answers. It exits non-zero and
+prints the journal if the site does not come up — a deploy that leaves the site
+down must fail loudly — and it puts the previous build back before it does.
+
+The two-tree arrangement is the point, not tidiness. The build used to happen in
+the directory the live process was serving from, and `next build` rewrites
+`.next` over several minutes on this box: every request served during those
+minutes came back 500 with `ChunkLoadError: Cannot find module …/chunks/ssr/…`,
+because the chunk had been replaced under a process holding the old manifest.
+Anyone with the app open watched it break for the length of a deploy. Now the
+live tree changes only in one `mv`, with the service already stopped, so the
+downtime is a boot rather than a build.
+
+The previous build stays as `.next.prev` until the next deploy replaces it, and
+a build that comes up unhealthy is rolled back to it automatically, leaving the
+bad one as `.next.failed` to look at. Disk cost is one extra build tree plus one
+old `.next` — around 1.5GB on a 48GB disk.
+
+A tab that was already open across a deploy is a separate problem, and it is
+handled in the app rather than here: the client holds chunk URLs that no longer
+exist, so `src/app/error.tsx` recognises that particular failure and reloads
+itself once instead of showing a dead screen.
 
 ## Verifying Phase 1's exit criteria
 

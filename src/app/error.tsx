@@ -2,11 +2,16 @@
 
 import { useEffect } from "react";
 
+import { useStaleBuildReload } from "@/components/stale-build";
 import { Button, ButtonLink, FoxMark } from "@/components/ui";
 
 // The boundary under the root layout: marketing, auth, and anything the
 // dashboard's own boundary did not catch. Next 16 hands the recovery callback
 // to error boundaries as `retry` (the `reset` name is gone).
+//
+// The most common thing to land here is not a bug: a tab open across a deploy
+// holding chunk URLs that no longer exist. That case reloads itself once and
+// never shows this screen; everything else does.
 export default function ErrorPage({
   error,
   retry,
@@ -14,6 +19,7 @@ export default function ErrorPage({
   error: Error & { digest?: string };
   retry: () => void;
 }) {
+  useStaleBuildReload(error);
   useEffect(() => {
     console.error(error);
   }, [error]);
@@ -39,6 +45,7 @@ export default function ErrorPage({
         <Button tone="primary" onClick={() => retry()}>
           Try again
         </Button>
+        <Button onClick={() => window.location.reload()}>Reload the page</Button>
         <ButtonLink href="/dashboard">Open the dashboard</ButtonLink>
       </div>
     </main>

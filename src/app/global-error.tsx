@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { useStaleBuildReload } from "@/components/stale-build";
+
 import "./globals.css";
 
 // The last resort: this replaces the root layout itself when it is the thing
@@ -16,6 +18,7 @@ export default function GlobalError({
   error: Error & { digest?: string };
   retry: () => void;
 }) {
+  useStaleBuildReload(error);
   useEffect(() => {
     console.error(error);
   }, [error]);
@@ -37,12 +40,20 @@ export default function GlobalError({
               </p>
             ) : null}
           </div>
-          <button
-            onClick={() => retry()}
-            className="inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2.5 text-[14.5px] font-semibold text-accent-ink"
-          >
-            Try again
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button
+              onClick={() => retry()}
+              className="inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2.5 text-[14.5px] font-semibold text-accent-ink"
+            >
+              Try again
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center justify-center rounded-lg border border-line bg-panel px-4 py-2.5 text-[14.5px] font-semibold text-ink"
+            >
+              Reload the page
+            </button>
+          </div>
         </main>
       </body>
     </html>

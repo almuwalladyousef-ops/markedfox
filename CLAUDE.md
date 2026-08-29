@@ -560,8 +560,11 @@ not out-featuring either incumbent at its own game.
      leaves the old release running if it fails.
    - **Migrations before code.** Push the migration first and write it so the
      currently-running code survives it — added nullable columns, never a
-     rename or a drop in the same release. The old release keeps serving for
-     the minute the new one takes to build.
+     rename or a drop in the same release. The old release really does keep
+     serving while the new one builds, as of 2026-08-29: `deploy.sh` builds in
+     a second tree at `/srv/markedfox/build` and swaps the finished `.next` in
+     with the service stopped. Before that it built in place and every request
+     during the build came back 500.
    - **`deploy@`, never `root@`.** Root login is off by design and one failed
      root attempt bans the whole IP through fail2ban for about fifteen
      minutes, locking out the owner's machine too.
@@ -1674,3 +1677,40 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   26 screens at 1440×900 and 390×844, zero horizontal overflow, dark spot
   check, fixes re-shot, new CSS rules read back from the built stylesheet.
   Throwaway user deleted.
+
+- **2026-08-29 (later) — the deploy stopped breaking the page it was
+  deploying.** The fix was written on 2026-08-25 in the
+  `handoff-completion-2d2d54` worktree and left uncommitted (see
+  `handoff/2026-08-25-deploy-window-and-error-boundaries.md`); ported to
+  `main` and landed today. See `sessions/2026-08-29-atomic-deploy.md`.
+
+  *The deploy built in place.* `deploy.sh` ran `next build` inside
+  `/srv/markedfox/current`, the directory the live process was serving from,
+  and Turbopack rewrites `.next` over several minutes on a 1 vCPU box. Every
+  request the old process handled during those minutes came back 500 with
+  `ChunkLoadError: Cannot find module .../chunks/ssr/src_1q9rin3._.js` — the
+  chunk was not missing, it had been replaced under a process that had already
+  resolved the manifest naming the old one. The note in this file claiming the
+  old release kept serving described something the script did not do, and has
+  been corrected.
+
+  Now the build happens in a second checkout at `/srv/markedfox/build` and the
+  live tree changes only in one `mv` with the service already stopped, so the
+  downtime is a boot rather than a build. The previous build is kept as
+  `.next.prev`, and a release that comes up unhealthy is **rolled back to it
+  automatically** rather than leaving the site down for someone to restore a
+  snapshot. The script also re-execs itself from a copy in `/tmp` first,
+  because it lives inside the tree it resets and bash reads a script by byte
+  offset as it runs. The first run had to be started from a copy in `/tmp` for
+  the same reason — the script at its normal path was still the old one.
+
+  *And a tab open across a deploy always broke.* Its chunk URLs stop existing
+  the moment a new build lands, whatever the deploy does. The 2026-08-29
+  Impeccable pass had already given the app its three error boundaries; what
+  they lacked was the recognition. `src/components/stale-build.ts` names that
+  family of failure (`ChunkLoadError`, "Failed to fetch dynamically imported
+  module", and the wording each browser uses) and `useStaleBuildReload`
+  **reloads once**, guarded by a 20-second mark in `sessionStorage` so a
+  genuinely broken build shows the screen instead of looping. All three
+  boundaries call it and keep their design; each gained a "Reload the page"
+  button beside "Try again", because retrying a stale tree fails identically.

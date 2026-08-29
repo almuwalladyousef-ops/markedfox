@@ -2,10 +2,12 @@
 
 import { useEffect } from "react";
 
+import { useStaleBuildReload } from "@/components/stale-build";
 import { Button, Page } from "@/components/ui";
 
 // The dashboard's own boundary, so a page that throws leaves the sidebar and
 // tabs standing and the person one click from anywhere else in the app.
+// A tab left open across a deploy reloads itself once instead of landing here.
 export default function DashboardError({
   error,
   retry,
@@ -13,6 +15,7 @@ export default function DashboardError({
   error: Error & { digest?: string };
   retry: () => void;
 }) {
+  useStaleBuildReload(error);
   useEffect(() => {
     console.error(error);
   }, [error]);
@@ -32,10 +35,11 @@ export default function DashboardError({
             Error reference: <span className="font-mono">{error.digest}</span>
           </p>
         ) : null}
-        <div className="mt-5">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
           <Button tone="primary" onClick={() => retry()}>
             Try again
           </Button>
+          <Button onClick={() => window.location.reload()}>Reload the page</Button>
         </div>
       </div>
     </Page>
