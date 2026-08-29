@@ -11,7 +11,10 @@ export function SiteHeader() {
       <div className="mx-auto flex max-w-[1120px] items-center justify-between px-6 py-3.5">
         <Link href="/" className="flex items-center gap-2.5">
           <FoxMark className="h-7" />
-          <span className="font-display text-lg font-bold tracking-[-0.02em]">
+          {/* The wordmark yields on a phone — the fox alone is the brand at
+              small sizes, and the four header items do not fit beside the
+              full name at 390px without overlapping. */}
+          <span className="font-display hidden text-lg font-bold tracking-[-0.02em] sm:inline">
             MarkedFox
           </span>
         </Link>
@@ -19,13 +22,13 @@ export function SiteHeader() {
         <nav className="flex items-center gap-4 shell:gap-6">
           <Link
             href="/pricing"
-            className="text-[13.5px] font-medium text-muted transition-colors hover:text-ink"
+            className="text-[13.5px] font-medium whitespace-nowrap text-muted transition-colors hover:text-ink"
           >
             Pricing
           </Link>
           <Link
             href="/login"
-            className="text-[13.5px] font-medium text-muted transition-colors hover:text-ink"
+            className="text-[13.5px] font-medium whitespace-nowrap text-muted transition-colors hover:text-ink"
           >
             Log in
           </Link>

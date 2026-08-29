@@ -638,15 +638,6 @@ export function Pill({
   );
 }
 
-const NOTICE_TONE: Record<PillTone, string> = {
-  neutral: "border-line-strong bg-chip text-muted",
-  ok: "border-ok bg-ok-soft text-ok",
-  warn: "border-warn bg-warn-soft text-warn",
-  danger: "border-danger bg-danger-soft text-danger",
-  info: "border-sky bg-sky-soft text-sky",
-  accent: "border-accent bg-accent-soft text-accent",
-};
-
 export function Notice({
   tone = "neutral",
   children,
@@ -659,11 +650,12 @@ export function Notice({
   return (
     <div
       className={cx(
-        // A left rule rather than a full outline. A tinted fill already marks
-        // the block off from the page; ringing it as well is the second border
-        // in a row of them, which is what made warnings shout.
-        "rounded-lg border-l-2 px-4 py-3 text-[13.5px]/[20px] text-pretty",
-        NOTICE_TONE[tone],
+        // No border at all. The tinted fill already marks the block off from
+        // the page; the left rule that used to sit here was one more line in a
+        // screen the minimal pass spent removing lines from, and the tone
+        // colour on the text says the same thing the rule did.
+        "rounded-lg px-4 py-3 text-[13.5px]/[20px] text-pretty",
+        PILL_TONE[tone],
         className,
       )}
     >
@@ -925,7 +917,7 @@ export function UpgradeCard({
   cta?: string;
 }) {
   return (
-    <div className="rounded-2xl border-l-2 border-warn bg-warn-soft p-6">
+    <div className="rounded-2xl bg-warn-soft p-6">
       <p className="font-display flex items-center gap-2 text-[16px] font-bold text-warn">
         <svg viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3" aria-hidden>
           <path d="M12 2 22 9l-10 13L2 9Z" />

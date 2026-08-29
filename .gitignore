@@ -35,5 +35,9 @@ next-env.d.ts
 sessions/
 handoff/
 
+# claude code — the impeccable skill is tracked; per-machine state is not
+.claude/settings.local.json
+.claude/worktrees/
+
 # ffmpeg core, copied from node_modules by scripts/copy-ffmpeg.mjs (31MB)
 /public/ffmpeg/

@@ -1637,3 +1637,40 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   auth pages, with the token values read back from the running page.
   **Not verified:** `prefers-reduced-motion` under a real OS setting, unchanged
   from the previous session.
+
+- **2026-08-29 — the Impeccable pass: states, contrast, browser surfaces.**
+  See `sessions/2026-08-29-impeccable-pass.md`. The official **Impeccable**
+  design skill (`github.com/pbakaus/impeccable`, v4.1.1) was installed via
+  `npx impeccable install` into `.claude/skills/impeccable/` — now tracked in
+  git — and its detector plus audit/harden playbooks drove a gap pass.
+
+  *States that did not exist.* The app had no 404, error, or loading UI at all;
+  a mistyped URL or the research pages' Free-plan `notFound()` rendered Next's
+  unstyled default. Added: root and dashboard `not-found.tsx` (the dashboard
+  one keeps the shell), root and dashboard `error.tsx`, `global-error.tsx`,
+  and `dashboard/loading.tsx`. **Next 16 renamed the error boundary's recovery
+  prop from `reset` to `retry`.**
+
+  *Contrast, measured.* `--faint` (3.3:1) and the light ok/warn/sky text tones
+  (3.2–4.1:1) label real content at 11–13px; all now ≥4.5:1 on every surface
+  they sit on (light faint #6b6b75, ok #15803d, warn #b45309, sky #0369a1;
+  dark faint #8f8f9b). Soft tints untouched. White-on-accent deliberately kept.
+
+  *Browser surfaces themed:* accent `:focus-visible` ring (keyboard only,
+  inputs excluded), accent `::selection`, accent caret, and a skip link past
+  the ~40-tab-stop sidebar. *Detector findings fixed:* the 2px left rules on
+  `Notice`/`UpgradeCard` are gone (fill alone marks the block). *Glyphs:* the
+  pricing ✓/–, onboarding and script-stage ✓, and "… ✓" labels moved to the
+  icon set (new `minus` icon); the phone preview's ♡💬↗ stay, they depict
+  Instagram, not us.
+
+  *Two bugs from the browser pass:* the mobile marketing header collided at
+  390px (wordmark now yields below `sm`), and plan denials printed raw ids
+  ("does not include x") — `can-user-do.ts` now goes through
+  `PLATFORM_LABELS`.
+
+  584 tests, build, typecheck, lint, detector 0 findings. Verified on the
+  production build via headless Chrome/CDP with a throwaway Free user:
+  26 screens at 1440×900 and 390×844, zero horizontal overflow, dark spot
+  check, fixes re-shot, new CSS rules read back from the built stylesheet.
+  Throwaway user deleted.

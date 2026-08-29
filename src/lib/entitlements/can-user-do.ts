@@ -5,6 +5,7 @@ import type {
   EntitlementSnapshot,
   PlanLimits,
 } from "./types";
+import { PLATFORM_LABELS } from "@/lib/platforms/labels";
 import type { Platform } from "@/lib/platforms/types";
 
 // The pricing table as an enforceable pure function. No I/O: callers build an
@@ -33,7 +34,7 @@ export function canUserDo(
       if (!platformAllowed(limits, action.platform)) {
         return deny(
           "plan_platform_locked",
-          `The ${snapshot.planId} plan does not include ${action.platform}`,
+          `The ${snapshot.planId} plan does not include ${PLATFORM_LABELS[action.platform]}`,
         );
       }
       // The Free-plan lever since 2026-08-16: every platform is connectable on
@@ -57,7 +58,7 @@ export function canUserDo(
       if (!platformAllowed(limits, action.platform)) {
         return deny(
           "plan_platform_locked",
-          `The ${snapshot.planId} plan does not include ${action.platform}`,
+          `The ${snapshot.planId} plan does not include ${PLATFORM_LABELS[action.platform]}`,
         );
       }
       if (action.platform === "x") {

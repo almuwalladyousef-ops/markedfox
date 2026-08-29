@@ -18,17 +18,22 @@
   --border2: #d6d6dc;
   --text: #16161a;
   --muted: #55555f;
-  --faint: #8c8c96;
+  /* Legibility floor, audited 2026-08-29: every colour that carries text holds
+     4.5:1 on the surfaces it sits on (panel, chip, bg). --faint was #8c8c96
+     (3.3:1) and the ok/warn/sky text tones sat between 3.2 and 4.1 — all of
+     them label real content at 11–13px. The soft tints are unchanged: they are
+     11–13% washes and never carry text on their own. */
+  --faint: #6b6b75;
   --accent: #ea580c;
   --accent-ink: #ffffff;
   --accent-soft: rgba(234, 88, 12, 0.11);
-  --ok: #16a34a;
+  --ok: #15803d;
   --ok-soft: rgba(22, 163, 74, 0.11);
-  --warn: #d97706;
+  --warn: #b45309;
   --warn-soft: rgba(217, 119, 6, 0.13);
   --danger: #dc2626;
   --danger-soft: rgba(220, 38, 38, 0.09);
-  --sky: #0284c7;
+  --sky: #0369a1;
   --sky-soft: rgba(2, 132, 199, 0.11);
   /* Two elevations and nothing else. A minimal surface earns its separation
      from a hairline, not from a shadow: `e1` is the sliver under something
@@ -61,7 +66,8 @@
   --border2: #3a3a43;
   --text: #f2f2f5;
   --muted: #a2a2ae;
-  --faint: #71717e;
+  /* Same legibility floor as light: #71717e read at 3.7:1 on the panel. */
+  --faint: #8f8f9b;
   --accent: #fb6d24;
   --accent-ink: #17171b;
   --accent-soft: rgba(251, 109, 36, 0.15);
@@ -152,6 +158,32 @@ body {
   color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* ── browser surfaces ───────────────────────────────────────────────────────
+
+   The parts nobody draws still carry the theme: the keyboard focus ring, the
+   text selection, and the caret all shipped as browser defaults before this,
+   which meant a blue ring and a blue selection inside an orange app.
+
+   The ring is `:focus-visible`, never `:focus` — it appears for the keyboard
+   and stays out of the way of the pointer. Inputs are excluded on purpose:
+   they already answer focus with an accent border, and a ring on top of a
+   border is two answers to one event. `:where()` keeps the selector at zero
+   specificity so a local utility can still override it. */
+:where(a, button, [role="switch"], [tabindex], summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+input,
+textarea {
+  caret-color: var(--accent);
 }
 
 /* The native date picker paints itself from the document's colour scheme, so

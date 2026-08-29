@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import { segmentedItem, segmentedTrack } from "@/components/ui";
+import { Icon } from "@/components/icons";
+import { cx, segmentedItem, segmentedTrack } from "@/components/ui";
 
 // The plan cards, with the one piece of interactivity on the page: monthly or
 // yearly. Both prices come from the same rows the checkout uses, so switching
@@ -86,11 +87,15 @@ export function PlanGrid({ plans }: { plans: MarketingPlan[] }) {
                   <li key={feature.text} className="flex gap-2">
                     <span
                       aria-hidden
-                      className={
-                        feature.included === false ? "text-faint" : "text-accent"
-                      }
+                      className={cx(
+                        "mt-[3px] shrink-0",
+                        feature.included === false ? "text-faint" : "text-accent",
+                      )}
                     >
-                      {feature.included === false ? "–" : "✓"}
+                      <Icon
+                        name={feature.included === false ? "minus" : "check"}
+                        className="h-3 w-3"
+                      />
                     </span>
                     <span>{feature.text}</span>
                   </li>

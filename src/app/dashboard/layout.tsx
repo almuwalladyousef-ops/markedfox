@@ -155,12 +155,24 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen">
+      {/* For keyboard and screen-reader users: the sidebar is ~40 tab stops,
+          and this is the only way past them that is not pressing Tab 40
+          times. Visually hidden until focused. */}
+      <a
+        href="#mf-main"
+        className="sr-only z-50 rounded-lg bg-panel px-4 py-2.5 text-[14.5px] font-semibold text-ink shadow-e2 focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+      >
+        Skip to content
+      </a>
       <Sidebar spaces={spaces} {...workspaceProps} />
 
       <div className="min-w-0 flex-1">
         <MobileShell spaces={spaces} {...workspaceProps} theme={theme} />
 
-        <main className="mx-auto flex w-full flex-col gap-6 px-4 pt-5 pb-[120px] shell:px-10 shell:pt-9 shell:pb-16">
+        <main
+          id="mf-main"
+          className="mx-auto flex w-full flex-col gap-6 px-4 pt-5 pb-[120px] shell:px-10 shell:pt-9 shell:pb-16"
+        >
           {children}
         </main>
 

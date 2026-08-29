@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Icon } from "@/components/icons";
 import { Button, Card } from "@/components/ui";
 import {
   dismissOnboardingAction,
@@ -128,7 +129,7 @@ export function OnboardingPanel({
                     : "border border-line-strong text-transparent"
                 }`}
               >
-                ✓
+                <Icon name="check" className="h-2.5 w-2.5" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2">

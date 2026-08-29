@@ -112,7 +112,7 @@ export function ActionStack({
         <input type="hidden" name="video_id" value={videoId} />
         <Row
           ref={shortlistRef}
-          label={shortlisted ? "Shortlisted ✓" : "Shortlist idea"}
+          label={shortlisted ? "Shortlisted" : "Shortlist idea"}
           shortcut="S"
           disabled={shortlisted}
         />
@@ -153,7 +153,7 @@ export function ActionStack({
           />
           <Row
             ref={hookRef}
-            label={hookSaved ? "Hook saved ✓" : "Save hook to vault"}
+            label={hookSaved ? "Hook saved" : "Save hook to vault"}
             shortcut="H"
             disabled={hookSaved}
           />

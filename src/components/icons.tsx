@@ -49,6 +49,7 @@ export type IconName =
   | "chevronDown"
   | "chevronUp"
   | "check"
+  | "minus"
   | "close"
   | "search"
   | "refresh"
@@ -157,6 +158,7 @@ const PATHS: Record<IconName, string[]> = {
   chevronDown: ["m5 9.5 7 6 7-6"],
   chevronUp: ["m5 14.5 7-6 7 6"],
   check: ["m4.5 12.5 5 5 10-11"],
+  minus: ["M5 12h14"],
   close: ["M5.5 5.5l13 13M18.5 5.5l-13 13"],
   search: ["M18.5 10.75a7.75 7.75 0 1 1-15.5 0 7.75 7.75 0 0 1 15.5 0Z", "m16.5 16.5 4.5 4.5"],
   refresh: ["M20.5 12a8.5 8.5 0 1 1-2.5-6", "M20.5 4v4.5H16"],

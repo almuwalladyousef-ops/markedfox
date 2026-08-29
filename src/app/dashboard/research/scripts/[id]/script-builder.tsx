@@ -102,7 +102,11 @@ export function ScriptBuilder({
                         : "bg-line text-faint",
                   )}
                 >
-                  {isDone(draft, item) ? "✓" : index + 1}
+                  {isDone(draft, item) ? (
+                    <Icon name="check" className="h-2.5 w-2.5" />
+                  ) : (
+                    index + 1
+                  )}
                 </span>
                 <Icon name={STAGE_ICON[item]} className="h-4 w-4" />
                 {STAGE_LABELS[item]}
