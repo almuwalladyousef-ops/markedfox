@@ -46,7 +46,21 @@ export function Sidebar({
   return (
     <>
       {/* ── the dock ─────────────────────────────────────────────────── */}
-      <aside className="sticky top-0 hidden h-screen shrink-0 py-3.5 pl-3.5 shell:flex">
+      {/* `z-50` is load-bearing, not decoration. `position: sticky` makes
+          each rail its own stacking context, so the tooltip's own `z-[70]`
+          only orders it *inside* this one — and with no z-index here the dock
+          painted below both the sidebar panel and every positioned element in
+          the content column, because each of those comes later in the DOM. A
+          dock label opened *underneath* the sidebar it points into, which is
+          to say it did not appear at all — the element was in the DOM, open
+          and correctly positioned, and simply painted under the panel. The
+          dock clears the sidebar's 40; a dialog's own overlay still covers
+          both at 50 and 60.
+
+          (`elementFromPoint` is no use for checking this: the tooltip is
+          `pointer-events-none`, so it always answers with whatever sits
+          behind it, fixed or not.) */}
+      <aside className="sticky top-0 z-50 hidden h-screen shrink-0 py-3.5 pl-3.5 shell:flex">
         <div className="flex w-[68px] flex-col items-center gap-2 rounded-2xl border border-dock-line bg-dock pt-4 pb-3.5">
           {/* The dock is icon-only, so every one of these carries its name in
               a tooltip rather than in the browser's `title` bubble: that one
@@ -115,7 +129,7 @@ export function Sidebar({
       </aside>
 
       {/* ── the contextual rail ──────────────────────────────────────── */}
-      <aside className="sticky top-0 hidden h-screen w-[236px] shrink-0 py-3.5 pl-3 shell:flex">
+      <aside className="sticky top-0 z-40 hidden h-screen w-[236px] shrink-0 py-3.5 pl-3 shell:flex">
         <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto rounded-2xl border border-line bg-panel px-3 pt-4 pb-3.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="mb-2.5">
             <WorkspaceSwitcher
@@ -156,23 +170,28 @@ export function Sidebar({
 
           <div className="flex-1" />
 
-          {/* The space's usage meter, real numbers from the entitlement
-              snapshot. No bar on an unlimited figure — a full bar and a bar
-              with no ceiling look identical and mean opposite things. */}
-          <div className="mt-3 border-t border-line px-1 pt-3.5">
-            <p className="text-[12px] font-bold text-ink">{space.meter.title}</p>
-            <p className="mt-1 mb-2 text-[11.5px]/[16px] text-faint">
-              {space.meter.note}
-            </p>
-            {space.meter.pct === null ? null : (
-              <div className="h-1 overflow-hidden rounded-sm bg-chip">
-                <div
-                  className="h-full rounded-sm bg-accent"
-                  style={{ width: `${space.meter.pct}%` }}
-                />
-              </div>
-            )}
-          </div>
+          {/* Research credits, and nothing else — the other spaces hand back
+              no meter at all now. No bar on an unlimited figure either: a
+              full bar and a bar with no ceiling look identical and mean
+              opposite things. */}
+          {space.meter ? (
+            <div className="mt-3 border-t border-line px-1 pt-3.5">
+              <p className="text-[12px] font-bold text-ink">
+                {space.meter.title}
+              </p>
+              <p className="mt-1 mb-2 text-[11.5px]/[16px] text-faint">
+                {space.meter.note}
+              </p>
+              {space.meter.pct === null ? null : (
+                <div className="h-1 overflow-hidden rounded-sm bg-chip">
+                  <div
+                    className="h-full rounded-sm bg-accent"
+                    style={{ width: `${space.meter.pct}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
       </aside>
     </>

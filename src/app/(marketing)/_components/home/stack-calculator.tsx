@@ -189,7 +189,7 @@ export function StackCalculator() {
           {[
             "One subscription covers publishing, DM automation and research",
             "Yearly billing is two months free on every paid plan",
-            "X is capped at 300 posts a month on every plan — X charges per post",
+            "X is capped at 300 posts a month on every paid plan",
           ].map((line) => (
             <li
               key={line}

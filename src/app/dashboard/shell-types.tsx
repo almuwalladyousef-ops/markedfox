@@ -39,5 +39,9 @@ export type DecoratedSpace = {
   sub: string;
   firstHref: string;
   rows: DecoratedRow[];
-  meter: SpaceMeter;
+  /** Only the research space carries one — owner decision 2026-08-30: a
+   *  meter beside work somebody does all day reads as a countdown. Credits
+   *  are the exception, because they are the one allowance that is really
+   *  spent per action. */
+  meter: SpaceMeter | null;
 };

@@ -34,39 +34,18 @@ const fmt = (n: number) => n.toLocaleString("en-US");
 
 // Each space's meter, real numbers from the entitlement snapshot. The X
 // caveat travels with the word "unlimited" wherever it appears — house rule.
+// The research space's credit meter, and only that one. Posts and DM sends
+// used to carry meters too; a bar beside the thing somebody does all day
+// reads as a countdown on their own work, and neither figure costs us
+// anything per action. Credits do — they are real model calls — so that is
+// the one allowance worth showing against its ceiling.
 function meterFor(
   id: ShellSpace["id"],
   snapshot: EntitlementSnapshot,
-): SpaceMeter {
-  const planName =
-    snapshot.planId.charAt(0).toUpperCase() + snapshot.planId.slice(1);
+): SpaceMeter | null {
+  if (id !== "studio") return null;
+
   const { limits, usage } = snapshot;
-
-  if (id === "home") {
-    if (limits.postsPerDay === null) {
-      return {
-        title: "Posts today",
-        note:
-          limits.xPostsPerMonth > 0
-            ? `Unlimited on ${planName}. X capped at ${fmt(limits.xPostsPerMonth)}/mo.`
-            : `Unlimited on ${planName}. X is not included.`,
-        pct: null,
-      };
-    }
-    return {
-      title: "Posts today",
-      note: `${fmt(usage.postsToday)} of ${fmt(limits.postsPerDay)} in the last 24 hours.`,
-      pct: pct(usage.postsToday, limits.postsPerDay),
-    };
-  }
-
-  if (id === "automate") {
-    return {
-      title: "DM sends",
-      note: `${fmt(usage.dmSendsThisMonth)} of ${fmt(limits.dmSendsPerMonth)} this month across all rules.`,
-      pct: pct(usage.dmSendsThisMonth, limits.dmSendsPerMonth),
-    };
-  }
 
   if (limits.researchCreditsPerMonth === 0) {
     return {

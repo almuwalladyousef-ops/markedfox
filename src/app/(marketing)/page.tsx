@@ -341,7 +341,7 @@ const TICKER_FACTS = [
   "A comment becomes a DM in seconds",
   "Videos scored against their own channel’s median",
   "One workspace per brand or client",
-  "X capped at 300 a month — X charges per post",
+  "X capped at 300 posts a month",
   "Free plan, no card, no trial clock",
 ];
 
@@ -1098,7 +1098,7 @@ function Everywhere() {
     { platform: "threads", title: "Threads", body: "Text, photos and video up to 500 characters, with reply control." },
     { platform: "tiktok", title: "TikTok", body: "Direct post with the privacy level, comment and duet settings, and the commercial-content disclosure TikTok requires." },
     { platform: "youtube", title: "YouTube", body: "Shorts and long videos up to 256GB, with visibility, tags, #shorts and the made-for-kids flag." },
-    { platform: "x", title: "X", body: "Text posts with reply control. 300 a month on paid plans and no external links — X charges per post, so it is never unlimited." },
+    { platform: "x", title: "X", body: "Text posts with reply control, 300 a month on paid plans, and no external links in the caption." },
     { platform: "snapchat", title: "Snapchat", body: "Spotlight: one vertical video, up to 160 characters, saved to your public profile." },
   ];
   return (

@@ -271,11 +271,14 @@ function UpgradeDialog({
           </p>
         ) : null}
 
+        {/* Why X has a number where everything else says unlimited belongs on
+            the pricing page, not on six screens — owner decision 2026-08-30.
+            Here it is the cap itself and the link rule, which are the two
+            things that change what you can do from this screen. */}
         {row.id === "x" ? (
           <p className="mt-4 rounded-lg border border-line bg-chip px-3.5 py-3 text-[13px]/[19px] text-pretty text-muted">
-            X charges $0.015 per post through its API — and 13x more with an
-            external link — so X carries a hard monthly number on every plan
-            rather than being unlimited.
+            X carries a monthly post limit on every plan, and a post cannot
+            contain an external link.
           </p>
         ) : null}
 

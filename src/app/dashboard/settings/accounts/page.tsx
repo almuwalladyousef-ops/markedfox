@@ -218,7 +218,7 @@ export default async function AccountsPage({
       // rather than in fine print somewhere else.
       note:
         platform === "x" && included
-          ? `${snapshot.limits.xPostsPerMonth}/mo · no links — X charges per post`
+          ? `${snapshot.limits.xPostsPerMonth}/mo · no links in the caption`
           : undefined,
     };
   });
@@ -306,7 +306,7 @@ export default async function AccountsPage({
             label="X posts this month"
             used={snapshot.usage.xPostsThisMonth}
             limit={snapshot.limits.xPostsPerMonth}
-            note="X charges per post — never unlimited"
+            note="Capped on every plan, pooled across your workspaces"
           />
           <Meter
             label="DM sends this month"
