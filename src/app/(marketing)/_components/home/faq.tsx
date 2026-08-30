@@ -39,6 +39,18 @@ const FAQ: Record<Category, { q: string; a: string }[]> = {
       q: "Does it work on my phone?",
       a: "Yes, in the browser. The dashboard is built for a phone screen: a bottom tab bar with New post in the centre, and every screen laid out for one hand. Native apps come after the web launch.",
     },
+    {
+      q: "Can I sell products, courses or take tips through MarkedFox?",
+      a: "No. MarkedFox publishes, answers, and researches — it is not a store and it never touches your customers’ money. Sell wherever you sell today, and let a DM rule send that link to everyone who asks for it, with every tap counted on the rule that earned it.",
+    },
+    {
+      q: "Is there a link-in-bio page?",
+      a: "No page is hosted here. The links MarkedFox sends are tracked ones inside your DMs, pointed at whatever you already use, so the click lands on the rule that earned it instead of on a page in the middle.",
+    },
+    {
+      q: "Do you send email newsletters?",
+      a: "No. A DM rule can ask for the email and keep it on the contact, and the whole list exports as one file — for the tool you already send email with. Sending the newsletter is not something MarkedFox does.",
+    },
   ],
   Publishing: [
     {

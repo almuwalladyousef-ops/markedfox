@@ -25,6 +25,7 @@ import {
   PostTile,
   SettingRow,
 } from "./_components/home/mocks";
+import { StackCalculator } from "./_components/home/stack-calculator";
 import { PLANS } from "./_components/plans-data";
 import { PlanGrid } from "./pricing/plan-grid";
 
@@ -141,6 +142,7 @@ export default function Home() {
   return (
     <main>
       <Hero />
+      <Ticker />
       <Audiences />
       <HowItWorks />
       <Automate />
@@ -150,6 +152,8 @@ export default function Home() {
       <Everywhere />
       <Own />
       <Manage />
+      <Compare />
+      <Stack />
       <Plans />
       <Questions />
       <Closer />
@@ -324,6 +328,52 @@ function HeroScene() {
 }
 
 // ── who it is for ──────────────────────────────────────────────────────────
+
+// ── ticker ─────────────────────────────────────────────────────────────────
+
+/** A thin band of facts under the hero. Both reference products run one, and
+ *  theirs carry a promotion; this one carries only things the app can keep.
+ *  The track holds the same list twice and slides by exactly half, so the
+ *  loop has no seam. `aria-hidden` on the copy, because a screen reader
+ *  should hear the list once. */
+const TICKER_FACTS = [
+  "Seven platforms, one composer",
+  "A comment becomes a DM in seconds",
+  "Videos scored against their own channel’s median",
+  "One workspace per brand or client",
+  "X capped at 300 a month — X charges per post",
+  "Free plan, no card, no trial clock",
+];
+
+function TickerRun({ hidden }: { hidden?: boolean }) {
+  return (
+    <ul
+      aria-hidden={hidden || undefined}
+      className="flex shrink-0 items-center gap-8 pr-8"
+    >
+      {TICKER_FACTS.map((fact) => (
+        <li
+          key={fact}
+          className="flex shrink-0 items-center gap-8 text-[13.5px] font-medium whitespace-nowrap text-muted"
+        >
+          {fact}
+          <span className="h-1 w-1 shrink-0 rounded-full bg-accent" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Ticker() {
+  return (
+    <div className="overflow-hidden border-y border-line bg-panel py-3.5">
+      <div className="mf-ticker flex w-max">
+        <TickerRun />
+        <TickerRun hidden />
+      </div>
+    </div>
+  );
+}
 
 function Audiences() {
   return (
@@ -1269,6 +1319,127 @@ function Manage() {
             One switch in Settings, remembered on every device you sign in
             from, with no flash on load.
           </Fact>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+// ── the three tools, side by side ──────────────────────────────────────────
+
+/** The stack most people run, as a table.
+ *
+ *  The columns are categories, not brand names, and each row is marked only
+ *  where the category does that job by definition — a posting tool does not
+ *  answer DMs and a DM tool does not post. Naming a product and then listing
+ *  what it cannot do would be a claim about somebody else's roadmap, which
+ *  this page has no way to keep true. */
+function Compare() {
+  const columns = [
+    "MarkedFox",
+    "A posting tool",
+    "A DM tool",
+    "A research tool",
+  ];
+  const rows: { label: string; has: boolean[] }[] = [
+    { label: "One composer, seven platforms at once", has: [true, true, false, false] },
+    { label: "A calendar, drafts and per-platform settings", has: [true, true, false, false] },
+    { label: "A comment becomes a DM, with a public reply", has: [true, false, true, false] },
+    { label: "Keyword DMs and story replies", has: [true, false, true, false] },
+    { label: "Follow-ups that skip whoever already tapped", has: [true, false, true, false] },
+    { label: "Email capture inside the conversation", has: [true, false, true, false] },
+    { label: "Videos scored against their own channel’s median", has: [true, false, false, true] },
+    { label: "Hooks, outlines and scripts from a winner", has: [true, false, false, true] },
+    { label: "A workspace per client, one pooled allowance", has: [true, false, false, false] },
+    { label: "One bill, one login, one dashboard", has: [true, false, false, false] },
+  ];
+  return (
+    <section id="compare">
+      <Container className="py-20 shell:py-28">
+        <Opening
+          align="center"
+          title="Three subscriptions, or this one."
+          lede="Most people run a posting tool, a DM tool and a research tool side by side. Here is the same work in one column."
+        />
+
+        <div className="mf-noscroll mt-12 overflow-x-auto">
+          <table className="w-full min-w-[620px] border-collapse text-left">
+            <thead>
+              <tr>
+                <th className="w-[38%] pb-4 text-[13px] font-semibold text-faint">
+                  What you need it to do
+                </th>
+                {columns.map((column, index) => (
+                  <th
+                    key={column}
+                    className={cx(
+                      "pb-4 text-center text-[13.5px] font-semibold",
+                      index === 0 ? "text-accent" : "text-faint",
+                    )}
+                  >
+                    {column}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.label} className="border-t border-line">
+                  <th
+                    scope="row"
+                    className="py-3.5 pr-6 text-[14.5px]/[21px] font-medium text-ink text-pretty"
+                  >
+                    {row.label}
+                  </th>
+                  {row.has.map((yes, index) => (
+                    <td key={columns[index]} className="py-3.5 text-center">
+                      <span
+                        className={cx(
+                          "inline-flex h-6 w-6 items-center justify-center rounded-full",
+                          yes
+                            ? index === 0
+                              ? "bg-accent text-accent-ink"
+                              : "bg-accent-soft text-accent"
+                            : "text-faint",
+                        )}
+                      >
+                        <Icon
+                          name={yes ? "check" : "minus"}
+                          className="h-3.5 w-3.5"
+                          strokeWidth={2.4}
+                        />
+                        <span className="sr-only">{yes ? "Yes" : "No"}</span>
+                      </span>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="mt-6 text-center text-[13.5px] text-faint text-pretty">
+          Categories, not brand names — hold whatever you pay for today against
+          the same rows.
+        </p>
+      </Container>
+    </section>
+  );
+}
+
+// ── what the stack costs ───────────────────────────────────────────────────
+
+function Stack() {
+  return (
+    <section id="stack" className="border-t border-line bg-panel">
+      <Container className="py-20 shell:py-28">
+        <Opening
+          align="center"
+          title="See what that stack costs you."
+          lede="Put your own numbers in. The only figures we supply are ours."
+        />
+        <div className="mt-12">
+          <StackCalculator />
         </div>
       </Container>
     </section>

@@ -94,3 +94,14 @@ export const PLANS: MarketingPlan[] = [
     ],
   },
 ];
+
+/** The same two paid plans as numbers. The stack calculator does arithmetic
+ *  with these, and parsing "$20" back out of a label is a bug waiting for a
+ *  currency to change. If these and the rows above disagree, the rows are
+ *  what people read and these are the bug. */
+export const PRICE = {
+  pro: { name: "Pro", monthly: 20, annual: 200 },
+  studio: { name: "Studio", monthly: 49, annual: 490 },
+} as const;
+
+export type PaidPlanId = keyof typeof PRICE;

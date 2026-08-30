@@ -438,3 +438,18 @@ input[type="time"] {
 .mf-noscroll::-webkit-scrollbar {
   display: none;
 }
+
+/* ── the landing page's ticker ──────────────────────────────────────────────
+
+   Two identical halves inside one track, translated by exactly half its
+   width, so the seam never shows and the loop never jumps. Reduced motion
+   lands it on -50%, which is the same frame it started on. */
+@keyframes mf-ticker {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.mf-ticker {
+  animation: mf-ticker 46s linear infinite;
+}
