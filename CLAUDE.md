@@ -1731,3 +1731,38 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   dead labels, and the X cap beside every "unlimited". 597 tests, build,
   lint, typecheck and detector green; 0px overflow at 1440 and 390 in both
   themes.
+
+- **2026-08-31 — production-readiness audit.** See
+  `sessions/2026-08-31-production-audit.md`. Baseline was green (599 tests), so
+  this hunted for what passes tests and still fails a customer. Three gaps.
+
+  *The checkout success screen could never render.* Stripe was returned to
+  `/dashboard/settings`, which is a `redirect()` to the accounts pane, so the
+  query string never survived — the "Payment received" and "Checkout canceled"
+  cards sat correct and unreachable while a paying customer landed on
+  Connected accounts with no confirmation. Return URLs are now a pure module
+  and a test pins the rule: a checkout return path must be a page that reads
+  `?checkout=`, never one that redirects.
+
+  *Nothing rate limited our own endpoints.* `platform_budgets` protects the
+  platforms from us; nothing protected us from a caller — sign-in was
+  grindable, and sign-up and password-reset would mail any address an attacker
+  named on our sending reputation. `20260831000000_rate_limits.sql` adds the
+  counter in the budget's own shape (one atomic increment-and-check; proven on
+  live rows to let exactly five of twenty simultaneous callers through), wired
+  into the three auth entry points and both presigned-upload routes, pruned
+  from the scheduler tick. **It fails open by design, including when the
+  service client itself throws** — a limiter that fails closed turns a missing
+  env var into "nobody can sign in", which is worse than the abuse it stops.
+  RLS remains the thing that fails closed.
+
+  *The production env template had gone stale* — no X, YouTube or Snapchat
+  after those adapters shipped, so a fresh droplet loses four platforms
+  silently. Completed and pinned by `env-docs.test.ts`, which reads both
+  templates against the vars the code actually reads.
+
+  639 tests, build, lint, typecheck green; new `rate-limit-smoke` 13/13 on live
+  Postgres; rls all-pass, burst 22/22, billing 16/16, dm 26/26 unchanged. Live
+  plans read back and confirmed to match the marketing numbers — every
+  `stripe_price_*` is still UNSET, which stays the owner blocker. Deployed
+  `f61d8e5`.
