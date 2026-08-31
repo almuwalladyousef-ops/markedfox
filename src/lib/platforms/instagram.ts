@@ -47,6 +47,11 @@ const MESSAGING_SCOPES = [
   "instagram_manage_comments",
   "instagram_manage_messages",
   "pages_messaging",
+  // Required by POST /{page-id}/subscribed_apps — without it the connect
+  // succeeds but the Page never subscribes to webhook events, so comments
+  // and DMs simply never arrive. Found live 2026-08-30: Meta answered the
+  // subscribe with "(#200) Requires pages_manage_metadata permission".
+  "pages_manage_metadata",
 ];
 
 // Container polling lives in ./polling — the schedule and its reasoning are
