@@ -68,6 +68,8 @@ export type TickSummary = {
   refreshFailed: number;
   /** Media objects deleted now that their post is done with them. */
   purged: number;
+  /** Stale rate-limit windows deleted this tick. */
+  rateLimitsPruned: number;
   /** Uploads that were never attached to any post, deleted after their grace. */
   orphansPurged: number;
   /** The DM engine's pass: events matched, DMs sent, retried, failed. */
@@ -111,6 +113,7 @@ export async function runSchedulerTick(
     refreshed: 0,
     refreshFailed: 0,
     purged: 0,
+    rateLimitsPruned: 0,
     orphansPurged: 0,
     dm: null,
     research: null,
@@ -294,6 +297,21 @@ export async function runSchedulerTick(
       const message = err instanceof Error ? err.message : String(err);
       log.error(`scheduler: media purge failed — ${message}`);
     }
+  }
+
+  // Rate-limit windows nobody has touched in a day. Without this the table
+  // keeps one permanent row per email anybody ever typed into the login form.
+  // Failures are logged and ignored: a tick that cannot prune is not a tick
+  // that should stop publishing.
+  try {
+    const { data, error } = await supabase.rpc("prune_rate_limits", {
+      p_older_than_seconds: 86_400,
+    });
+    if (error) throw new Error(error.message);
+    summary.rateLimitsPruned = Number(data ?? 0);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log.error(`scheduler: rate-limit prune failed — ${message}`);
   }
 
   return summary;

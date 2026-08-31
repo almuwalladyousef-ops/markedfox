@@ -42,5 +42,21 @@ export async function GET(
     }),
   ]).catch((e) => console.error("dm link: could not record click", e));
 
-  return NextResponse.redirect(link.destination_url, { status: 302 });
+  // Defence in depth on the scheme. The rule builder already refuses anything
+  // that is not http(s) (lib/dm/rules.ts), so a bad row should be impossible —
+  // but this endpoint turns a stored string into a Location header for a
+  // stranger's browser, and that is the one place worth checking twice. A row
+  // that somehow held `javascript:` or `data:` would make markedfox.com the
+  // launcher for it.
+  let destination: URL;
+  try {
+    destination = new URL(link.destination_url);
+  } catch {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+  if (destination.protocol !== "https:" && destination.protocol !== "http:") {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+
+  return NextResponse.redirect(destination.toString(), { status: 302 });
 }

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getUser } from "@/lib/auth/session";
+import { consumeRateLimit } from "@/lib/rate-limit/limit";
 import {
   createMediaStore,
   isMediaStorageConfigured,
@@ -37,6 +38,17 @@ export async function POST(request: NextRequest) {
   const user = await getUser();
   if (!user) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  }
+
+  // Each presigned URL is an object somebody can push bytes into, billed to
+  // our R2 account, so the handing-out is limited per user. Generous enough
+  // for a ten-image carousel and its retries; far below a script.
+  const limited = await consumeRateLimit("mediaUpload", user.id);
+  if (!limited.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited", message: limited.message },
+      { status: 429, headers: { "retry-after": String(limited.retryAfterSeconds) } },
+    );
   }
 
   if (!isMediaStorageConfigured()) {

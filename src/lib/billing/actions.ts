@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
+import { checkoutReturnUrls, portalReturnUrl } from "./return-urls";
 import {
   getCheckoutPlan,
   getStripeCustomerId,
@@ -24,7 +25,7 @@ import {
 export type BillingFormState = { message?: string };
 
 function siteUrl(): string {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? "https://markedfox.com").replace(/\/+$/, "");
+  return process.env.NEXT_PUBLIC_SITE_URL ?? "https://markedfox.com";
 }
 
 /**
@@ -77,8 +78,7 @@ export async function startCheckoutAction(
       userId: user.id,
       planId: plan.id,
       interval,
-      successUrl: `${siteUrl()}/dashboard/settings?checkout=success`,
-      cancelUrl: `${siteUrl()}/dashboard/settings?checkout=canceled`,
+      ...checkoutReturnUrls(siteUrl()),
     });
     if (!session.url) return { message: "Stripe did not return a checkout page. Try again." };
     checkoutUrl = session.url;
@@ -114,7 +114,7 @@ export async function openBillingPortalAction(): Promise<BillingFormState> {
   try {
     const session = await createPortalSession({
       customerId,
-      returnUrl: `${siteUrl()}/dashboard/settings`,
+      returnUrl: portalReturnUrl(siteUrl()),
     });
     url = session.url;
   } catch (error) {

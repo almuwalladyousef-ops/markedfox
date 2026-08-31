@@ -1,7 +1,10 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { consumeAll, resetRateLimit } from "@/lib/rate-limit/limit";
+import { clientIpFrom } from "@/lib/rate-limit/policy";
 import { createClient } from "@/lib/supabase/server";
 
 import { getSiteUrl } from "./site-url";
@@ -25,6 +28,17 @@ export type AuthFormState = {
 // Every one of these actions is a public POST endpoint — the 'use server'
 // directive publishes it, and rendering the form on a page is not a security
 // boundary. So each validates its own input and none trusts the caller.
+//
+// They are also rate limited, for the same reason: a public endpoint that
+// checks a password, or sends mail to any address the caller names, is one an
+// attacker can call as fast as their connection allows. The limits live in
+// lib/rate-limit/policy.ts; refusals are worded as "wait a moment", never as
+// "you are blocked", and they never reveal whether the address exists.
+
+/** The caller's address, or null behind a proxy that did not forward one. */
+async function callerIp(): Promise<string | null> {
+  return clientIpFrom(await headers());
+}
 
 export async function signUp(
   _previous: AuthFormState,
@@ -32,6 +46,11 @@ export async function signUp(
 ): Promise<AuthFormState> {
   const parsed = validateCredentials(formData);
   if (!parsed.ok) return { errors: parsed.errors };
+
+  const limited = await consumeAll([
+    { name: "signUpIp", subject: await callerIp() },
+  ]);
+  if (!limited.allowed) return { message: limited.message ?? undefined };
 
   const supabase = await createClient();
   const siteUrl = await getSiteUrl();
@@ -85,6 +104,13 @@ export async function signIn(
   const parsed = validateCredentials(formData);
   if (!parsed.ok) return { errors: parsed.errors };
 
+  const ip = await callerIp();
+  const limited = await consumeAll([
+    { name: "signInEmail", subject: parsed.value.email },
+    { name: "signInIp", subject: ip },
+  ]);
+  if (!limited.allowed) return { message: limited.message ?? undefined };
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({
     email: parsed.value.email,
@@ -97,6 +123,10 @@ export async function signIn(
     // oracle, and the user's next step is the same in all three cases.
     return { message: "That email and password combination did not work." };
   }
+
+  // A correct password proves this caller was not guessing, so the attempts
+  // they burned getting here are forgiven rather than left to expire.
+  await resetRateLimit("signInEmail", parsed.value.email);
 
   redirect(safeRedirectPath(formData.get("next")?.toString()));
 }
@@ -113,6 +143,17 @@ export async function requestPasswordReset(
 ): Promise<AuthFormState> {
   const email = validateEmail(formData.get("email"));
   if (!email.ok) return { errors: email.errors };
+
+  // Refused the same way it succeeds — a generic line that says nothing about
+  // whether the address is registered. The limit is what stops this endpoint
+  // being used to mail arbitrary strangers on our sending reputation.
+  const limited = await consumeAll([
+    { name: "passwordResetEmail", subject: email.value },
+    { name: "passwordResetIp", subject: await callerIp() },
+  ]);
+  if (!limited.allowed) {
+    return { success: true, message: limited.message ?? undefined };
+  }
 
   const supabase = await createClient();
   const siteUrl = await getSiteUrl();
