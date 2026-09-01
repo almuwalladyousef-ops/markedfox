@@ -1766,3 +1766,22 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   plans read back and confirmed to match the marketing numbers — every
   `stripe_price_*` is still UNSET, which stays the owner blocker. Deployed
   `f61d8e5`.
+
+- **2026-09-01 — Stripe configured, one owner step from live.** See
+  `sessions/2026-09-01-stripe-live.md`. Through the owner's signed-in Chrome,
+  on the Codove Stripe account (the login's only account, which already bills
+  an unrelated product): MarkedFox Pro and Studio created with all four live
+  prices, the price ids written into the `pro`/`studio` plans rows and read
+  back; webhook destination `markedfox-production` →
+  `https://markedfox.com/api/webhooks/stripe` on exactly the three
+  `customer.subscription.*` events; the real `whsec_` replaced the 2026-08-20
+  placeholder in `.env.local` and on the droplet (synced, restarted, health
+  200). Proven: billing-smoke **16/16 against production with the real
+  secret**. Statement descriptor MARKEDFOX set **per product, not
+  account-wide** — the account-level descriptor would have rewritten the other
+  product's customers' card statements. Webhook API version is the account's
+  `2026-02-25.clover` (the dashboard no longer offers basil); code-side basil
+  pin is outbound-only and unaffected. **Remaining blocker:** the permission
+  layer refused agent creation of API keys, so `STRIPE_SECRET_KEY` is still
+  unset — checkout/portal stay off until the owner creates the restricted key
+  (exact 6-step recipe in the session log) and runs `deploy/sync-env.sh`.
