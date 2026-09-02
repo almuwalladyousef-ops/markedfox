@@ -4,6 +4,10 @@ const nextConfig: NextConfig = {
   // The VPS runs the app via systemd as `node .next/standalone/server.js`.
   output: "standalone",
 
+  // Stops every response announcing `X-Powered-By: Next.js`. It tells an
+  // attacker which framework's CVEs to try and tells a user nothing.
+  poweredByHeader: false,
+
   // /dashboard/posts was its own list until the calendar absorbed it — the
   // schedule and the outcomes are the same information twice. Anyone holding
   // a bookmark, or an email we sent, lands where that post now lives.

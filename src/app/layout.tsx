@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Public_Sans } from "next/font/google";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 import { normalizeTheme, THEME_BOOTSTRAP, THEME_COOKIE } from "@/lib/theme";
 
@@ -35,10 +35,16 @@ export default async function RootLayout({
   // the first byte of HTML already carries the right value.
   const theme = normalizeTheme((await cookies()).get(THEME_COOKIE)?.value);
 
+  // Next stamps its own inline scripts with the nonce from the CSP header it
+  // was handed, but this one is ours, so it has to be labelled by hand — an
+  // unnonced inline script is exactly what the policy exists to refuse, and
+  // the theme would flash on every first paint if it were dropped.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="en" data-theme={theme} className={`${bricolage.variable} ${publicSans.variable}`}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
       </head>
       {/* Base colours live here so every route inherits them. Without this a
           page that sets light text but no background renders invisibly on the

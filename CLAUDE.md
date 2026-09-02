@@ -1785,3 +1785,64 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   layer refused agent creation of API keys, so `STRIPE_SECRET_KEY` is still
   unset — checkout/portal stay off until the owner creates the restricted key
   (exact 6-step recipe in the session log) and runs `deploy/sync-env.sh`.
+
+- **2026-09-02 — security headers, method handling, and security.txt.** See
+  `sessions/2026-09-02-security-headers.md`. A focused hardening pass on three
+  confirmed public findings; nothing here changes what the app does.
+
+  *A real Content-Security-Policy, nonce-based.* `src/lib/security/csp.ts`
+  builds it as a pure function and `src/proxy.ts` sets it on both the response
+  (what the browser enforces) and the request (what Next reads to stamp the
+  nonce onto its own inline scripts — without it the RSC payload is blocked and
+  nothing hydrates). `script-src` has **no** `'unsafe-inline'`, which is the
+  whole point. The usual objection to nonces — that they disable static
+  generation — does not apply here: the root layout already awaits `cookies()`,
+  so the build reports exactly two static routes and both are PNGs.
+
+  Three deliberate loosenings, each with a reason rather than a shrug.
+  `style-src` keeps `'unsafe-inline'` because 26 components pass a
+  `style={{…}}` prop and no nonce can cover a style *attribute* — and note that
+  a nonce in that directive would make the browser ignore `'unsafe-inline'`, so
+  it must never gain one. `img-src`/`media-src` allow any https origin because
+  avatars and thumbnails come from whatever CDN each platform uses this month,
+  and an allow-list of those silently blanks somebody's picture; images do not
+  execute. `'wasm-unsafe-eval'` plus `worker-src 'self' blob:` for the in-browser
+  ffmpeg trim, with `child-src` mirroring it because Safari has no `worker-src`.
+  `connect-src` names the Supabase project (https and wss) and **our own** R2
+  account, never `*.r2.cloudflarestorage.com`. `form-action` names Stripe's
+  checkout and portal, because with JavaScript off the Server Action's redirect
+  is a form navigation and Chrome checks it against that directive.
+
+  *`poweredByHeader: false`*, so responses stop naming the framework whose CVEs
+  to try.
+
+  *TRACE returned `500`, and the fix could not go where it looked like it
+  should.* Next builds a WHATWG `Request` from the Node request **before**
+  middleware runs, and that constructor throws on TRACE, TRACK and CONNECT
+  (`TypeError: 'TRACE' HTTP method is unsupported`), so no proxy code can ever
+  answer them. They are refused in `deploy/Caddyfile` with a 405 and an `Allow`
+  header; `src/proxy.ts` keeps the same allow-list as the second line, for a
+  method Caddy forwards and no route implements. POST and OPTIONS stay on the
+  list deliberately — the Stripe and Meta webhooks POST, and preflights are
+  OPTIONS.
+
+  *`/.well-known/security.txt`* is a route handler rather than a file, because
+  RFC 9116 requires an `Expires` and a date written into a static file goes
+  quietly invalid on a day nobody is looking. Contact is
+  `support@markedfox.com`, which the product already publishes — deliberately
+  **not** the role account, whose whole value is that the people reading a
+  security.txt do not have it. **Open owner item:** Cloudflare Email Routing for
+  `support@` is still unconfigured (Phase 0), so mail to it bounces today.
+
+  *One config change that is not a code change:* `public/ffmpeg/**` is now
+  eslint-ignored. It is Emscripten output copied in by `prebuild` and
+  gitignored, and its two `no-this-alias` errors had made `npm run lint` exit 1
+  since the day it landed.
+
+  668 tests (639 + 29 new), build, typecheck and lint green — lint now at 0
+  errors, from 2. Verified on the production build through headless Chrome:
+  every script tag on a page carries the matching nonce including the theme
+  bootstrap, a client component's `onClick` still fires, and six marketing/auth
+  pages plus eight dashboard pages report zero CSP violations and zero console
+  errors after a real Supabase sign-in with a throwaway `auth-smoke-*` user
+  (deleted afterwards). The Stripe webhook still answers POST and OPTIONS.

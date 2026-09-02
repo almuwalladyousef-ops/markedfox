@@ -14,6 +14,28 @@ markedfox.com, www.markedfox.com {
 	@internal path /api/internal/*
 	respond @internal 404
 
+	# Methods the app does not implement are refused here rather than passed on.
+	#
+	# This has to live in Caddy rather than in src/proxy.ts, and the reason is
+	# worth writing down: Next converts the Node request into a WHATWG Request
+	# before middleware runs, and that constructor throws on TRACE, TRACK and
+	# CONNECT ("TypeError: 'TRACE' HTTP method is unsupported"). The throw became
+	# a bare `500 Internal Server Error`, which reads to a scanner as a server
+	# that broke rather than a method that was declined. Middleware never got the
+	# chance to answer. The guard in src/proxy.ts stays as the second line for
+	# anything that does reach it.
+	#
+	# TRACE is also the method behind cross-site tracing, so refusing it is worth
+	# doing for its own sake.
+	@unsupported_method {
+		not method GET HEAD POST PUT PATCH DELETE OPTIONS
+	}
+	# RFC 9110 requires a 405 to say what it would have accepted. POST and
+	# OPTIONS are on that list deliberately: the Stripe and Meta webhooks POST,
+	# and the browser preflights with OPTIONS.
+	header @unsupported_method Allow "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS"
+	respond @unsupported_method "Method Not Allowed" 405
+
 	# Next.js listens on loopback only. Caddy is the only thing bound to a
 	# public port, so the app is never reachable except through TLS.
 	reverse_proxy 127.0.0.1:3000

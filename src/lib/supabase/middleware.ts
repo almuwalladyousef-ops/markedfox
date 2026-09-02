@@ -3,10 +3,25 @@ import { NextResponse, type NextRequest } from "next/server";
 
 let warnedMissingEnv = false;
 
+/** Headers the proxy wants the render to see — the CSP nonce and the policy
+ *  itself. They are rebuilt at each NextResponse.next() rather than captured
+ *  once, because request.cookies.set() rewrites the request's own cookie
+ *  header and a stale copy would drop a freshly rotated session. */
+type ForwardedHeaders = Record<string, string>;
+
+function forward(request: NextRequest, extra: ForwardedHeaders): Headers {
+  const headers = new Headers(request.headers);
+  for (const [name, value] of Object.entries(extra)) headers.set(name, value);
+  return headers;
+}
+
 // Refreshes the auth session on every matched request so server code always
 // sees valid tokens. Persistent sessions are a Phase 2 exit criterion — this
 // is the half that keeps refresh tokens rotating.
-export async function updateSession(request: NextRequest) {
+export async function updateSession(
+  request: NextRequest,
+  extraRequestHeaders: ForwardedHeaders = {},
+) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
@@ -20,10 +35,14 @@ export async function updateSession(request: NextRequest) {
         "Supabase env vars not set (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY); skipping session refresh. See .env.example.",
       );
     }
-    return NextResponse.next({ request });
+    return NextResponse.next({
+      request: { headers: forward(request, extraRequestHeaders) },
+    });
   }
 
-  let supabaseResponse = NextResponse.next({ request });
+  let supabaseResponse = NextResponse.next({
+    request: { headers: forward(request, extraRequestHeaders) },
+  });
 
   const supabase = createServerClient(url, key, {
     cookies: {
@@ -34,7 +53,9 @@ export async function updateSession(request: NextRequest) {
         cookiesToSet.forEach(({ name, value }) =>
           request.cookies.set(name, value),
         );
-        supabaseResponse = NextResponse.next({ request });
+        supabaseResponse = NextResponse.next({
+          request: { headers: forward(request, extraRequestHeaders) },
+        });
         cookiesToSet.forEach(({ name, value, options }) =>
           supabaseResponse.cookies.set(name, value, options),
         );
