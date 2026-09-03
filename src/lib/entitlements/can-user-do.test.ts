@@ -28,6 +28,35 @@ const FREE_LIMITS: PlanLimits = {
   researchRefreshHours: 24,
 };
 
+// Starter — the $8 tier (2026-09-03). Its whole shape is "everything that
+// costs us nothing", so it is the row that proves the two ideas can coexist:
+// unlimited posting AND no scheduling, no X, no research.
+const STARTER_LIMITS: PlanLimits = {
+  postsPerDay: null,
+  maxConnectedAccountsPerWorkspace: null,
+  maxWorkspaces: 2,
+  platforms: [
+    "instagram",
+    "facebook",
+    "threads",
+    "tiktok",
+    "youtube",
+    "snapchat",
+    "linkedin",
+    "pinterest",
+  ],
+  xPostsPerMonth: 0,
+  xLinksAllowed: false,
+  dmRulesMax: null,
+  dmSendsPerMonth: 5000,
+  videoUploadMinutesPerMonth: 300,
+  scheduling: false,
+  funnels: false,
+  researchCreditsPerMonth: 0,
+  researchSourcesMax: 0,
+  researchRefreshHours: 24,
+};
+
 const PRO_LIMITS: PlanLimits = {
   postsPerDay: null,
   maxConnectedAccountsPerWorkspace: null,
@@ -63,6 +92,16 @@ function free(usage: Partial<EntitlementSnapshot["usage"]> = {}): EntitlementSna
 
 function pro(usage: Partial<EntitlementSnapshot["usage"]> = {}): EntitlementSnapshot {
   return { planId: "pro", limits: PRO_LIMITS, usage: { ...ZERO_USAGE, ...usage } };
+}
+
+function starter(
+  usage: Partial<EntitlementSnapshot["usage"]> = {},
+): EntitlementSnapshot {
+  return {
+    planId: "starter",
+    limits: STARTER_LIMITS,
+    usage: { ...ZERO_USAGE, ...usage },
+  };
 }
 
 function denialCode(snapshot: EntitlementSnapshot, action: Parameters<typeof canUserDo>[1]) {
@@ -379,5 +418,101 @@ describe("scheduling", () => {
       canUserDo(free(), { type: "publish_post", platform: "instagram" })
         .allowed,
     ).toBe(true);
+  });
+});
+
+// Starter is the first plan where "unlimited posting" and "no scheduling"
+// are true at the same time, so these pin the combination rather than any one
+// limit. If a later change makes unlimited posting imply scheduling, or makes
+// an explicit platform list imply X, one of these fails.
+describe("the Starter plan", () => {
+  it("posts without limit, however many have gone out today", () => {
+    expect(
+      canUserDo(starter({ postsToday: 500 }), {
+        type: "publish_post",
+        platform: "instagram",
+      }).allowed,
+    ).toBe(true);
+  });
+
+  it("still cannot schedule — the one gate that costs us storage", () => {
+    expect(denialCode(starter(), { type: "schedule_post" })).toBe(
+      "scheduling_locked",
+    );
+  });
+
+  it("cannot publish to X, the one platform that bills per post", () => {
+    expect(
+      denialCode(starter(), { type: "publish_post", platform: "x" }),
+    ).toBe("plan_platform_locked");
+  });
+
+  it("names X rather than printing its id in the refusal", () => {
+    const decision = canUserDo(starter(), {
+      type: "publish_post",
+      platform: "x",
+    });
+    expect(decision.allowed).toBe(false);
+    if (!decision.allowed) expect(decision.reason).toContain("X");
+  });
+
+  it("publishes to every platform on its list", () => {
+    for (const platform of STARTER_LIMITS.platforms ?? []) {
+      expect(
+        canUserDo(starter(), { type: "publish_post", platform }).allowed,
+      ).toBe(true);
+    }
+  });
+
+  it("caps workspaces at 2, like Free", () => {
+    expect(
+      denialCode(starter({ workspaceCount: 2 }), { type: "create_workspace" }),
+    ).toBe("workspace_cap");
+  });
+
+  it("connects accounts without a per-workspace cap", () => {
+    expect(
+      canUserDo(starter({ connectedAccountsInWorkspace: 40 }), {
+        type: "connect_platform",
+        platform: "instagram",
+      }).allowed,
+    ).toBe(true);
+  });
+
+  it("sends DMs up to 5,000 a month and refuses the next one", () => {
+    expect(
+      canUserDo(starter({ dmSendsThisMonth: 4999 }), { type: "send_dm" })
+        .allowed,
+    ).toBe(true);
+    expect(
+      denialCode(starter({ dmSendsThisMonth: 5000 }), { type: "send_dm" }),
+    ).toBe("dm_send_cap");
+  });
+
+  it("has no research — it is the tier defined by costing us nothing", () => {
+    expect(denialCode(starter(), { type: "use_research" })).toBe(
+      "research_locked",
+    );
+  });
+
+  it("parses as a valid plans.limits row", () => {
+    expect(
+      parsePlanLimits({
+        posts_per_day: null,
+        max_connected_accounts_per_workspace: null,
+        max_workspaces: 2,
+        platforms: STARTER_LIMITS.platforms,
+        x_posts_per_month: 0,
+        x_links_allowed: false,
+        dm_rules_max: null,
+        dm_sends_per_month: 5000,
+        video_upload_minutes_per_month: 300,
+        scheduling: false,
+        funnels: false,
+        research_credits_per_month: 0,
+        research_sources_max: 0,
+        research_refresh_hours: 24,
+      }),
+    ).toEqual(STARTER_LIMITS);
   });
 });

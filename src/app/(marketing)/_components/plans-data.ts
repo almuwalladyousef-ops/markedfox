@@ -36,6 +36,28 @@ export const PLANS: MarketingPlan[] = [
     ],
   },
   {
+    id: "starter",
+    name: "Starter",
+    monthly: "$8",
+    annual: "$80",
+    blurb: "Post as much as you like, whenever you like.",
+    cta: { label: "Get Starter", href: "/signup?plan=starter" },
+    features: [
+      { text: "2 workspaces" },
+      { text: "Unlimited connected accounts" },
+      { text: "Unlimited posts" },
+      { text: "Instagram, Facebook, Threads, TikTok, YouTube, Snapchat" },
+      { text: "Unlimited DM rules \u00b7 5,000 DM sends per month" },
+      { text: "Post now and save drafts" },
+      {
+        text: "Scheduling not included \u2014 a scheduled post's video waits in storage until it goes out",
+        included: false,
+      },
+      { text: "X not included \u2014 X charges per post", included: false },
+      { text: "No research credits", included: false },
+    ],
+  },
+  {
     id: "pro",
     name: "Pro",
     monthly: "$20",
@@ -82,6 +104,7 @@ export const PLANS: MarketingPlan[] = [
     name: "Enterprise",
     monthly: "Custom",
     annual: null,
+    contact: true,
     blurb: "Raised limits for teams and agencies.",
     cta: {
       label: "Contact us",
@@ -100,6 +123,7 @@ export const PLANS: MarketingPlan[] = [
  *  currency to change. If these and the rows above disagree, the rows are
  *  what people read and these are the bug. */
 export const PRICE = {
+  starter: { name: "Starter", monthly: 8, annual: 80 },
   pro: { name: "Pro", monthly: 20, annual: 200 },
   studio: { name: "Studio", monthly: 49, annual: 490 },
 } as const;

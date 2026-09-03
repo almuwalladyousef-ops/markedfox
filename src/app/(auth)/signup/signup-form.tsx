@@ -5,12 +5,14 @@ import { useActionState } from "react";
 
 import { Field, FormMessage, SubmitButton } from "../_components/form-parts";
 import { signUp, type AuthFormState } from "@/lib/auth/actions";
-import { MIN_PASSWORD_LENGTH, type IntendedPlan } from "@/lib/auth/validation";
+import {
+  INTENDED_PLAN_NAMES,
+  MIN_PASSWORD_LENGTH,
+  type IntendedPlan,
+} from "@/lib/auth/validation";
 import { textButtonClass } from "@/components/ui";
 
 const INITIAL: AuthFormState = {};
-
-const PLAN_LABELS: Record<IntendedPlan, string> = { pro: "Pro", studio: "Studio" };
 
 export function SignupForm({ plan }: { plan?: IntendedPlan }) {
   const [state, formAction, pending] = useActionState(signUp, INITIAL);
@@ -48,7 +50,7 @@ export function SignupForm({ plan }: { plan?: IntendedPlan }) {
 
       {plan ? (
         <p className="rounded-md border border-line bg-chip px-3 py-2 text-[13px] text-ink">
-          You picked <span className="font-semibold">{PLAN_LABELS[plan]}</span>.
+          You picked <span className="font-semibold">{INTENDED_PLAN_NAMES[plan]}</span>.
           Every account starts on Free; you can upgrade from Settings once
           billing opens — we will remember your choice.
         </p>

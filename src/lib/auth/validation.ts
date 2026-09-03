@@ -107,8 +107,18 @@ export function safeRedirectPath(
 
 // The paid plans a visitor can arrive at /signup already wanting. Anything
 // else — including "free" and garbage — reads as no preference.
-export const INTENDED_PLANS = ["pro", "studio"] as const;
+export const INTENDED_PLANS = ["starter", "pro", "studio"] as const;
 export type IntendedPlan = (typeof INTENDED_PLANS)[number];
+
+// Display names for the plans above. A lookup rather than a ternary: with
+// three plans a two-branch conditional silently labels the odd one out as
+// Studio, which is how a visitor who picked Starter gets told they picked
+// something else.
+export const INTENDED_PLAN_NAMES: Record<IntendedPlan, string> = {
+  starter: "Starter",
+  pro: "Pro",
+  studio: "Studio",
+};
 
 export function parseIntendedPlan(value: unknown): IntendedPlan | undefined {
   return typeof value === "string" &&

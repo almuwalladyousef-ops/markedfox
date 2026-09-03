@@ -29,10 +29,19 @@ async function main() {
   // ── plans readable with anon key ──
   const anonClient = createClient(URL_, ANON, { auth: { persistSession: false } });
   const { data: plans, error: plansErr } = await anonClient.from("plans").select("id, is_public").order("id");
-  check("plans readable with anon key", !plansErr && plans?.length === 4, plansErr?.message ?? `rows: ${plans?.map((p) => p.id).join(",")}`);
-  check("studio is public, enterprise hidden",
-    plans?.find((p) => p.id === "studio")?.is_public === true &&
-    plans?.find((p) => p.id === "enterprise")?.is_public === false);
+  // Asserted as a set rather than a count: a bare `length === N` fails the day
+  // a tier is added, which says nothing about whether RLS still lets anon read
+  // the table — the thing this check exists to prove.
+  const EXPECTED_PLANS = ["enterprise", "free", "pro", "starter", "studio"];
+  const planIds = plans?.map((p) => p.id) ?? [];
+  const missing = EXPECTED_PLANS.filter((id) => !planIds.includes(id));
+  check("plans readable with anon key", !plansErr && missing.length === 0,
+    plansErr?.message ?? (missing.length ? `missing: ${missing.join(",")}` : `rows: ${planIds.join(",")}`));
+  // Only Enterprise is hidden; every priced tier must be sellable.
+  const wrongVisibility = plans?.filter((p) =>
+    p.is_public !== (p.id !== "enterprise")).map((p) => p.id) ?? [];
+  check("every tier public except enterprise", wrongVisibility.length === 0,
+    wrongVisibility.length ? `wrong: ${wrongVisibility.join(",")}` : "");
 
   // ── create two throwaway users ──
   const stamp = Math.random().toString(36).slice(2, 8);

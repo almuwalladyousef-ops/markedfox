@@ -17,11 +17,20 @@ export type MarketingPlan = {
   blurb: string;
   cta: { label: string; href: string };
   highlight?: boolean;
+  /** Rendered as a full-width band under the grid rather than as a column.
+   *  Enterprise is a "Contact us" mailto with no price and no self-serve
+   *  checkout, so it does not belong in a row of comparable priced columns —
+   *  and keeping it out is what holds the grid at four columns now that
+   *  Starter exists. */
+  contact?: boolean;
   features: { text: string; included?: boolean }[];
 };
 
 export function PlanGrid({ plans }: { plans: MarketingPlan[] }) {
   const [interval, setInterval] = useState<"monthly" | "yearly">("monthly");
+
+  const columns = plans.filter((plan) => !plan.contact);
+  const contact = plans.find((plan) => plan.contact);
 
   return (
     <>
@@ -47,7 +56,7 @@ export function PlanGrid({ plans }: { plans: MarketingPlan[] }) {
       </div>
 
       <div className="mt-10 grid items-stretch gap-4 shell:grid-cols-2 wide:grid-cols-4">
-        {plans.map((plan) => {
+        {columns.map((plan) => {
           const yearly = interval === "yearly" && plan.annual !== null;
           const price = yearly ? (plan.annual as string) : plan.monthly;
           const suffix = price.startsWith("$") && price !== "$0"
@@ -116,6 +125,31 @@ export function PlanGrid({ plans }: { plans: MarketingPlan[] }) {
           );
         })}
       </div>
+
+      {contact ? (
+        <div className="mt-4 flex flex-col gap-4 rounded-2xl border border-line bg-panel p-5 shell:flex-row shell:items-center shell:justify-between">
+          <div>
+            <h2 className="font-display text-base font-bold">{contact.name}</h2>
+            <p className="mt-1.5 text-[12.5px] text-muted">{contact.blurb}</p>
+            <ul className="mt-3 flex flex-col gap-[9px] text-[12.5px]/[18px] text-muted shell:flex-row shell:flex-wrap shell:gap-x-5">
+              {contact.features.map((feature) => (
+                <li key={feature.text} className="flex gap-2">
+                  <span aria-hidden className="mt-[3px] shrink-0 text-accent">
+                    <Icon name="check" className="h-3 w-3" />
+                  </span>
+                  <span>{feature.text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <a
+            href={contact.cta.href}
+            className="shrink-0 rounded-md border border-line-strong px-4 py-2.5 text-center text-[13px] font-semibold text-ink transition-[background-color,color,border-color] duration-110 hover:border-accent hover:text-accent"
+          >
+            {contact.cta.label}
+          </a>
+        </div>
+      ) : null}
     </>
   );
 }

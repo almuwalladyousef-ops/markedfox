@@ -430,19 +430,27 @@ Supabase under the role account matters more than any other account decision her
 
 ## Pricing
 
-| | **Free** | **Pro $20/mo** | **Studio $49/mo** | **Enterprise** |
-|---|---|---|---|---|
-| **Workspaces** | 2 | 5 | 10 | Unlimited |
-| **Accounts per workspace** | 3 | Unlimited | Unlimited | Unlimited |
-| Posts *(pooled)* | 2/day | Unlimited | Unlimited | Unlimited |
-| Scheduling | ✗ | ✓ | ✓ | ✓ |
-| Video upload | 1GB short · 256GB long | 1GB short · 256GB long | 1GB short · 256GB long | Raised |
-| Platforms | Instagram, Facebook, Threads, TikTok, YouTube | All | All | All |
-| X *(pooled)* | ✗ | 300/mo, no external links | 300/mo, no external links | Raised |
-| DM rules *(pooled)* | 1 | Unlimited | Unlimited | Raised |
-| DM sends *(pooled)* | 200/mo | 10,000/mo | 10,000/mo | Raised |
-| Research credits *(pooled)* | ✗ | ✗ | Credit allowance | Raised |
-| Funnels *(post-launch)* | ✗ | ✓ | ✓ | ✓ |
+| | **Free** | **Starter $8/mo** | **Pro $20/mo** | **Studio $49/mo** | **Enterprise** |
+|---|---|---|---|---|---|
+| **Workspaces** | 2 | 2 | 5 | 10 | Unlimited |
+| **Accounts per workspace** | 3 | Unlimited | Unlimited | Unlimited | Unlimited |
+| Posts *(pooled)* | 2/day | Unlimited | Unlimited | Unlimited | Unlimited |
+| Scheduling | ✗ | ✗ | ✓ | ✓ | ✓ |
+| Video upload | 1GB short · 256GB long | 1GB short · 256GB long | 1GB short · 256GB long | 1GB short · 256GB long | Raised |
+| Platforms | Instagram, Facebook, Threads, TikTok, YouTube | All except X | All | All | All |
+| X *(pooled)* | ✗ | ✗ | 300/mo, no external links | 300/mo, no external links | Raised |
+| DM rules *(pooled)* | 1 | Unlimited | Unlimited | Unlimited | Raised |
+| DM sends *(pooled)* | 200/mo | 5,000/mo | 10,000/mo | 10,000/mo | Raised |
+| Research credits *(pooled)* | ✗ | ✗ | ✗ | Credit allowance | Raised |
+| Funnels *(post-launch)* | ✗ | ✗ | ✓ | ✓ | ✓ |
+
+**Starter $8 is the entry paid tier (owner decision 2026-09-03).** Its shape is
+one rule: it may contain nothing that costs us money or load. Posting is $0 per
+post on every platform it includes, so unlimited posting is genuinely free to
+give. Everything metered is excluded — X (bills per post), research credits
+(AI spend), and scheduling (media parked in R2 until the tick fires). That last
+exclusion is also what stops Starter eating Pro: scheduling is the feature
+people actually buy a posting tool for, so the ladder holds.
 
 **The model, settled 2026-08-16 (owner). Two scopes, and the split is the whole
 design:**
@@ -1846,3 +1854,73 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   pages plus eight dashboard pages report zero CSP violations and zero console
   errors after a real Supabase sign-in with a throwaway `auth-smoke-*` user
   (deleted afterwards). The Stripe webhook still answers POST and OPTIONS.
+
+- **2026-09-03 — Stripe unblocked, then a fifth tier: Starter $8.** See
+  `sessions/2026-09-03-starter-plan.md`.
+
+  *Stripe is live.* `STRIPE_SECRET_KEY` was the last blocker from 2026-09-01;
+  the owner created the restricted key and it is now in `.env.local`, on the
+  droplet, and in the running process, verified by fingerprint match across all
+  three. A live `GET /v1/subscriptions` returns 200, so checkout and the billing
+  portal work. **One repair on the way in:** the key had been pasted twice into
+  one line (214 chars, both halves byte-identical), which would have failed
+  every Stripe call while looking configured.
+
+  *And a bug worth keeping.* `deploy/sync-env.sh` compares **key names, not
+  values**, so it reports "unchanged" for a key whose value differs and can
+  never push a corrected secret. It only did no harm here because the droplet
+  already held the good copy. Left as-is deliberately, recorded so the next
+  person does not trust its "unchanged".
+
+  *Starter — $8/mo, $80/yr, public.* A fourth public tier between Free and Pro
+  (`20260903000000_starter_plan.sql`). The design constraint is the whole
+  thing: **it may contain nothing that costs money or load.** Unlimited posting
+  and unlimited connected accounts, because posting is $0 per post on every
+  platform it carries; 2 workspaces, unlimited DM rules, 5,000 DM sends. No
+  scheduling, no X, no research, no funnels.
+
+  `platforms` is an **explicit list of the eight non-X platforms rather than
+  `null`** — `null` means every platform and would hand the cheapest paid tier
+  the one platform that bills us per post. The cost of that choice is recorded
+  in the migration: a platform added to the registry later is not in the list
+  and reads as locked for Starter until the row is edited.
+
+  *One open number.* `dm_sends_per_month: 5000` is the owner's figure and
+  inverts the value ladder — 625 sends per dollar against Pro's 500, on the one
+  allowance that is genuinely constrained (Meta rate-limits per app, so DM
+  sends spend a budget every customer shares). 2,500 was recommended and not
+  taken. It is one number in one row.
+
+  *Three hardcoded plan maps found, two by grep and one by the compiler.*
+  Widening `IntendedPlan` from two ids to three broke
+  `signup-form.tsx`'s `PLAN_LABELS`, and `actions.ts` carried a two-branch
+  ternary that would have told a Starter signup they chose Studio. Both now
+  read one shared `INTENDED_PLAN_NAMES` map.
+
+  *The pricing grid stayed at four columns* by moving Enterprise out of it and
+  into a full-width band underneath — a `contact: true` flag on the plan row,
+  not a hardcoded id in the component. Enterprise is a mailto with no price and
+  no checkout, so it never belonged in a row of comparable priced columns.
+
+  *Two tests were asserting counts that a new tier breaks*, both replaced with
+  set assertions that are stronger than what they replaced:
+  `scripts/rls-smoke.mjs` checked `plans.length === 4` (a number that proves
+  nothing about whether anon can still read the table), and
+  `marketing-copy.test.ts` proved the X caveat only file-wide. The new per-plan
+  version caught that Enterprise settles X in a third wording.
+
+  689 tests (668 + 21), build, typecheck and lint green; migration applied and
+  the row read back. **The live row was run through the real gate**, not a
+  fixture: unlimited posting past 900/day, `scheduling_locked`,
+  `plan_platform_locked` on X, `workspace_cap` at 2, `research_locked`, and the
+  5,000th DM allowed with the 5,001st refused. Production smokes rls all-pass,
+  billing 16/16, burst 22/22, dm 26/26. Pricing page clicked through at 1440
+  and 390 in light and dark: four equal columns, Enterprise banded, yearly
+  toggle correct, zero horizontal overflow, zero console errors.
+
+  **Owner step to sell it:** create the MarkedFox Starter product in Stripe with
+  $8/mo and $80/yr prices, set its statement descriptor to MARKEDFOX (product
+  level, never account level), and paste both price ids into the `starter` row's
+  `stripe_price_monthly` / `stripe_price_annual`. Until then the tier renders
+  and gates correctly but checkout refuses it by naming the missing price.
+

@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { getSiteUrl } from "./site-url";
 import {
+  INTENDED_PLAN_NAMES,
   parseIntendedPlan,
   safeRedirectPath,
   validateCredentials,
@@ -74,7 +75,7 @@ export async function signUp(
   }
 
   const planNote = intendedPlan
-    ? ` You chose ${intendedPlan === "pro" ? "Pro" : "Studio"} — your account starts on Free, and you will be able to upgrade once billing opens.`
+    ? ` You chose ${INTENDED_PLAN_NAMES[intendedPlan]} — your account starts on Free, and you will be able to upgrade once billing opens.`
     : "";
 
   // Account enumeration guard. With email confirmation on, Supabase answers a
