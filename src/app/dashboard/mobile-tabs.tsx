@@ -5,59 +5,96 @@ import { usePathname } from "next/navigation";
 
 import { Icon } from "@/components/icons";
 import { cx } from "@/components/ui";
-import { activeSpace, SHELL_SPACES } from "@/lib/shell";
+import {
+  MOBILE_CREATE,
+  MOBILE_TABS,
+  activeMobileTab,
+  isMobileCreate,
+  type MobileTab,
+} from "@/lib/mobile-nav";
 
-// Below 880px the dock becomes this bar: the three spaces with the New post
-// FAB raised between Home and Automate, exactly the dock's own order. The FAB
-// is not a fourth equal tab because it is the one control that starts work
-// rather than reviewing it.
+// Below 880px the dock becomes this bar. It is NOT the dock's three spaces:
+// the phone gets four flat destinations with the composer raised between the
+// second and third, which is the reference's own shape —
+//
+//   Home · Drafts · [ + ] · Feed · Account
+//
+// Two consequences worth stating. Drafts is one tap from anywhere instead of
+// two (Home space → Drafts row), and Account carries the profile picture
+// rather than a glyph, because on a phone the account tab is the one place a
+// person expects to see themselves.
 //
 // Every hit target here is at least 44px.
 
-export function MobileTabs() {
+export function MobileTabs({ avatarUrl }: { avatarUrl?: string | null }) {
   const pathname = usePathname();
-  const onSettings = pathname.startsWith("/dashboard/settings");
-  const spaceId = activeSpace(pathname).id;
+  const active = activeMobileTab(pathname);
+  const creating = isMobileCreate(pathname);
 
-  const tab = (space: (typeof SHELL_SPACES)[number]) => {
-    const rows = space.rows.filter((row) => "href" in row);
-    const first = rows[0] as { href: string };
-    const active = !onSettings && space.id === spaceId;
+  const tab = (item: MobileTab) => {
+    const on = item.id === active;
     return (
       <Link
-        key={space.id}
-        href={first.href}
-        title={space.tip}
-        aria-current={active ? "page" : undefined}
+        key={item.id}
+        href={item.href}
+        title={item.tip}
+        aria-label={item.tip}
+        aria-current={on ? "page" : undefined}
         className={cx(
-          "flex min-h-[44px] min-w-[56px] flex-col items-center justify-center gap-1 px-2 text-[10.5px] font-bold transition-[color,scale] duration-110 active:scale-[0.94]",
-          active ? "text-accent" : "text-muted",
+          "flex min-h-[44px] min-w-[56px] flex-1 flex-col items-center justify-center gap-1 px-1 text-[10.5px] font-bold transition-[color,scale] duration-110 active:scale-[0.94]",
+          on ? "text-ink" : "text-muted",
         )}
       >
-        <Icon
-          name={space.icon}
-          className={cx("h-[21px] w-[21px]", active ? "" : "opacity-75")}
-        />
-        {space.label}
+        {item.id === "account" && avatarUrl ? (
+          // The user's own picture, exactly as the reference does it. A plain
+          // <img>: avatars come from whichever CDN each platform uses this
+          // month, and next/image would need every one whitelisted to do
+          // nothing but proxy an image we never resize.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatarUrl}
+            alt=""
+            className={cx(
+              "h-[23px] w-[23px] rounded-full object-cover",
+              on ? "ring-2 ring-ink" : "ring-1 ring-line",
+            )}
+          />
+        ) : (
+          <Icon
+            name={item.icon}
+            className={cx("h-[22px] w-[22px]", on ? "" : "opacity-75")}
+            strokeWidth={on ? 2.2 : 1.8}
+          />
+        )}
+        {item.label}
       </Link>
     );
   };
 
   return (
-    <nav className="fixed right-0 bottom-0 left-0 z-[45] flex items-stretch justify-around border-t border-line bg-panel/95 px-2.5 pt-2 pb-[calc(14px+env(safe-area-inset-bottom))] backdrop-blur-md shell:hidden">
-      {tab(SHELL_SPACES[0])}
+    <nav
+      aria-label="Main"
+      className="fixed right-0 bottom-0 left-0 z-[45] flex items-stretch justify-around border-t border-line bg-panel/95 px-1.5 pt-2 pb-[calc(14px+env(safe-area-inset-bottom))] backdrop-blur-md shell:hidden"
+    >
+      {MOBILE_TABS.slice(0, 2).map(tab)}
+
       <Link
-        href="/dashboard/new-post"
-        aria-label="New post"
-        title="New post — the composer"
+        href={MOBILE_CREATE.href}
+        aria-label={MOBILE_CREATE.tip}
+        aria-current={creating ? "page" : undefined}
+        title={MOBILE_CREATE.tip}
         // The largest target in the app, and the only one that had no answer
         // to being pressed. On a phone there is no hover state to fall back
         // on, so the press scale is the entire feedback.
-        className="-mt-5 flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-2xl bg-accent text-accent-ink shadow-e2 transition-transform duration-110 active:scale-[0.92]"
+        className={cx(
+          "mx-1 -mt-5 flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-2xl shadow-e2 transition-transform duration-110 active:scale-[0.92]",
+          creating ? "bg-ink text-panel" : "bg-accent text-accent-ink",
+        )}
       >
         <Icon name="plus" className="h-[23px] w-[23px]" strokeWidth={2.2} />
       </Link>
-      {SHELL_SPACES.slice(1).map(tab)}
+
+      {MOBILE_TABS.slice(2).map(tab)}
     </nav>
   );
 }

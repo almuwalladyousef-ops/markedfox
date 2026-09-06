@@ -1,0 +1,110 @@
+import type { IconName } from "@/components/icons";
+
+// The phone's own navigation map, deliberately separate from `lib/shell.ts`.
+//
+// Above the `shell` breakpoint the dock navigates between the three *spaces*
+// (Home, Automate, Studio) and a contextual rail lists each space's rows. That
+// model is wrong on a phone: it costs two taps to reach Drafts, and the rail
+// is a horizontal chip strip nobody scrolls. So the phone gets four flat
+// destinations plus the create action, in the order the owner's reference
+// screenshot uses:
+//
+//   Home · Drafts · [ Create ] · Feed · Account
+//
+// Keeping this list here rather than deriving it from SHELL_SPACES is the
+// whole point — desktop keeps its space model untouched, and neither layout
+// can silently reshape the other. The routes themselves are the existing
+// ones; nothing here invents a page.
+
+export type MobileTabId = "home" | "drafts" | "feed" | "account";
+
+export type MobileTab = {
+  id: MobileTabId;
+  href: string;
+  label: string;
+  icon: IconName;
+  /** The accessible name — every control says what it does in plain words. */
+  tip: string;
+  /** Paths this tab owns beyond its own href, longest-match style. */
+  owns: string[];
+};
+
+/** The create action. Not a tab: it is the one control that starts work
+ *  rather than reviewing it, and the reference raises it above the bar. */
+export const MOBILE_CREATE = {
+  href: "/dashboard/new-post",
+  label: "New post",
+  tip: "New post — the composer",
+} as const;
+
+export const MOBILE_TABS: MobileTab[] = [
+  {
+    id: "home",
+    href: "/dashboard",
+    label: "Home",
+    icon: "home",
+    tip: "Home — your accounts and your posts",
+    owns: [],
+  },
+  {
+    id: "drafts",
+    href: "/dashboard/drafts",
+    label: "Drafts",
+    icon: "drafts",
+    tip: "Drafts — posts started but not scheduled",
+    // The calendar is the other half of "what have I got going out", and on a
+    // phone it has no tab of its own, so Drafts keeps it lit rather than
+    // leaving the bar with nothing highlighted.
+    owns: ["/dashboard/calendar"],
+  },
+  {
+    id: "feed",
+    href: "/dashboard/research",
+    label: "Feed",
+    icon: "videos",
+    tip: "Feed — outlier videos from the channels you watch",
+    // Every Studio route rides this tab: on a phone the feed IS the space.
+    owns: ["/dashboard/research"],
+  },
+  {
+    id: "account",
+    href: "/dashboard/settings/accounts",
+    label: "Account",
+    icon: "avatar",
+    tip: "Account — profile, connected accounts, drafts and billing",
+    owns: ["/dashboard/settings", "/dashboard/automations"],
+  },
+];
+
+function matches(pathname: string, href: string): boolean {
+  // `/dashboard` is every other route's prefix, so it only ever matches
+  // itself. Without this the Home tab would be lit on every screen.
+  if (href === "/dashboard") return pathname === "/dashboard";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** The tab the current path belongs to, longest match wins so
+ *  /dashboard/research/channels lights Feed rather than nothing. Undefined on
+ *  paths no tab owns — the composer, which is the raised button and is
+ *  deliberately not a tab. */
+export function activeMobileTab(pathname: string): MobileTabId | undefined {
+  let best: { id: MobileTabId; length: number } | undefined;
+  for (const tab of MOBILE_TABS) {
+    for (const href of [tab.href, ...tab.owns]) {
+      if (!matches(pathname, href)) continue;
+      if (!best || href.length > best.length) {
+        best = { id: tab.id, length: href.length };
+      }
+    }
+  }
+  return best?.id;
+}
+
+/** True while the composer is open, which is what raises the create button
+ *  into its pressed state without lighting a tab that is not there. */
+export function isMobileCreate(pathname: string): boolean {
+  return (
+    pathname === MOBILE_CREATE.href ||
+    pathname.startsWith(`${MOBILE_CREATE.href}/`)
+  );
+}

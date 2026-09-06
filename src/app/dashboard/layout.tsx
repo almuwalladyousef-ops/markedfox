@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 
+import { getProfile } from "@/lib/account/preferences";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -80,7 +81,12 @@ export default async function DashboardLayout({
   if (!active) return <>{children}</>;
 
   const supabase = await createClient();
-  const snapshot = await getEntitlementSnapshot(supabase, user.id, active.id);
+  const [snapshot, profile] = await Promise.all([
+    getEntitlementSnapshot(supabase, user.id, active.id),
+    // The phone's Account tab wears the user's own picture, the way the
+    // reference does. One read, already cached alongside the snapshot.
+    getProfile(supabase, user.id),
+  ]);
   const research = canUserDo(snapshot, { type: "use_research" });
   // The badge is the reason the count is fetched at all: an idea queue nobody
   // can see the depth of is a queue nobody empties.
@@ -155,7 +161,7 @@ export default async function DashboardLayout({
           {children}
         </main>
 
-        <MobileTabs />
+        <MobileTabs avatarUrl={profile?.avatarUrl ?? null} />
       </div>
     </div>
   );

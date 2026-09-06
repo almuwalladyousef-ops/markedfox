@@ -1918,9 +1918,25 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   and 390 in light and dark: four equal columns, Enterprise banded, yearly
   toggle correct, zero horizontal overflow, zero console errors.
 
-  **Owner step to sell it:** create the MarkedFox Starter product in Stripe with
-  $8/mo and $80/yr prices, set its statement descriptor to MARKEDFOX (product
-  level, never account level), and paste both price ids into the `starter` row's
-  `stripe_price_monthly` / `stripe_price_annual`. Until then the tier renders
-  and gates correctly but checkout refuses it by naming the missing price.
+- **2026-09-06 — Starter is sellable.** The Stripe product was created through
+  the owner's signed-in Chrome, the same path Pro and Studio took on
+  2026-09-01. `prod_VD9bNAYbZCCER0`, descriptor MARKEDFOX **on the product**
+  (account-level would rewrite what the other business's customers see),
+  with `price_1UCjIcGXUyubwKz3MV8JO8Xh` at $8/mo and
+  `price_1UCjIcGXUyubwKz3AqNG7ot3` at $80/yr, both written into the `starter`
+  row. Proven by creating a live checkout session against each price —
+  `status=open` at exactly $8.00 and $80.00 — then expiring both.
+
+  *The API route was tried first and correctly refused:* the production
+  restricted key reads products but cannot write them. The key was left
+  unchanged rather than widened. A server key on a public droplet has no
+  business creating products; checkout only reads prices.
+
+  *A near-miss worth keeping.* The account already held `Starter B2C` ($59/mo)
+  and `Starter B2B` ($79/mo) belonging to Codove, the unrelated business
+  sharing it. The owner believed Starter was already made and was remembering
+  those. Either price id in the `starter` row would have billed MarkedFox
+  customers $59 or $79 — which is why the product is named **MarkedFox
+  Starter** and why the ids were read back from the API rather than copied by
+  eye.
 

@@ -10,6 +10,13 @@ import type { FeedVideo } from "@/lib/research/store";
 // One video in the feed. The three metric pills are the whole point of the
 // card: a raw view count says almost nothing across channels of different
 // sizes, so the multiple comes first and the views come second.
+//
+// Two shapes, one component. Above the `shell` breakpoint it is a tile in a
+// grid, and its actions live in a sheet that slides up on hover. On a phone
+// there is no hover, so that sheet would be a pair of controls nobody could
+// reach: below `shell` the card goes full width, the thumbnail gets taller
+// (4:5 rather than a 260px-capped 9:16, which on a 375px screen was a stamp
+// with a caption), and the same two actions render as real buttons under it.
 
 function relativeAge(iso: string | null): string {
   if (!iso) return "";
@@ -57,7 +64,7 @@ export function VideoCard({
             : "border-line",
       )}
     >
-      <div className="relative aspect-[9/16] max-h-[260px] w-full overflow-hidden bg-chip">
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-chip shell:aspect-[9/16] shell:max-h-[260px]">
         {video.thumbnail_url ? (
           /* A plain <img>: these thumbnails come from four platforms' CDNs on
              hosts that change, and next/image would need every one whitelisted
@@ -90,7 +97,7 @@ export function VideoCard({
         {/* The hover sheet. Both actions are links rather than buttons so a
             middle-click opens them in a tab, which is how people actually work
             through a feed. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-2 gap-1.5 bg-gradient-to-t from-black/90 to-transparent p-2 opacity-0 transition-[opacity,translate] duration-160 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden translate-y-2 gap-1.5 bg-gradient-to-t from-black/90 to-transparent p-2 opacity-0 transition-[opacity,translate] duration-160 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 shell:flex">
           <Link
             href={href}
             className="flex-1 rounded-md bg-accent px-2.5 py-2 text-center text-[13px] font-semibold text-accent-ink"
@@ -110,15 +117,17 @@ export function VideoCard({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 px-3.5 py-3">
+      <div className="flex flex-1 flex-col gap-2 px-4 py-3.5 shell:px-3.5 shell:py-3">
         <Link
           href={href}
           title={video.title}
-          className="truncate text-[14px] font-semibold text-ink hover:underline"
+          // Two lines on a phone, one on the grid tile. A feed card that
+          // truncates the title at 340px wide is a feed of ellipses.
+          className="line-clamp-2 text-[15px]/[21px] font-semibold text-pretty text-ink hover:underline shell:truncate shell:text-[14px]"
         >
           {video.title}
         </Link>
-        <p className="truncate text-[12.5px] text-faint">
+        <p className="truncate text-[13px] text-faint shell:text-[12.5px]">
           {video.source.handle ? `@${video.source.handle}` : video.source.title}
           {video.published_at ? ` · ${relativeAge(video.published_at)}` : ""}
         </p>
@@ -131,6 +140,27 @@ export function VideoCard({
             }
             viewsLabel={viewsLabel}
           />
+        </div>
+
+        {/* The touch half of the hover sheet above. Both are links so a
+            long-press offers "open in new tab", which is how people work
+            through a feed on a phone too. */}
+        <div className="flex gap-2 pt-1 shell:hidden">
+          <Link
+            href={href}
+            className="flex min-h-[44px] flex-1 items-center justify-center rounded-lg bg-accent px-3 text-[14px] font-semibold text-accent-ink transition-transform duration-110 active:scale-[0.97]"
+          >
+            {analyzed ? "Open analysis" : "Analyze video"}
+          </Link>
+          <a
+            href={video.url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Play "${video.title}" in a new tab`}
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-line text-muted transition-transform duration-110 active:scale-[0.97]"
+          >
+            <Icon name="external" className="h-4 w-4" />
+          </a>
         </div>
       </div>
     </article>
