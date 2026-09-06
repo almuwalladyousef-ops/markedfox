@@ -100,3 +100,26 @@ describe("the plan ladder", () => {
     }
   });
 });
+
+// A layout rule that cost 196px of sideways scroll on a 390px phone, pinned
+// here because nothing else in the suite can see geometry.
+//
+// The comparison table is correctly `min-w-[620px]` inside `overflow-x-auto`,
+// so the TABLE scrolls in its own box. But its cells carry `.sr-only` labels,
+// and `.sr-only` is `position: absolute`. An absolutely positioned box is
+// clipped by an overflow ancestor only when that ancestor is also its
+// containing block — so without `relative` on the scroller those labels
+// resolved against the initial containing block, sat at x=585 in the
+// document, and dragged the whole PAGE sideways into blank space.
+describe("horizontal scrollers containing absolutely positioned children", () => {
+  const source = readFileSync(join(HERE, "page.tsx"), "utf8");
+
+  it("the comparison table's scroller is a containing block", () => {
+    const scroller = source
+      .split("\n")
+      .find((line) => line.includes("overflow-x-auto") && line.includes("mt-12"));
+    expect(scroller, "the comparison table scroller moved or was renamed").toBeDefined();
+    expect(scroller, "add `relative`, or .sr-only escapes and the page scrolls").toContain("relative");
+  });
+});
+

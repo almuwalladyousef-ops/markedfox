@@ -1362,7 +1362,14 @@ function Compare() {
           lede="Most people run a posting tool, a DM tool and a research tool side by side. Here is the same work in one column."
         />
 
-        <div className="mf-noscroll mt-12 overflow-x-auto">
+        {/* `relative` is load-bearing, not decoration. The .sr-only spans in
+            the cells are position:absolute, and an absolutely positioned box
+            is clipped by an overflow ancestor only when that ancestor is also
+            its containing block. Without this the table scrolled inside its
+            own box as intended while its screen-reader labels sat at x=585 in
+            the document, giving the whole PAGE 196px of sideways scroll into
+            blank space on a 390px phone. */}
+        <div className="mf-noscroll relative mt-12 overflow-x-auto">
           <table className="w-full min-w-[620px] border-collapse text-left">
             <thead>
               <tr>
