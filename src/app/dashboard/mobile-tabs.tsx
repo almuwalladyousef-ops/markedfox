@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { AvatarImage } from "@/components/avatar-image";
 import { Icon } from "@/components/icons";
 import { cx } from "@/components/ui";
+
+import { useSectionMenu } from "./section-menu";
 import {
   MOBILE_CREATE,
   MOBILE_TABS,
@@ -40,21 +42,25 @@ export function MobileTabs({ avatarUrl }: { avatarUrl?: string | null }) {
   const pathname = usePathname();
   const active = activeMobileTab(pathname);
   const creating = isMobileCreate(pathname);
+  const menu = useSectionMenu();
 
   const tab = (item: MobileTab) => {
     const on = item.id === active;
-    return (
-      <Link
-        key={item.id}
-        href={item.href}
-        title={item.tip}
-        aria-label={item.tip}
-        aria-current={on ? "page" : undefined}
-        className={cx(
-          "flex min-h-[52px] flex-1 items-center justify-center transition-[color,scale] duration-110 active:scale-[0.9]",
-          on ? "text-ink" : "text-muted",
-        )}
-      >
+    // Pressing the tab you are already on opens that section's pages, which is
+    // what a phone does everywhere else. The convention is invisible, so the
+    // tab carries a chevron while it has a menu — the same hint a bottom sheet
+    // uses to say it can be pulled up.
+    const opensMenu = on && menu.hasMenu;
+
+    const face = (
+      <>
+        {opensMenu ? (
+          <Icon
+            name="chevronUp"
+            className="absolute top-1 h-3 w-3 opacity-60"
+            strokeWidth={2.6}
+          />
+        ) : null}
         {item.id === "account" ? (
           // The user's own picture, exactly as the reference does it, falling
           // back to the same glyph every other tab uses when the URL is empty
@@ -80,6 +86,38 @@ export function MobileTabs({ avatarUrl }: { avatarUrl?: string | null }) {
             strokeWidth={on ? 2.2 : 1.7}
           />
         )}
+      </>
+    );
+
+    const shell = cx(
+      "relative flex min-h-[52px] flex-1 items-center justify-center transition-[color,scale] duration-110 active:scale-[0.9]",
+      on ? "text-ink" : "text-muted",
+    );
+
+    // A button, not a link, when it opens the sheet: it navigates nowhere, and
+    // a link that does not navigate lies to a long-press and to the status bar.
+    return opensMenu ? (
+      <button
+        key={item.id}
+        type="button"
+        onClick={menu.open}
+        aria-haspopup="dialog"
+        aria-label={`${item.label} — show its pages`}
+        title={`${item.label} — show its pages`}
+        className={shell}
+      >
+        {face}
+      </button>
+    ) : (
+      <Link
+        key={item.id}
+        href={item.href}
+        title={item.tip}
+        aria-label={item.tip}
+        aria-current={on ? "page" : undefined}
+        className={shell}
+      >
+        {face}
       </Link>
     );
   };

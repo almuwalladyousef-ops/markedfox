@@ -14,6 +14,7 @@ import { MobileShell } from "./mobile-shell";
 import { MobileTabs } from "./mobile-tabs";
 import type { DecoratedSpace, SpaceMeter } from "./shell-types";
 import { Sidebar } from "./sidebar";
+import { SectionMenuProvider } from "./section-menu";
 
 // One shell for the whole dashboard: the icon dock, the contextual rail, and
 // their mobile equivalents. The space map itself is static data in lib/shell;
@@ -147,18 +148,23 @@ export default async function DashboardLayout({
       </a>
       <Sidebar spaces={spaces} {...workspaceProps} />
 
-      <div className="min-w-0 flex-1">
-        <MobileShell spaces={spaces} {...workspaceProps} />
+      {/* The provider wraps both halves of the phone navigation: the bottom
+          bar decides a tab was pressed twice, the layout owns the row data,
+          and the sheet has to sit above both. */}
+      <SectionMenuProvider spaces={spaces}>
+        <div className="min-w-0 flex-1">
+          <MobileShell {...workspaceProps} />
 
-        <main
-          id="mf-main"
-          className="mx-auto flex w-full flex-col gap-6 px-4 pt-5 pb-[120px] shell:px-10 shell:pt-9 shell:pb-16"
-        >
-          {children}
-        </main>
+          <main
+            id="mf-main"
+            className="mx-auto flex w-full flex-col gap-6 px-4 pt-5 pb-[120px] shell:px-10 shell:pt-9 shell:pb-16"
+          >
+            {children}
+          </main>
 
-        <MobileTabs avatarUrl={profile?.avatarUrl ?? null} />
-      </div>
+          <MobileTabs avatarUrl={profile?.avatarUrl ?? null} />
+        </div>
+      </SectionMenuProvider>
     </div>
   );
 }
