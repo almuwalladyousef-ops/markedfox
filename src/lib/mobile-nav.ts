@@ -59,11 +59,15 @@ export const MOBILE_TABS: MobileTab[] = [
   },
   {
     id: "feed",
-    href: "/dashboard/research",
-    label: "Feed",
-    icon: "videos",
-    tip: "Feed — outlier videos from the channels you watch",
-    // Every Studio route rides this tab: on a phone the feed IS the space.
+    // Straight to Channels, not the feed (owner decision, 2026-09-06). The
+    // feed is empty until channels are being watched, so landing there first
+    // showed a new person a blank screen and no way to read what to do about
+    // it. Channels is where the work starts; the feed is what it produces.
+    href: "/dashboard/research/channels",
+    label: "Research",
+    icon: "search",
+    tip: "Research — the channels you watch and what they publish",
+    // Every Studio route rides this tab: on a phone research IS the space.
     owns: ["/dashboard/research"],
   },
   {

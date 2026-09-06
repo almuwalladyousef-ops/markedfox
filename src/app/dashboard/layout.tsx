@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 
 import { getProfile } from "@/lib/account/preferences";
@@ -9,7 +8,6 @@ import type { EntitlementSnapshot } from "@/lib/entitlements/types";
 import { countInboxIdeas } from "@/lib/research/studio-store";
 import { isRowItem, SHELL_SPACES, type ShellSpace } from "@/lib/shell";
 import { createClient } from "@/lib/supabase/server";
-import { normalizeTheme, THEME_COOKIE } from "@/lib/theme";
 import { getActiveWorkspace, listWorkspaces } from "@/lib/workspaces/store";
 
 import { MobileShell } from "./mobile-shell";
@@ -68,10 +66,9 @@ export default async function DashboardLayout({
   children: ReactNode;
 }) {
   const user = await requireUser();
-  const [workspaces, active, cookieStore] = await Promise.all([
+  const [workspaces, active] = await Promise.all([
     listWorkspaces(),
     getActiveWorkspace(),
-    cookies(),
   ]);
 
   // No workspace is a real state (the signup trigger failed, or the account was
@@ -126,7 +123,6 @@ export default async function DashboardLayout({
           0,
           snapshot.limits.maxWorkspaces - snapshot.usage.workspaceCount,
         );
-  const theme = normalizeTheme(cookieStore.get(THEME_COOKIE)?.value);
 
   const workspaceProps = {
     workspaces,
@@ -152,7 +148,7 @@ export default async function DashboardLayout({
       <Sidebar spaces={spaces} {...workspaceProps} />
 
       <div className="min-w-0 flex-1">
-        <MobileShell spaces={spaces} {...workspaceProps} theme={theme} />
+        <MobileShell spaces={spaces} {...workspaceProps} />
 
         <main
           id="mf-main"
