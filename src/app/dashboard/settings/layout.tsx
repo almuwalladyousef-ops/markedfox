@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { Page, PageHeader, StickyPane, TwoPane } from "@/components/ui";
+import { Page, PageHeader } from "@/components/ui";
 import { getProfile } from "@/lib/account/preferences";
 import { requireUser } from "@/lib/auth/session";
 import { listConnections } from "@/lib/connections/store";
@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
 import { SettingsMenu, type MenuGroup } from "./settings-menu";
+import { SettingsPanes } from "./settings-panes";
 
 // Settings as one page with a menu and a pane, rather than the seven-card
 // column it used to be.
@@ -117,18 +118,20 @@ export default async function SettingsLayout({
       <PageHeader title="Settings" />
       {/* 328 + 560 exceeds the width a 1280px window leaves beside the rail, so
           the menu's base is trimmed to what fits; both panes keep the floors
-          the handoff specifies and still stack below it. */}
-      <TwoPane>
-        <StickyPane className="min-w-[300px] flex-[0_1_312px]">
+          the handoff specifies and still stack below it. Below `wide` only one
+          of the two is on screen at a time — see SettingsPanes. */}
+      <SettingsPanes
+        menu={
           <SettingsMenu
             groups={groups}
             name={profile?.displayName || (user.email ?? "Your account")}
             email={user.email ?? ""}
             avatarUrl={profile?.avatarUrl ?? null}
           />
-        </StickyPane>
-        <div className="min-w-[min(100%,440px)] flex-[1_1_520px]">{children}</div>
-      </TwoPane>
+        }
+      >
+        {children}
+      </SettingsPanes>
     </Page>
   );
 }

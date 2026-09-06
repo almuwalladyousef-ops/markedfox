@@ -79,7 +79,11 @@ export const MOBILE_TABS: MobileTab[] = [
   },
   {
     id: "account",
-    href: "/dashboard/settings/accounts",
+    // The settings MENU, not one pane of it. On a phone this tab is the
+    // settings app: you land on the list and press into a page. It used to
+    // open Connected accounts directly, which meant the list — and everything
+    // else in it — was somewhere you could only arrive at by going back.
+    href: "/dashboard/settings",
     label: "Account",
     icon: "avatar",
     tip: "Account — profile, connected accounts and billing",

@@ -208,8 +208,15 @@ export function PageHeader({
         <h1 className={cx("font-display font-bold text-ink", heading)}>
           {title}
         </h1>
+        {/* Desktop only (owner decision, 2026-09-06). Every page carries a
+            paragraph of explanation under its title, and on a 390px phone
+            that is four or five lines pushing the actual screen below the
+            fold — on Research it was most of what you saw. The title already
+            says what the page is; the paragraph is for someone deciding
+            whether to click, which is a desktop-shaped question. Nothing is
+            lost on a phone that the screen itself does not then show. */}
         {subtitle ? (
-          <p className="mt-2 max-w-2xl text-[15px]/[24px] text-pretty text-muted">
+          <p className="mt-2 hidden max-w-2xl text-[15px]/[24px] text-pretty text-muted shell:block">
             {subtitle}
           </p>
         ) : null}
@@ -927,8 +934,13 @@ export function UpgradeCard({
       <div className="mt-2.5 text-[14.5px]/[22px] text-pretty text-ink">
         {children}
       </div>
+      {/* The second line is the "why you are seeing this" note, and it is the
+          one the offer above already implies. Desktop keeps it; a phone gets
+          the offer and the button. */}
       {reason ? (
-        <p className="mt-3 text-[13px]/[19px] text-pretty text-muted">{reason}</p>
+        <p className="mt-3 hidden text-[13px]/[19px] text-pretty text-muted shell:block">
+          {reason}
+        </p>
       ) : null}
       <ButtonLink href="/pricing" tone="primary" className="mt-5">
         {cta}

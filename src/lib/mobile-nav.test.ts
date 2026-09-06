@@ -30,6 +30,7 @@ describe("the mobile tab bar", () => {
         .filter(isRowItem)
         .map((row) => row.href),
     );
+    known.add("/dashboard/settings");
     known.add("/dashboard/settings/accounts");
 
     for (const tab of MOBILE_TABS) {

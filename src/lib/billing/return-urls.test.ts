@@ -58,8 +58,31 @@ describe("checkout return urls", () => {
     }
   });
 
-  it("proves the old target really does redirect, so the rule above has teeth", () => {
-    const source = readFileSync(pageFor("/dashboard/settings"), "utf8");
-    expect(source).toMatch(/redirect\(/);
+  // The rule above is a regex over a source file, and a regex that matches
+  // nothing passes every file put in front of it. This used to earn its teeth
+  // by pointing at /dashboard/settings, which really did redirect — until
+  // 2026-09-06, when that page became the settings menu a phone goes back to
+  // and stopped redirecting. Rather than point at another real file and wait
+  // for the same thing to happen again, the pattern is now checked against
+  // the two shapes it has to tell apart.
+  it("catches a page that redirects, so the rule above has teeth", () => {
+    const REDIRECTS = /^\s*redirect\(/m;
+
+    const redirecting = [
+      'import { redirect } from "next/navigation";',
+      "export default function Page() {",
+      '  redirect("/dashboard/settings/accounts");',
+      "}",
+    ].join("\n");
+    expect(REDIRECTS.test(redirecting)).toBe(true);
+
+    const rendersTheOutcome = [
+      "export default async function Page({ searchParams }) {",
+      "  const { checkout } = await searchParams;",
+      "  return <Outcome state={checkout} />;",
+      "}",
+    ].join("\n");
+    expect(REDIRECTS.test(rendersTheOutcome)).toBe(false);
+    expect(rendersTheOutcome).toContain("checkout");
   });
 });
