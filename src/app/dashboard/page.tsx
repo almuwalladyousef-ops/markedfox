@@ -8,7 +8,6 @@ import {
   Button,
   ButtonLink,
   EmptyState,
-  Notice,
   Page,
   cx,
   formatCount,
@@ -37,6 +36,7 @@ import { getActiveWorkspace } from "@/lib/workspaces/store";
 
 import { AutoFill } from "./auto-fill";
 import { AvatarImage } from "@/components/avatar-image";
+import { CollapsibleNotice } from "@/components/collapsible-notice";
 
 export const metadata: Metadata = { title: "Home · MarkedFox" };
 
@@ -246,70 +246,66 @@ export default async function HomePage({
     null;
   const shape = shapeFor(current?.connection.platform ?? null);
 
+  // YouTube has subscribers, everyone else has followers. Declared on the
+  // adapter, so a platform that calls them something else again says so in one
+  // place. On "everything" the accounts are mixed, so the neutral word stands.
+  const followersWord = current
+    ? (followersLabelFor(current.connection.platform) ?? "followers")
+    : "followers";
+
   return (
     <Page>
       {unread > 0 ? <AutoFill /> : null}
 
       {failed.length > 0 ? (
-        <Notice tone="warn">
+        <CollapsibleNotice tone="warn" summary={readFailureSummary(failed)}>
           {readFailureNotice(failed)}{" "}
           <Link href="/dashboard/settings/accounts" className="underline">
             Manage accounts
           </Link>
-        </Notice>
+        </CollapsibleNotice>
       ) : null}
 
-      {/* ── the profile header ───────────────────────────────────────────── */}
-      <header className="flex flex-col items-center gap-6 pt-1 wide:flex-row wide:items-start wide:gap-9">
-        <div className="flex items-center gap-2">
-          <ArrowLink href={href({ account: previous, kind })} direction="prev" />
-          {current ? (
-            <SingleAvatar entry={current} />
-          ) : (
-            <AvatarStack accounts={accounts} />
-          )}
-          <ArrowLink href={href({ account: next, kind })} direction="next" />
-        </div>
-
-        <div className="min-w-0 flex-1 text-center wide:text-left">
-          <div className="flex flex-wrap items-center justify-center gap-2.5 wide:justify-start">
-            <h1 className="font-display text-[30px]/[36px] font-bold tracking-[-0.025em] text-ink">
-              {title}
-            </h1>
-            <ButtonLink href="/dashboard/drafts" tone="secondary" size="xs">
-              Drafts
-            </ButtonLink>
-            <form action={refreshAccountsAction}>
-              <Button type="submit" tone="secondary" size="xs">
-                <Icon name="refresh" className="h-3.5 w-3.5" />
-                Refresh
-              </Button>
-            </form>
-            {/* There was an "Include X" pill here that re-read the metered
-                platforms on demand. Removed by owner decision, 2026-09-06.
-                Nothing else changes: the scheduler's sweep still skips metered
-                accounts, so X is never read on a schedule, and X's own cached
-                figures still show. The only thing gone is the manual press
-                that spent money — which is the safe direction to remove a
-                control in. `include_metered` stays honoured on the server so
-                the capability is one line of UI away if it is ever wanted. */}
+      {/* ── the profile header ───────────────────────────────────────────
+          Laid out the way a profile is on the platforms this screen is showing
+          (owner decision, 2026-09-06): a small avatar on the LEFT with the
+          three numbers in a row beside it, then the name and bio underneath,
+          then the actions. It used to be a centred column with an 86px avatar
+          and a 30px display name, which spent most of a phone screen before
+          the first post. */}
+      <header className="pt-1">
+        <div className="flex items-center gap-4 shell:gap-7">
+          <div className="flex shrink-0 items-center gap-1">
+            <ArrowLink href={href({ account: previous, kind })} direction="prev" />
+            {current ? (
+              <SingleAvatar entry={current} />
+            ) : (
+              <AvatarStack accounts={accounts} />
+            )}
+            <ArrowLink href={href({ account: next, kind })} direction="next" />
           </div>
 
-          <dl className="mt-3.5 flex flex-wrap items-baseline justify-center gap-x-[26px] gap-y-2 text-[13.5px] text-muted wide:justify-start">
+          {/* The numbers sit beside the picture, not under the name, and share
+              the space evenly — that row IS the profile summary. */}
+          <dl className="flex min-w-0 flex-1 items-baseline gap-1 text-center [&>div]:flex-1 [&>div]:basis-0">
             <Total label="posts" value={totals.posts} />
-            <Total label="followers" value={totals.followers} />
+            <Total label={followersWord} value={totals.followers} />
             <Total label="following" value={totals.following} />
           </dl>
+        </div>
+
+        <div className="mt-3.5 min-w-0">
+          <h1 className="font-display truncate text-[16px] font-bold tracking-[-0.01em] text-ink">
+            {title}
+          </h1>
 
           {current ? (
-            <div className="mt-4">
+            <>
               {handle ? (
-                <span className="inline-flex items-center rounded-full bg-chip px-3 py-1 text-[13px] font-semibold text-muted">
-                  {handle}
-                </span>
+                <p className="mt-0.5 truncate text-[13.5px] text-muted">{handle}</p>
               ) : null}
               {current.profile?.bio ? (
-                <p className="mt-2.5 max-w-md text-[15px]/[24px] text-pretty text-muted">
+                <p className="mt-1.5 max-w-md text-[14px]/[20px] text-pretty text-muted">
                   {current.profile.bio}
                 </p>
               ) : null}
@@ -318,15 +314,16 @@ export default async function HomePage({
                   href={current.profile.profileUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-2 inline-block text-[14px] font-semibold text-accent underline-offset-2 hover:underline"
+                  className="mt-1 inline-block text-[13.5px] font-semibold text-accent underline-offset-2 hover:underline"
                 >
                   {current.profile.profileUrl.replace(/^https?:\/\//, "")}
                 </a>
               ) : null}
-            </div>
+            </>
           ) : (
-            <p className="mt-4 text-[13px] text-faint">
-              Every connected account together.{" "}
+            <p className="mt-0.5 text-[13px] text-faint">
+              {accounts.length}{" "}
+              {accounts.length === 1 ? "account" : "accounts"} together.{" "}
               {lastSynced ? (
                 <>
                   Last read <LocalTime value={lastSynced} fallback="recently" />.
@@ -334,6 +331,31 @@ export default async function HomePage({
               ) : null}
             </p>
           )}
+        </div>
+
+        {/* The actions sit above the kind filter, which is where a profile puts
+            them — and it keeps the filter row directly on top of the grid it
+            filters, rather than with two buttons wedged between. */}
+        <div className="mt-3.5 flex items-center gap-2">
+          <ButtonLink
+            href="/dashboard/drafts"
+            tone="secondary"
+            size="xs"
+            className="flex-1 justify-center"
+          >
+            Drafts
+          </ButtonLink>
+          <form action={refreshAccountsAction} className="flex-1">
+            <Button
+              type="submit"
+              tone="secondary"
+              size="xs"
+              className="w-full justify-center"
+            >
+              <Icon name="refresh" className="h-3.5 w-3.5" />
+              Refresh
+            </Button>
+          </form>
         </div>
       </header>
 
@@ -346,7 +368,7 @@ export default async function HomePage({
           is what makes a row of icons read as tabs. */}
       <nav
         aria-label="Filter posts by kind"
-        className="flex items-stretch justify-center gap-1 border-b border-line"
+        className="flex items-stretch border-b border-line"
       >
         {kinds.map((option) => {
           const on = kind === option.id;
@@ -358,7 +380,10 @@ export default async function HomePage({
               aria-label={option.label}
               title={option.label}
               className={cx(
-                "-mb-px inline-flex min-h-[44px] min-w-[64px] items-center justify-center border-b-2 px-5 transition-[color,border-color] duration-110",
+                // flex-1 with no min-width: the tabs divide the row exactly
+                // and reach both edges, instead of a huddle in the middle with
+                // dead space either side.
+                "-mb-px inline-flex min-h-[46px] flex-1 items-center justify-center border-b-2 transition-[color,border-color] duration-110",
                 on
                   ? "border-ink text-ink"
                   : "border-transparent text-muted hover:text-ink",
@@ -415,6 +440,23 @@ export default async function HomePage({
 
 type AccountEntry = { connection: ConnectionRow; profile: AccountProfileRow | null };
 
+/** The one line the notice shows before it is opened. Names the accounts and
+ *  says what happened, and deliberately carries none of the provider's own
+ *  words — those are the paragraph, and the paragraph is what is being
+ *  hidden. */
+function readFailureSummary(failed: AccountEntry[]): string {
+  const names = [
+    ...new Set(
+      failed.map(({ connection }) => PLATFORM_LABELS[connection.platform]),
+    ),
+  ];
+  const list =
+    names.length <= 2
+      ? names.join(" and ")
+      : names.slice(0, 2).join(", ") + " and " + (names.length - 2) + " more";
+  return list + " could not be read";
+}
+
 /** One sentence about the accounts that could not be read. Several accounts
  *  failing for the same reason — an expired app secret, say — say it once with
  *  the names, not the same paragraph three times. */
@@ -434,6 +476,15 @@ function readFailureNotice(failed: AccountEntry[]): string {
     .join(" ");
 }
 
+/** The word this platform uses for its followers, if it is not "followers". */
+function followersLabelFor(platform: Platform): string | undefined {
+  try {
+    return getPlatform(platform).insights?.followersLabel;
+  } catch {
+    return undefined;
+  }
+}
+
 /** What this deployment can read for a platform, in the three states the
  *  screen has to say something different about. */
 function readable(platform: Platform): "yes" | "metered" | "none" {
@@ -448,13 +499,14 @@ function readable(platform: Platform): "yes" | "metered" | "none" {
 
 function Total({ label, value }: { label: string; value: number | null }) {
   return (
-    // `order` reverses the pair on screen while the markup keeps the definition
-    // list's own label-then-value order, which is what a screen reader follows.
-    <div className="flex items-baseline gap-2">
-      <dd className="font-display order-1 text-[19px] font-bold text-ink">
+    // Number over word, the way a profile stacks them. `order` reverses the
+    // pair on screen while the markup keeps the definition list's own
+    // label-then-value order, which is what a screen reader follows.
+    <div className="flex min-w-0 flex-col items-center">
+      <dd className="font-display order-1 text-[17px] font-bold text-ink">
         {formatCount(value)}
       </dd>
-      <dt className="order-2">{label}</dt>
+      <dt className="order-2 truncate text-[12.5px] text-muted">{label}</dt>
     </div>
   );
 }
@@ -514,69 +566,37 @@ function Avatar({
   );
 }
 
-/** The overlapping avatars, shown when the carousel is on "everything".
+/** What the carousel shows on "everything": ONE face and a count (owner
+ *  decision, 2026-09-06).
  *
- *  One face in front and the rest tucked behind it, each showing only a sliver
- *  of its edge (owner decision, 2026-09-06). Three faces plus a counter: the
- *  stack is saying "these, and more", not listing anything, so a fourth
- *  overlapped circle adds width without adding meaning.
- *
- *  The overlap is ~78% of the circle, which is what makes it read as a stack
- *  rather than as a row that happens to touch. It also collapses the width:
- *  three 86px circles plus a counter come to 234px instead of 334px, so the
- *  arrows either side now fit a 375px phone with room rather than exactly. */
+ *  It was three overlapping faces and a counter. Three faces is a stack you
+ *  read; on a phone the header has to fit an avatar, two arrows and three
+ *  numbers across 390px, and the stack was taking width the numbers needed —
+ *  they collided. One face plus "+4" says the same thing ("these accounts,
+ *  together") in half the room, and the count is now a pill rather than
+ *  another 64px circle, which is the rest of the saving. */
 function AvatarStack({ accounts }: { accounts: AccountEntry[] }) {
-  const shown = accounts.slice(0, 3);
-  const rest = accounts.length - shown.length;
-  const circle = "h-14 w-14 shell:h-[86px] shell:w-[86px]";
-  const overlap = "-ml-11 shell:-ml-[67px]";
+  const [first, ...rest] = accounts;
+  if (!first) return null;
   return (
-    <div className="flex items-center">
-      {shown.map((entry, index) => (
+    <div className="flex items-center gap-1.5">
+      <Avatar entry={first} size="h-16 w-16 shell:h-[76px] shell:w-[76px]" />
+      {rest.length > 0 ? (
         <span
-          key={entry.connection.id}
-          title={
-            entry.profile?.displayName ??
-            entry.connection.platform_account_name ??
-            undefined
-          }
-          style={{ zIndex: shown.length - index }}
-          className={cx("relative", index > 0 && overlap)}
+          title={`${accounts.length} accounts connected`}
+          className="font-display rounded-full bg-chip px-2 py-1 text-[12.5px] font-bold text-muted"
         >
-          <Avatar entry={entry} size={circle} />
-        </span>
-      ))}
-      {rest > 0 ? (
-        // z-index 0 so the counter sits at the BACK of the stack. Without it
-        // the counter is last in DOM order and paints over the faces, which
-        // inverts the whole shape — the front of a stack is a person, and the
-        // "+3" is the depth behind them.
-        <span
-          style={{ zIndex: 0 }}
-          className={cx(
-            "font-display relative inline-flex items-center justify-center rounded-full border-[3px] border-panel bg-chip text-[15px] font-bold text-muted shell:text-[17px]",
-            circle,
-            // A lighter overlap than the faces use. At the stack's own -ml-11
-            // only 12px of this 56px circle cleared the avatar in front and
-            // the number was unreadable — and the count is the one thing in a
-            // stack that has to be read, since the faces behind it are already
-            // just texture.
-            "-ml-5 shell:-ml-8",
-          )}
-        >
-          +{rest}
+          +{rest.length}
         </span>
       ) : null}
     </div>
   );
 }
 
-/** One account: a bigger avatar with its platform badged on the corner, so a
- *  screen showing a single face still says which network it belongs to. */
 function SingleAvatar({ entry }: { entry: AccountEntry }) {
   return (
     <span className="relative inline-block">
-      <Avatar entry={entry} size="h-20 w-20 shell:h-[104px] shell:w-[104px]" />
+      <Avatar entry={entry} size="h-16 w-16 shell:h-[76px] shell:w-[76px]" />
       <span className="absolute right-0 bottom-0">
         <PlatformTile
           platform={entry.connection.platform}

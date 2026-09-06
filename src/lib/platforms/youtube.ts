@@ -213,6 +213,7 @@ export function classifyUploadFailure(status: number, body: GoogleError): Error 
 // this matters more than it looks.
 const youtubeInsights: AccountInsights = {
   primaryMetric: "views",
+  followersLabel: "subscribers",
   metered: false,
   requiredScopes: ["https://www.googleapis.com/auth/youtube.readonly"],
 

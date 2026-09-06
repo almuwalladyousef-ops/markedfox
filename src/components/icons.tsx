@@ -44,6 +44,7 @@ export type IconName =
   // controls
   | "plus"
   | "panel"
+  | "menu"
   | "chevronLeft"
   | "chevronRight"
   | "chevronDown"
@@ -153,6 +154,10 @@ const PATHS: Record<IconName, string[]> = {
   // The collapse toggle: a rectangle with its left panel drawn in, so the
   // glyph says which edge is about to move.
   panel: ["M3.5 5h17v14h-17z", "M9.5 5v14"],
+  // Three stacked lines. The section menu used `panel` and nobody read it as
+  // "there is more in here" — a hamburger is the one shape every phone user
+  // already knows means exactly that.
+  menu: ["M4 7h16", "M4 12h16", "M4 17h16"],
   chevronLeft: ["m14.5 5-6 7 6 7"],
   chevronRight: ["m9.5 5 6 7-6 7"],
   chevronDown: ["m5 9.5 7 6 7-6"],

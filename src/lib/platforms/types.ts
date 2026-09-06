@@ -203,6 +203,12 @@ export interface AccountMediaItem {
 export interface AccountInsights {
   /** Which number the grid puts on a card for this platform. */
   readonly primaryMetric: "views" | "likes";
+  /** What this platform calls the people who follow the account. Declared
+   *  rather than assumed for the same reason `primaryMetric` is: YouTube has
+   *  subscribers, not followers, and a header that says "followers" over a
+   *  YouTube subscriber count is using the wrong word for the platform's own
+   *  number. Optional — "followers" is right nearly everywhere. */
+  readonly followersLabel?: string;
   /** True when every read costs money — X bills per request. Metered
    *  platforms are never swept in the background; the user asks for them. */
   readonly metered: boolean;

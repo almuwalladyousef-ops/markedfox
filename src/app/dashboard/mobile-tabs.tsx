@@ -25,6 +25,15 @@ import {
 // rather than a glyph, because on a phone the account tab is the one place a
 // person expects to see themselves.
 //
+// Icons only, no labels (owner decision, 2026-09-06). Five destinations whose
+// meanings a phone user already knows, and the words were costing a row of
+// 10.5px text under every one of them. Each label survives as the accessible
+// name and the tooltip, so a screen reader still announces "Automate — your DM
+// and comment rules" rather than a bare graphic.
+//
+// The targets are flex-1 with no min-width, so the five of them divide the
+// screen exactly and the row reaches both edges instead of huddling.
+//
 // Every hit target here is at least 44px.
 
 export function MobileTabs({ avatarUrl }: { avatarUrl?: string | null }) {
@@ -42,7 +51,7 @@ export function MobileTabs({ avatarUrl }: { avatarUrl?: string | null }) {
         aria-label={item.tip}
         aria-current={on ? "page" : undefined}
         className={cx(
-          "flex min-h-[44px] min-w-[56px] flex-1 flex-col items-center justify-center gap-1 px-1 text-[10.5px] font-bold transition-[color,scale] duration-110 active:scale-[0.94]",
+          "flex min-h-[52px] flex-1 items-center justify-center transition-[color,scale] duration-110 active:scale-[0.9]",
           on ? "text-ink" : "text-muted",
         )}
       >
@@ -53,25 +62,24 @@ export function MobileTabs({ avatarUrl }: { avatarUrl?: string | null }) {
           <AvatarImage
             src={avatarUrl}
             className={cx(
-              "h-[23px] w-[23px] rounded-full object-cover",
+              "h-[26px] w-[26px] rounded-full object-cover",
               on ? "ring-2 ring-ink" : "ring-1 ring-line",
             )}
             fallback={
               <Icon
                 name={item.icon}
-                className={cx("h-[22px] w-[22px]", on ? "" : "opacity-75")}
-                strokeWidth={on ? 2.2 : 1.8}
+                className={cx("h-[25px] w-[25px]", on ? "" : "opacity-70")}
+                strokeWidth={on ? 2.2 : 1.7}
               />
             }
           />
         ) : (
           <Icon
             name={item.icon}
-            className={cx("h-[22px] w-[22px]", on ? "" : "opacity-75")}
-            strokeWidth={on ? 2.2 : 1.8}
+            className={cx("h-[25px] w-[25px]", on ? "" : "opacity-70")}
+            strokeWidth={on ? 2.2 : 1.7}
           />
         )}
-        {item.label}
       </Link>
     );
   };
@@ -79,7 +87,7 @@ export function MobileTabs({ avatarUrl }: { avatarUrl?: string | null }) {
   return (
     <nav
       aria-label="Main"
-      className="fixed right-0 bottom-0 left-0 z-[45] flex items-stretch justify-around border-t border-line bg-panel/95 px-1.5 pt-2 pb-[calc(14px+env(safe-area-inset-bottom))] backdrop-blur-md shell:hidden"
+      className="fixed right-0 bottom-0 left-0 z-[45] flex items-stretch border-t border-line bg-panel/95 px-1 pt-2 pb-[calc(12px+env(safe-area-inset-bottom))] backdrop-blur-md shell:hidden"
     >
       {MOBILE_TABS.slice(0, 2).map(tab)}
 

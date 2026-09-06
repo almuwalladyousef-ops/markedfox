@@ -88,11 +88,10 @@ export function MobileShell({
         >
           <FoxMark className="h-6" />
         </Link>
-        <span className="font-display truncate text-[17px] font-extrabold tracking-[-0.02em] text-ink">
-          {tab?.label ?? "MarkedFox"}
-        </span>
-        <span className="flex-1" />
-
+        {/* The menu sits ON the section name, not out at the far right. As a
+            lone icon in the corner it read as another toolbar button and
+            nobody pressed it; against the word it is labelling, "Automate ☰"
+            says the name is a thing you can open. */}
         {rows.length > 0 ? (
           <button
             type="button"
@@ -101,11 +100,20 @@ export function MobileShell({
             aria-expanded={open}
             aria-label={`More in ${tab?.label ?? "this section"}`}
             title={`More in ${tab?.label ?? "this section"}`}
-            className="flex h-[34px] w-[34px] items-center justify-center rounded-md text-muted transition-[background-color,color,scale] duration-110 hover:bg-chip hover:text-ink active:scale-[0.94]"
+            className="-my-1 flex min-w-0 items-center gap-1.5 rounded-md py-1 pr-1.5 text-ink transition-[background-color,scale] duration-110 hover:bg-chip active:scale-[0.97]"
           >
-            <Icon name="panel" className="h-[19px] w-[19px]" />
+            <span className="font-display truncate text-[17px] font-extrabold tracking-[-0.02em]">
+              {tab?.label ?? "MarkedFox"}
+            </span>
+            <Icon name="menu" className="h-[18px] w-[18px] shrink-0 text-muted" />
           </button>
-        ) : null}
+        ) : (
+          <span className="font-display truncate text-[17px] font-extrabold tracking-[-0.02em] text-ink">
+            {tab?.label ?? "MarkedFox"}
+          </span>
+        )}
+
+        <span className="flex-1" />
 
         <WorkspaceSwitcher
           workspaces={workspaces}
