@@ -32,7 +32,7 @@ export function HookGeneratorForm({
 
       {!enabled ? (
         <p className="mt-4 rounded-lg border border-line bg-chip px-4 py-3 text-[13px] text-faint">
-          Needs an AI key on this deployment.
+          Not available right now.
         </p>
       ) : (
         <form action={action} className="mt-4 flex flex-col gap-3">
@@ -130,7 +130,7 @@ export function AuditForm({
         </p>
       ) : !enabled ? (
         <p className="mt-4 rounded-lg border border-line bg-chip px-4 py-3 text-[13px] text-faint">
-          Needs an AI key on this deployment.
+          Not available right now.
         </p>
       ) : (
         <form action={action} className="mt-4 flex flex-col gap-3">

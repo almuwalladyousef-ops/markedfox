@@ -26,8 +26,11 @@ export function Pane({
           <h2 className="font-display text-[26px]/[32px] font-bold tracking-[-0.02em] text-ink">
             {title}
           </h2>
+          {/* Desktop only, like every other page's subtitle. On a phone this
+              is three or four lines of explanation above the controls you came
+              for, and the heading already names the pane. */}
           {blurb ? (
-            <p className="mt-2 max-w-xl text-[15px]/[24px] text-pretty text-muted">
+            <p className="mt-2 hidden max-w-xl text-[15px]/[24px] text-pretty text-muted shell:block">
               {blurb}
             </p>
           ) : null}

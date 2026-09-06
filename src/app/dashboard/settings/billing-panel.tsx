@@ -45,12 +45,15 @@ export function BillingPanel({
   plans: {
     id: string;
     name: string;
+    monthlyCents: number;
     monthly: string;
     annual: string;
     features: string[];
     platforms: Platform[];
   }[];
 }) {
+  const currentPlan = plans.find((plan) => plan.id === planId);
+
   const [checkoutState, checkoutAction, checkoutPending] = useActionState(
     startCheckoutAction,
     EMPTY,
@@ -117,6 +120,14 @@ export function BillingPanel({
       <ul className="grid grid-cols-[repeat(auto-fit,minmax(230px,1fr))] gap-4">
         {plans.map((plan) => {
           const current = plan.id === planId;
+          // "Switch to Pro" is what the button does; "Upgrade" is what the
+          // person is deciding. Direction comes from the price rather than
+          // from an order in a list, so a repriced or reordered plan cannot
+          // make the button lie (owner decision, 2026-09-06).
+          const direction =
+            plan.monthlyCents > (currentPlan?.monthlyCents ?? 0)
+              ? "Upgrade"
+              : "Downgrade";
           return (
             <li key={plan.id}>
               <Card
@@ -175,7 +186,9 @@ export function BillingPanel({
                         disabled={checkoutPending}
                       >
                         <Busy busy={checkoutPending}>
-                          {checkoutPending ? "Opening…" : `Switch to ${plan.name}`}
+                          {checkoutPending
+                            ? "Opening…"
+                            : `${direction} to ${plan.name}`}
                         </Busy>
                       </Button>
                     </form>

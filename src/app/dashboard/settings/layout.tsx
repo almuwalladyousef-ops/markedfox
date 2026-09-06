@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { Page, PageHeader } from "@/components/ui";
+import { Page } from "@/components/ui";
 import { getProfile } from "@/lib/account/preferences";
 import { requireUser } from "@/lib/auth/session";
 import { listConnections } from "@/lib/connections/store";
@@ -115,7 +115,6 @@ export default async function SettingsLayout({
 
   return (
     <Page width="max-w-[1180px]">
-      <PageHeader title="Settings" />
       {/* 328 + 560 exceeds the width a 1280px window leaves beside the rail, so
           the menu's base is trimmed to what fits; both panes keep the floors
           the handoff specifies and still stack below it. Below `wide` only one

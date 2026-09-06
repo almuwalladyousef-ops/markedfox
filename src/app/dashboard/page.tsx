@@ -457,23 +457,29 @@ function readFailureSummary(failed: AccountEntry[]): string {
   return list + " could not be read";
 }
 
-/** One sentence about the accounts that could not be read. Several accounts
- *  failing for the same reason — an expired app secret, say — say it once with
- *  the names, not the same paragraph three times. */
+/** What the person can actually do about the accounts that could not be read.
+ *
+ *  This used to print the provider's own message, which meant a phone screen
+ *  reading `Malformed token envelope: expected "v1.<iv>.<ciphertext>.<tag>"`.
+ *  That is our configuration failing, not theirs, and there is nothing in it
+ *  they can act on — an operator's error message on a customer's screen is
+ *  just noise they have to scroll past (owner decision, 2026-09-06).
+ *
+ *  So the screen says which accounts and what to do, and the provider's text
+ *  stays in `account_profiles.last_error` where the person who can fix it is
+ *  already looking. */
 function readFailureNotice(failed: AccountEntry[]): string {
-  const byMessage = new Map<string, string[]>();
-  for (const { connection, profile } of failed) {
-    const message = profile?.lastError ?? "";
-    const names = byMessage.get(message) ?? [];
-    names.push(PLATFORM_LABELS[connection.platform]);
-    byMessage.set(message, names);
-  }
-
-  return [...byMessage.entries()]
-    .map(([message, names]) =>
-      failed.length === 1 ? message : `${names.join(", ")}: ${message}`,
-    )
-    .join(" ");
+  const names = [
+    ...new Set(
+      failed.map(({ connection }) => PLATFORM_LABELS[connection.platform]),
+    ),
+  ];
+  const list =
+    names.length === 1
+      ? names[0]
+      : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+  const they = names.length === 1 ? "its" : "their";
+  return `We could not read ${list} just now, so ${they} numbers may be out of date. Reconnecting usually fixes it.`;
 }
 
 /** The word this platform uses for its followers, if it is not "followers". */

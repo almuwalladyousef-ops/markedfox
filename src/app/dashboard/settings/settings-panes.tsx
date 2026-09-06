@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { Icon } from "@/components/icons";
-import { StickyPane, TwoPane } from "@/components/ui";
+import { PageHeader, StickyPane, TwoPane } from "@/components/ui";
 
 const INDEX = "/dashboard/settings";
 
@@ -38,35 +38,49 @@ export function SettingsPanes({
   const atIndex = pathname === INDEX;
 
   return (
-    <TwoPane>
-      <StickyPane
-        className={
-          atIndex
-            ? "min-w-[300px] flex-[0_1_312px]"
-            : "hidden min-w-[300px] flex-[0_1_312px] wide:block"
-        }
-      >
-        {menu}
-      </StickyPane>
-
-      <div
-        className={
-          atIndex
-            ? "hidden min-w-[min(100%,440px)] flex-[1_1_520px] wide:block"
-            : "min-w-[min(100%,440px)] flex-[1_1_520px]"
-        }
-      >
-        {!atIndex ? (
-          <Link
-            href={INDEX}
-            className="mb-4 -ml-1 inline-flex items-center gap-1.5 rounded-md px-1 py-1 text-[14px] font-semibold text-muted transition-[color] duration-110 hover:text-ink wide:hidden"
-          >
-            <Icon name="chevronLeft" className="h-4 w-4" />
-            Settings
-          </Link>
-        ) : null}
-        {children}
+    <>
+      {/* "Settings" is the title of the MENU, not of every pane behind it. On
+          a phone, opening Connected accounts made a screen headed "Settings"
+          with "Connected accounts" as a subheading under it — the wrong thing
+          in the biggest type on the page. Below `wide` the word belongs to the
+          index and to the back link; the pane's own heading takes over. */}
+      <div className={atIndex ? "" : "hidden wide:block"}>
+        <PageHeader title="Settings" />
       </div>
-    </TwoPane>
+
+      <TwoPane>
+        <StickyPane
+          // `flex-[0_1_312px]` is the DESKTOP column width. On a phone the menu
+          // is the whole screen, and that basis was capping it at 312px inside
+          // a 358px row — the empty strip down the right-hand side.
+          className={
+            atIndex
+              ? "w-full wide:min-w-[300px] wide:flex-[0_1_312px]"
+              : "hidden wide:block wide:min-w-[300px] wide:flex-[0_1_312px]"
+          }
+        >
+          {menu}
+        </StickyPane>
+
+        <div
+          className={
+            atIndex
+              ? "hidden w-full wide:block wide:min-w-[min(100%,440px)] wide:flex-[1_1_520px]"
+              : "w-full wide:min-w-[min(100%,440px)] wide:flex-[1_1_520px]"
+          }
+        >
+          {!atIndex ? (
+            <Link
+              href={INDEX}
+              className="mb-4 -ml-1 inline-flex items-center gap-1.5 rounded-md px-1 py-1 text-[14px] font-semibold text-muted transition-[color] duration-110 hover:text-ink wide:hidden"
+            >
+              <Icon name="chevronLeft" className="h-4 w-4" />
+              Settings
+            </Link>
+          ) : null}
+          {children}
+        </div>
+      </TwoPane>
+    </>
   );
 }

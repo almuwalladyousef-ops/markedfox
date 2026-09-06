@@ -20,13 +20,13 @@ import type { ResearchPlatform } from "@/lib/research/types";
 //
 // The tabs are not four features — they are four answers to "I do not know who
 // to watch", ordered by how much the user already knows: nothing (Suggested),
-// a description (Describe), a name (Search), a list (Add URL).
+// a description (Describe), a name (Search), a list (URL).
 
 const TABS = [
   { id: "suggest", label: "Suggested" },
   { id: "describe", label: "Describe" },
   { id: "search", label: "Search" },
-  { id: "url", label: "Add URL" },
+  { id: "url", label: "URL" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -137,7 +137,7 @@ export function ChannelPicker({
           />
         )}
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2 shell:flex-nowrap">
           {/* Buttons wearing each platform's own mark rather than a select:
               there are four, this is the most-changed control on the card, and
               a dropdown hides three of them behind a click.
@@ -145,23 +145,27 @@ export function ChannelPicker({
               Still selectable when this deployment cannot read the platform —
               the note under the card says what is missing, which is more use
               than a control nobody can press and nobody can ask about. */}
+          {/* Marks only, no words (owner decision, 2026-09-06). Four names
+              beside four logos wrapped onto a second line on a phone and said
+              nothing the logo had not already said. The name survives as the
+              accessible name and the tooltip, so this is still a control that
+              says what it does. */}
           {platforms.map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => setPlatform(item.id)}
               aria-pressed={platform === item.id}
+              aria-label={item.available ? item.label : `${item.label} — needs setup`}
               title={item.available ? item.label : `${item.label} — needs setup`}
               className={cx(
-                "inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-[13px] font-semibold transition-[background-color,border-color,color] duration-110",
+                "inline-flex h-10 w-10 items-center justify-center rounded-md border transition-[background-color,border-color,opacity] duration-110",
                 platform === item.id
-                  ? "border-accent bg-accent-soft text-ink"
-                  : "border-line text-muted hover:border-line-strong hover:text-ink",
+                  ? "border-accent bg-accent-soft"
+                  : "border-line opacity-60 hover:border-line-strong hover:opacity-100",
               )}
             >
-              <PlatformTile platform={item.id} size={18} />
-              {item.label}
-              {item.available ? null : <span className="text-faint">· setup</span>}
+              <PlatformTile platform={item.id} size={20} />
             </button>
           ))}
 
@@ -243,10 +247,15 @@ export function ChannelPicker({
             Costs 1 credit. {creditsLeft} left this month.
           </p>
         ) : null}
+        {/* This used to read "Needs an AI key on this deployment". A missing
+            API key is the operator's problem and there is nothing the person
+            reading it can do about it — it is our configuration leaking into
+            their screen. They are told the tab is unavailable and pointed at
+            the two that always work; the reason lives in the logs, where the
+            person who can fix it is looking (owner decision, 2026-09-06). */}
         {(tab === "suggest" || tab === "describe") && !aiConfigured ? (
           <p className="mt-3 text-[12.5px] text-warn">
-            Needs an AI key on this deployment. Search and Add URL work without
-            one.
+            Not available right now — try Search or URL.
           </p>
         ) : null}
         {active && !active.available ? (

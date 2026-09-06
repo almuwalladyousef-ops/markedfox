@@ -64,6 +64,11 @@ export default async function SubscriptionPane({
     return {
       id: plan.id,
       name: plan.name,
+      // The raw number as well as the label: the panel has to know which
+      // direction a plan is from the one you are on to say "Upgrade" or
+      // "Downgrade", and parsing "$20" back out of a string is a bug waiting
+      // for a currency to change.
+      monthlyCents: plan.price_monthly_cents,
       monthly: `$${(plan.price_monthly_cents / 100).toFixed(0)}`,
       annual: `$${((plan.price_annual_cents ?? 0) / 100).toFixed(0)}`,
       features: [

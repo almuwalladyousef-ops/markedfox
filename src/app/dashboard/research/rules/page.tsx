@@ -89,8 +89,8 @@ export default async function RulesPage() {
 
       {!configuredModel() ? (
         <Notice tone="warn">
-          These rules need an AI key on this deployment. They can be set up now
-          and will start running once one is configured.
+          These rules are not running yet. They can be set up now and will
+          start on their own once they are.
         </Notice>
       ) : null}
 

@@ -51,8 +51,8 @@ export function GeneratePanel({
 
       {!enabled ? (
         <p className="mt-4 rounded-lg border border-line bg-chip px-4 py-3 text-[13px] text-faint">
-          Generation turns on once an AI key is configured on this deployment.
-          Channel tracking and outlier scoring already work.
+          Generation is not available yet. Channel tracking and outlier
+          scoring already work.
         </p>
       ) : (
         <form action={action} className="mt-4 flex flex-col gap-3">

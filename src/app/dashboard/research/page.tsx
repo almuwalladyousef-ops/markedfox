@@ -132,7 +132,7 @@ export default async function ResearchPage({
       {!model ? (
         <Notice tone="warn">
           Channel tracking and outlier scoring work now. Breakdowns and script
-          generation turn on once an AI key is configured on this deployment.
+          generation are not available yet.
         </Notice>
       ) : null}
 

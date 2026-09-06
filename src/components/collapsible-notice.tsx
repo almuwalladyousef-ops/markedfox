@@ -33,12 +33,16 @@ export function CollapsibleNotice({
   const [open, setOpen] = useState(false);
 
   return (
-    <Notice tone={tone} className="p-0">
+    <Notice tone={tone} className="p-0 text-[13px]/[19px]">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left transition-[background-color] duration-110"
+        // Deliberately tight. Collapsed, this is one line of status sitting
+        // between the header and the person's own screen, and a notice with
+        // card-sized padding reads as a section of the page rather than as a
+        // line about it.
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] transition-[background-color] duration-110"
       >
         <span className="min-w-0 flex-1 truncate font-semibold">{summary}</span>
         <Icon
@@ -51,7 +55,7 @@ export function CollapsibleNotice({
       </button>
 
       {open ? (
-        <div className="px-4 pt-0.5 pb-3.5 text-pretty">{children}</div>
+        <div className="px-3 pt-0.5 pb-3 text-pretty">{children}</div>
       ) : null}
     </Notice>
   );

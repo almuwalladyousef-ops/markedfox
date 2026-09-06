@@ -69,8 +69,8 @@ export function BreakdownPanel({
           press. Beside a finished breakdown it explains nothing. */}
       {!enabled && !breakdown ? (
         <p className="mt-4 rounded-lg border border-line bg-chip px-4 py-3 text-[13px] text-faint">
-          Breakdowns need an AI key on this deployment. Tracking and outlier
-          scoring already work.
+          Breakdowns are not available yet. Tracking and outlier scoring
+          already work.
         </p>
       ) : null}
 

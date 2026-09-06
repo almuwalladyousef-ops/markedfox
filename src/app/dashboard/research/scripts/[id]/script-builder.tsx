@@ -118,8 +118,8 @@ export function ScriptBuilder({
 
       {!aiEnabled ? (
         <Notice tone="warn">
-          Generation needs an AI key on this deployment. Every stage still works
-          by hand — write the research, the hook and the script yourself and the
+          Generation is not available right now. Every stage still works by
+          hand — write the research, the hook and the script yourself and the
           pipeline keeps them together.
         </Notice>
       ) : null}
