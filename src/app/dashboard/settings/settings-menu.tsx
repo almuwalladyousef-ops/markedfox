@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+
+import { AvatarImage } from "@/components/avatar-image";
 import { usePathname } from "next/navigation";
 
 import { Icon, type IconName } from "@/components/icons";
@@ -51,21 +53,18 @@ export function SettingsMenu({
     <nav className="flex flex-col gap-6">
       <div className="rounded-2xl border border-line bg-panel p-5">
         <div className="flex items-center gap-3.5">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatarUrl}
-              alt=""
-              className="h-11 w-11 shrink-0 rounded-full object-cover"
-            />
-          ) : (
-            <span
-              aria-hidden
-              className="font-display flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink text-[17px] font-bold text-panel uppercase"
-            >
-              {name.trim().charAt(0) || "?"}
-            </span>
-          )}
+          <AvatarImage
+            src={avatarUrl}
+            className="h-11 w-11 shrink-0 rounded-full object-cover"
+            fallback={
+              <span
+                aria-hidden
+                className="font-display flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink text-[17px] font-bold text-panel uppercase"
+              >
+                {name.trim().charAt(0) || "?"}
+              </span>
+            }
+          />
           <div className="min-w-0">
             <p className="font-display truncate text-[17px] font-bold tracking-[-0.01em] text-ink">
               {name}

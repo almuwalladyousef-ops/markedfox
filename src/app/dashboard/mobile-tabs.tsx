@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { AvatarImage } from "@/components/avatar-image";
 import { Icon } from "@/components/icons";
 import { cx } from "@/components/ui";
 import {
@@ -45,19 +46,23 @@ export function MobileTabs({ avatarUrl }: { avatarUrl?: string | null }) {
           on ? "text-ink" : "text-muted",
         )}
       >
-        {item.id === "account" && avatarUrl ? (
-          // The user's own picture, exactly as the reference does it. A plain
-          // <img>: avatars come from whichever CDN each platform uses this
-          // month, and next/image would need every one whitelisted to do
-          // nothing but proxy an image we never resize.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+        {item.id === "account" ? (
+          // The user's own picture, exactly as the reference does it, falling
+          // back to the same glyph every other tab uses when the URL is empty
+          // or dead.
+          <AvatarImage
             src={avatarUrl}
-            alt=""
             className={cx(
               "h-[23px] w-[23px] rounded-full object-cover",
               on ? "ring-2 ring-ink" : "ring-1 ring-line",
             )}
+            fallback={
+              <Icon
+                name={item.icon}
+                className={cx("h-[22px] w-[22px]", on ? "" : "opacity-75")}
+                strokeWidth={on ? 2.2 : 1.8}
+              />
+            }
           />
         ) : (
           <Icon

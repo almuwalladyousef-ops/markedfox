@@ -36,6 +36,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
 import { AutoFill } from "./auto-fill";
+import { AvatarImage } from "@/components/avatar-image";
 
 export const metadata: Metadata = { title: "Home · MarkedFox" };
 
@@ -208,9 +209,6 @@ export default async function HomePage({
       profile === null && readable(connection.platform) !== "none",
   ).length;
   const failed = accounts.filter(({ profile }) => profile?.lastError);
-  const hasMetered = accounts.some(
-    ({ connection }) => readable(connection.platform) === "metered",
-  );
   const lastSynced = profiles
     .map((row) => row.lastSyncedAt)
     .filter((value): value is string => Boolean(value))
@@ -287,31 +285,20 @@ export default async function HomePage({
                 Refresh
               </Button>
             </form>
-            {/* X bills per request, so its refresh is a separate press with the
-                cost said out loud rather than a surprise on an invoice. It is
-                styled as an opt-in pill rather than another grey button, because
-                it is the only control on this screen that spends money. */}
-            {hasMetered ? (
-              <form action={refreshAccountsAction}>
-                <input type="hidden" name="include_metered" value="1" />
-                <button
-                  type="submit"
-                  title="X charges per read, so it refreshes only when you ask"
-                  // Written out rather than layered over buttonClass: two
-                  // border-colour utilities in one class string are resolved by
-                  // CSS source order, so an override appended here loses.
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-accent bg-accent-soft px-2.5 py-1.5 text-[12.5px] font-semibold whitespace-nowrap text-accent transition-[background-color] duration-110 hover:bg-accent hover:text-accent-ink"
-                >
-                  Include X
-                </button>
-              </form>
-            ) : null}
+            {/* There was an "Include X" pill here that re-read the metered
+                platforms on demand. Removed by owner decision, 2026-09-06.
+                Nothing else changes: the scheduler's sweep still skips metered
+                accounts, so X is never read on a schedule, and X's own cached
+                figures still show. The only thing gone is the manual press
+                that spent money — which is the safe direction to remove a
+                control in. `include_metered` stays honoured on the server so
+                the capability is one line of UI away if it is ever wanted. */}
           </div>
 
           <dl className="mt-3.5 flex flex-wrap items-baseline justify-center gap-x-[26px] gap-y-2 text-[13.5px] text-muted wide:justify-start">
-            <Total label="total posts" value={totals.posts} />
-            <Total label="total followers" value={totals.followers} />
-            <Total label="total following" value={totals.following} />
+            <Total label="posts" value={totals.posts} />
+            <Total label="followers" value={totals.followers} />
+            <Total label="following" value={totals.following} />
           </dl>
 
           {current ? (
@@ -351,7 +338,16 @@ export default async function HomePage({
       </header>
 
       {/* ── what kind of post ────────────────────────────────────────────── */}
-      <nav className="flex flex-wrap justify-center gap-1.5">
+      {/* Icons only, the way every profile grid does it — the words were
+          three times the width of the thing they labelled. The label is not
+          lost, it moves to the accessible name and the tooltip, so this is
+          still a control that says what it does rather than a bare glyph.
+          The lit tab carries a rule under it instead of a filled pill, which
+          is what makes a row of icons read as tabs. */}
+      <nav
+        aria-label="Filter posts by kind"
+        className="flex items-stretch justify-center gap-1 border-b border-line"
+      >
         {kinds.map((option) => {
           const on = kind === option.id;
           return (
@@ -359,16 +355,20 @@ export default async function HomePage({
               key={option.label}
               href={href({ account: selectedId, kind: option.id })}
               aria-current={on ? "page" : undefined}
+              aria-label={option.label}
+              title={option.label}
               className={cx(
-                "inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13.5px] font-semibold transition-[background-color,color] duration-110",
-                on ? "bg-ink text-panel" : "text-muted hover:bg-chip hover:text-ink",
+                "-mb-px inline-flex min-h-[44px] min-w-[64px] items-center justify-center border-b-2 px-5 transition-[color,border-color] duration-110",
+                on
+                  ? "border-ink text-ink"
+                  : "border-transparent text-muted hover:text-ink",
               )}
             >
               <Icon
                 name={option.icon}
-                className={cx("h-4 w-4", on ? "" : "opacity-75")}
+                className={cx("h-[22px] w-[22px]", on ? "" : "opacity-70")}
+                strokeWidth={on ? 2.1 : 1.7}
               />
-              {option.label}
             </Link>
           );
         })}
@@ -500,34 +500,36 @@ function Avatar({
         className,
       )}
     >
-      {profile?.avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={profile.avatarUrl}
-          alt=""
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        <PlatformIcon
-          platform={connection.platform}
-          className="h-full w-full"
-        />
-      )}
+      <AvatarImage
+        src={profile?.avatarUrl}
+        className="h-full w-full object-cover"
+        fallback={
+          <PlatformIcon
+            platform={connection.platform}
+            className="h-full w-full"
+          />
+        }
+      />
     </span>
   );
 }
 
-/** The overlapping avatars, shown when the carousel is on "everything". Four
- *  faces and a counter: past four the circles stop being recognisable and the
- *  stack is only saying "several". */
+/** The overlapping avatars, shown when the carousel is on "everything".
+ *
+ *  One face in front and the rest tucked behind it, each showing only a sliver
+ *  of its edge (owner decision, 2026-09-06). Three faces plus a counter: the
+ *  stack is saying "these, and more", not listing anything, so a fourth
+ *  overlapped circle adds width without adding meaning.
+ *
+ *  The overlap is ~78% of the circle, which is what makes it read as a stack
+ *  rather than as a row that happens to touch. It also collapses the width:
+ *  three 86px circles plus a counter come to 234px instead of 334px, so the
+ *  arrows either side now fit a 375px phone with room rather than exactly. */
 function AvatarStack({ accounts }: { accounts: AccountEntry[] }) {
-  const shown = accounts.slice(0, 4);
+  const shown = accounts.slice(0, 3);
   const rest = accounts.length - shown.length;
-  // Five 86px circles overlapping by 24 is 334px, which overflows a 375px
-  // phone once the two arrows are beside them. The circles shrink instead of
-  // the row scrolling: the stack is a glance, not something to read.
   const circle = "h-14 w-14 shell:h-[86px] shell:w-[86px]";
-  const overlap = "-ml-4 shell:-ml-6";
+  const overlap = "-ml-11 shell:-ml-[67px]";
   return (
     <div className="flex items-center">
       {shown.map((entry, index) => (
@@ -545,11 +547,21 @@ function AvatarStack({ accounts }: { accounts: AccountEntry[] }) {
         </span>
       ))}
       {rest > 0 ? (
+        // z-index 0 so the counter sits at the BACK of the stack. Without it
+        // the counter is last in DOM order and paints over the faces, which
+        // inverts the whole shape — the front of a stack is a person, and the
+        // "+3" is the depth behind them.
         <span
+          style={{ zIndex: 0 }}
           className={cx(
             "font-display relative inline-flex items-center justify-center rounded-full border-[3px] border-panel bg-chip text-[15px] font-bold text-muted shell:text-[17px]",
             circle,
-            overlap,
+            // A lighter overlap than the faces use. At the stack's own -ml-11
+            // only 12px of this 56px circle cleared the avatar in front and
+            // the number was unreadable — and the count is the one thing in a
+            // stack that has to be read, since the faces behind it are already
+            // just texture.
+            "-ml-5 shell:-ml-8",
           )}
         >
           +{rest}
