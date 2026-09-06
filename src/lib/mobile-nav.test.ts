@@ -15,10 +15,10 @@ import { SHELL_SPACES, isRowItem } from "./shell";
 // rather than a routing one.
 
 describe("the mobile tab bar", () => {
-  it("is Home, Drafts, Feed, Account in that order, with Create between Drafts and Feed", () => {
+  it("is Home, Automate, Research, Account in that order, with Create raised between the second and third", () => {
     expect(MOBILE_TABS.map((tab) => tab.id)).toEqual([
       "home",
-      "drafts",
+      "automate",
       "feed",
       "account",
     ]);
@@ -50,13 +50,27 @@ describe("which tab is lit", () => {
     expect(activeMobileTab("/dashboard")).toBe("home");
     // /dashboard is a prefix of every other route; without the exact-match
     // rule Home would be lit everywhere.
-    expect(activeMobileTab("/dashboard/drafts")).not.toBe("home");
+    expect(activeMobileTab("/dashboard/automations")).not.toBe("home");
     expect(activeMobileTab("/dashboard/research")).not.toBe("home");
   });
 
-  it("lights Drafts on drafts and on the calendar, which has no tab of its own", () => {
-    expect(activeMobileTab("/dashboard/drafts")).toBe("drafts");
-    expect(activeMobileTab("/dashboard/calendar")).toBe("drafts");
+  // Drafts and the calendar lost their tab on 2026-09-06 and live in Home's
+  // three-line menu instead, so Home is what stays lit while you are on them.
+  // The rule that matters: some tab is always lit, or the bar looks broken.
+  it("lights Home on the two pages inside its own menu", () => {
+    expect(activeMobileTab("/dashboard/drafts")).toBe("home");
+    expect(activeMobileTab("/dashboard/calendar")).toBe("home");
+  });
+
+  it("lights Automate across the automations routes", () => {
+    for (const path of [
+      "/dashboard/automations",
+      "/dashboard/automations/new",
+      "/dashboard/automations/templates",
+      "/dashboard/automations/abc-123",
+    ]) {
+      expect(activeMobileTab(path), path).toBe("automate");
+    }
   });
 
   it("lights Feed on every research route, not just the feed index", () => {
@@ -71,13 +85,11 @@ describe("which tab is lit", () => {
     }
   });
 
-  it("lights Account across settings and automations", () => {
+  it("lights Account across the settings routes only", () => {
     for (const path of [
       "/dashboard/settings",
       "/dashboard/settings/accounts",
       "/dashboard/settings/subscription",
-      "/dashboard/automations",
-      "/dashboard/automations/new",
     ]) {
       expect(activeMobileTab(path), path).toBe("account");
     }
@@ -86,19 +98,24 @@ describe("which tab is lit", () => {
   it("lights no tab in the composer — the raised button is not a tab", () => {
     expect(activeMobileTab(MOBILE_CREATE.href)).toBeUndefined();
     expect(isMobileCreate("/dashboard/new-post")).toBe(true);
-    expect(isMobileCreate("/dashboard/drafts")).toBe(false);
+    expect(isMobileCreate("/dashboard/automations")).toBe(false);
   });
 
-  it("never lights two tabs for one path", () => {
-    for (const path of [
-      "/dashboard",
-      "/dashboard/drafts",
-      "/dashboard/calendar",
-      "/dashboard/research/channels",
+  // Every route the desktop shell can reach, rather than a hand-written list
+  // that a new page would quietly fall off. Two tabs owning one path is the
+  // failure that hides best: the bar looks fine, it just lights the wrong one.
+  it("lights exactly one tab for every route in the desktop shell", () => {
+    const routes = [
+      ...SHELL_SPACES.flatMap((space) => space.rows)
+        .filter(isRowItem)
+        .map((row) => row.href),
       "/dashboard/settings/accounts",
-      "/dashboard/automations/templates",
-    ]) {
-      const lit = MOBILE_TABS.filter((tab) => tab.id === activeMobileTab(path));
+      "/dashboard/settings/subscription",
+    ];
+    for (const path of routes) {
+      const id = activeMobileTab(path);
+      expect(id, `${path} lights no tab`).toBeDefined();
+      const lit = MOBILE_TABS.filter((tab) => tab.id === id);
       expect(lit, path).toHaveLength(1);
     }
   });

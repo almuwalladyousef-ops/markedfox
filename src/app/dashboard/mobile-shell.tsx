@@ -34,11 +34,9 @@ import { WorkspaceSwitcher } from "./workspace-switcher";
  *  Account is already a menu of thirteen rows and does not need a menu of a
  *  menu. */
 const MENU: Record<MobileTabId, { space: string; only?: string[] } | null> = {
+  // Overview is the tab itself, so the menu is the two pages behind it.
   home: { space: "home", only: ["/dashboard/calendar", "/dashboard/drafts"] },
-  drafts: {
-    space: "home",
-    only: ["/dashboard/calendar", "/dashboard/drafts"],
-  },
+  automate: { space: "automate" },
   feed: { space: "studio" },
   account: null,
 };

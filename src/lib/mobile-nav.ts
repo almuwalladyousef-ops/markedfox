@@ -9,14 +9,14 @@ import type { IconName } from "@/components/icons";
 // destinations plus the create action, in the order the owner's reference
 // screenshot uses:
 //
-//   Home · Drafts · [ Create ] · Feed · Account
+//   Home · Automate · [ Create ] · Research · Account
 //
 // Keeping this list here rather than deriving it from SHELL_SPACES is the
 // whole point — desktop keeps its space model untouched, and neither layout
 // can silently reshape the other. The routes themselves are the existing
 // ones; nothing here invents a page.
 
-export type MobileTabId = "home" | "drafts" | "feed" | "account";
+export type MobileTabId = "home" | "automate" | "feed" | "account";
 
 export type MobileTab = {
   id: MobileTabId;
@@ -44,18 +44,25 @@ export const MOBILE_TABS: MobileTab[] = [
     label: "Home",
     icon: "home",
     tip: "Home — your accounts and your posts",
-    owns: [],
+    // The two routes in Home's own three-line menu. `/dashboard` itself is
+    // matched exactly (see `matches`), so listing these does not make Home
+    // light up everywhere — it makes it light up on the pages Home owns.
+    owns: ["/dashboard/calendar", "/dashboard/drafts"],
   },
   {
-    id: "drafts",
-    href: "/dashboard/drafts",
-    label: "Drafts",
-    icon: "drafts",
-    tip: "Drafts — posts started but not scheduled",
-    // The calendar is the other half of "what have I got going out", and on a
-    // phone it has no tab of its own, so Drafts keeps it lit rather than
-    // leaving the bar with nothing highlighted.
-    owns: ["/dashboard/calendar"],
+    id: "automate",
+    href: "/dashboard/automations",
+    label: "Automate",
+    icon: "automations",
+    tip: "Automate — your DM and comment rules",
+    // Drafts held this slot until 2026-09-06. Two reasons for the swap. The DM
+    // engine is the thing this product is sold on and it had no tab at all —
+    // it was reachable only by opening Account and finding it. And it is a
+    // place you check on rather than pass through: is the rule live, how many
+    // sends, how many clicks. Drafts is a waypoint on the way to publishing,
+    // it is one tap away in Home's menu, and nobody opens the app to look at
+    // it.
+    owns: ["/dashboard/automations"],
   },
   {
     id: "feed",
@@ -75,8 +82,8 @@ export const MOBILE_TABS: MobileTab[] = [
     href: "/dashboard/settings/accounts",
     label: "Account",
     icon: "avatar",
-    tip: "Account — profile, connected accounts, drafts and billing",
-    owns: ["/dashboard/settings", "/dashboard/automations"],
+    tip: "Account — profile, connected accounts and billing",
+    owns: ["/dashboard/settings"],
   },
 ];
 
