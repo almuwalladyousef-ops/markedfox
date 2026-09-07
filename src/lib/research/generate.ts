@@ -139,10 +139,18 @@ export interface Generation {
 export function configuredModel(
   env: Record<string, string | undefined> = process.env,
 ): { provider: "gemini" | "groq"; model: string } | null {
+  // Pinned, never a floating alias like gemini-flash-latest: the model name
+  // is stored on every generation so old output stays explicable, and an
+  // alias that moves underneath us makes that record a lie.
+  //
+  // gemini-2.5-flash was the default until 2026-09-07 and now answers a new
+  // key with 404 "no longer available to new users" — a retired default is
+  // invisible until somebody's first generation fails, so check this on any
+  // fresh key before assuming the code is at fault.
   if (env.GEMINI_API_KEY) {
     return {
       provider: "gemini",
-      model: env.GEMINI_MODEL || "gemini-2.5-flash",
+      model: env.GEMINI_MODEL || "gemini-3.6-flash",
     };
   }
   if (env.GROQ_API_KEY) {
@@ -186,6 +194,21 @@ export async function generateFromPrompt(prompt: string): Promise<Generation> {
   return { output: trimmed, model: configured.model };
 }
 
+/**
+ * The Gemini output ceiling, and it is NOT just "room for the answer".
+ *
+ * Gemini 3 models think before they answer, and those thinking tokens are
+ * spent against this same budget. Measured on the breakdown prompt: ~1,400
+ * thinking tokens for ~630 tokens of actual JSON. At the 2,048 this used to
+ * carry, the breakdown came back `MAX_TOKENS` with the JSON cut mid-object —
+ * so step 3, the whole point of the research pillar, failed on every video.
+ *
+ * 8,192 is not a cost decision: billing is per token GENERATED, so a ceiling
+ * nobody reaches costs nothing. It is only the point at which a normal answer
+ * stops being truncated.
+ */
+const GEMINI_MAX_OUTPUT_TOKENS = 8192;
+
 async function callGemini(model: string, prompt: string): Promise<string> {
   const key = requireEnv("GEMINI_API_KEY");
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -194,16 +217,55 @@ async function callGemini(model: string, prompt: string): Promise<string> {
     headers: { "content-type": "application/json", "x-goog-api-key": key },
     body: {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.9, maxOutputTokens: 2048 },
+      generationConfig: {
+        temperature: 0.9,
+        maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+      },
     },
   });
 
   const data = response as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
+    candidates?: {
+      finishReason?: string;
+      content?: { parts?: { text?: string }[] };
+    }[];
   };
-  return (data.candidates?.[0]?.content?.parts ?? [])
+  const candidate = data.candidates?.[0];
+
+  // Refused rather than returned. A truncated JSON breakdown at least fails
+  // loudly at the parser, but a truncated SCRIPT reads like a finished one and
+  // would be saved as the draft — so the cut is caught here, where we can still
+  // say what happened, and the caller releases the credit.
+  assertFinished(candidate?.finishReason);
+
+  return (candidate?.content?.parts ?? [])
     .map((part) => part.text ?? "")
     .join("");
+}
+
+/** Turn a provider's stop reason into a message a person can act on.
+ *  Anything other than a clean stop is treated as a failure: half an answer is
+ *  worse than none, because nothing downstream can tell it is half. */
+export function assertFinished(reason: string | undefined | null): void {
+  if (!reason) return;
+  const clean = reason.toUpperCase();
+  if (clean === "STOP" || clean === "END_TURN") return;
+  if (clean === "MAX_TOKENS" || clean === "LENGTH") {
+    throw new GenerationError(
+      "The model ran out of room before it finished. Try a shorter transcript or a narrower topic.",
+      "upstream",
+    );
+  }
+  if (clean === "SAFETY" || clean === "PROHIBITED_CONTENT" || clean === "BLOCKLIST") {
+    throw new GenerationError(
+      "The model refused this one on safety grounds. Nothing was generated.",
+      "upstream",
+    );
+  }
+  throw new GenerationError(
+    `The model stopped early (${reason}).`,
+    "upstream",
+  );
 }
 
 async function callGroq(model: string, prompt: string): Promise<string> {

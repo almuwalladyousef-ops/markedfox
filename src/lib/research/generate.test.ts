@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  assertFinished,
   buildPrompt,
   configuredModel,
   GenerationError,
@@ -76,11 +77,43 @@ describe("configuredModel", () => {
     expect(model?.provider).toBe("groq");
   });
 
+  // Pinned so retiring a default is a deliberate edit rather than a silent
+  // 404 on somebody's first generation, which is how gemini-2.5-flash went
+  // stale here.
+  it("defaults to a pinned Gemini model, never a floating alias", () => {
+    const model = configuredModel({ GEMINI_API_KEY: "a" });
+    expect(model?.model).toBe("gemini-3.6-flash");
+    expect(model?.model).not.toMatch(/latest/);
+  });
+
   it("honours an explicit model override", () => {
     const model = configuredModel({
       GEMINI_API_KEY: "a",
       GEMINI_MODEL: "gemini-3-pro",
     });
     expect(model?.model).toBe("gemini-3-pro");
+  });
+});
+
+// Regression: the app shipped maxOutputTokens 2048 against a model that spends
+// ~1,400 of them thinking, so the breakdown came back MAX_TOKENS with its JSON
+// cut mid-object. Truncation now fails loudly rather than reaching a parser —
+// or, worse, being saved as a finished script.
+describe("assertFinished", () => {
+  it("accepts a clean stop", () => {
+    expect(() => assertFinished("STOP")).not.toThrow();
+    expect(() => assertFinished(undefined)).not.toThrow();
+  });
+
+  it("names truncation rather than letting half an answer through", () => {
+    expect(() => assertFinished("MAX_TOKENS")).toThrow(/ran out of room/);
+  });
+
+  it("says nothing was generated when the model refuses", () => {
+    expect(() => assertFinished("SAFETY")).toThrow(/refused/);
+  });
+
+  it("still fails on a reason it has never seen", () => {
+    expect(() => assertFinished("RECITATION")).toThrow(/stopped early/);
   });
 });
