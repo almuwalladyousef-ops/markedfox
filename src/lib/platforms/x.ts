@@ -210,6 +210,8 @@ const xInsights: AccountInsights = {
           type?: string;
           url?: string;
           preview_image_url?: string;
+          /** Milliseconds, and only on `video` — an animated_gif has none. */
+          duration_ms?: number;
         }[];
       };
     }>(
@@ -218,7 +220,7 @@ const xInsights: AccountInsights = {
         "&exclude=retweets,replies" +
         "&tweet.fields=created_at,public_metrics,attachments" +
         "&expansions=attachments.media_keys" +
-        "&media.fields=type,url,preview_image_url",
+        "&media.fields=type,url,preview_image_url,duration_ms",
       { auth: `Bearer ${tokens.accessToken}` },
     );
 
@@ -241,6 +243,10 @@ const xInsights: AccountInsights = {
         caption: post.text,
         permalink: `https://x.com/i/web/status/${post.id}`,
         thumbnailUrl: attached?.url ?? attached?.preview_image_url,
+        durationSeconds:
+          typeof attached?.duration_ms === "number" && attached.duration_ms > 0
+            ? Math.round(attached.duration_ms / 1000)
+            : null,
         postedAt: post.created_at,
         // impression_count is only returned for the authenticated user's own
         // posts, which is precisely what this reads.

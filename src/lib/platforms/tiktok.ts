@@ -224,11 +224,14 @@ const tiktokInsights: AccountInsights = {
           like_count?: number;
           comment_count?: number;
           share_count?: number;
+          /** Seconds. TikTok's own field, already whole. */
+          duration?: number;
         }[];
       };
     }>(
       "/video/list/?fields=id,title,video_description,cover_image_url," +
-        "share_url,create_time,view_count,like_count,comment_count,share_count",
+        "share_url,create_time,duration,view_count,like_count,comment_count," +
+        "share_count",
       {
         method: "POST",
         token: tokens.accessToken,
@@ -243,6 +246,10 @@ const tiktokInsights: AccountInsights = {
       caption: video.title || video.video_description,
       permalink: video.share_url,
       thumbnailUrl: video.cover_image_url,
+      durationSeconds:
+        typeof video.duration === "number" && video.duration > 0
+          ? Math.round(video.duration)
+          : null,
       // create_time is unix seconds.
       postedAt: video.create_time
         ? new Date(video.create_time * 1000).toISOString()

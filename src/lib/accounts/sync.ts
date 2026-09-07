@@ -307,6 +307,7 @@ async function writeMedia(
       platform: connection.platform,
       external_id: item.externalId,
       kind: item.kind,
+      duration_seconds: item.durationSeconds ?? null,
       caption: item.caption ?? null,
       permalink: item.permalink ?? null,
       thumbnail_url: item.thumbnailUrl ?? null,

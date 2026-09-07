@@ -4,16 +4,17 @@ import { Icon, type IconName } from "@/components/icons";
 import { Notice } from "@/components/ui";
 import { POST_TYPE_LABELS, getProfile } from "@/lib/account/preferences";
 import { requireUser } from "@/lib/auth/session";
-import type { AccountMediaKind } from "@/lib/platforms/types";
 import { createClient } from "@/lib/supabase/server";
 
 import { Pane } from "../pane";
 import { PriorityList } from "../priority-list";
+import type { MediaTab } from "@/lib/accounts/types";
 
 export const metadata: Metadata = { title: "Post type priority · MarkedFox" };
 
-const ICONS: Record<AccountMediaKind, IconName> = {
+const ICONS: Record<MediaTab, IconName> = {
   video: "play",
+  long: "filmstrip",
   photo: "image",
   text: "drafts",
 };
@@ -31,7 +32,7 @@ export default async function PostTypeOrderPane() {
     >
       <PriorityList
         name="postTypeOrder"
-        initial={profile.preferences.postTypeOrder.map((kind: AccountMediaKind) => ({
+        initial={profile.preferences.postTypeOrder.map((kind: MediaTab) => ({
           id: kind,
           label: (
             <>

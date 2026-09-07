@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { Icon } from "@/components/icons";
 import { FoxMark } from "@/components/ui";
 import { MOBILE_TABS, activeMobileTab } from "@/lib/mobile-nav";
 import type { Workspace } from "@/lib/workspaces/store";
 
+import { useSectionMenu } from "./section-menu";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 // Below 880px the two desktop rails are gone. What replaces them is this: the
@@ -41,6 +43,7 @@ export function MobileShell({
   const pathname = usePathname();
   const tabId = activeMobileTab(pathname);
   const tab = MOBILE_TABS.find((item) => item.id === tabId);
+  const menu = useSectionMenu();
 
   return (
     <div className="shell:hidden">
@@ -54,9 +57,33 @@ export function MobileShell({
           <FoxMark className="h-6" />
         </Link>
 
-        <span className="font-display truncate text-[17px] font-extrabold tracking-[-0.02em] text-ink">
-          {tab?.label ?? "MarkedFox"}
-        </span>
+        {/* The section name IS the control when there are pages behind it:
+            a word you are already reading, wearing a caret. That is what makes
+            it findable — a lone icon in the corner was ignored, and a floating
+            pill above the tab bar belonged to nothing. */}
+        {menu.hasMenu ? (
+          <button
+            type="button"
+            onClick={menu.open}
+            aria-haspopup="dialog"
+            aria-label={`${tab?.label ?? "Section"} — show its pages`}
+            title={`${tab?.label ?? "Section"} — show its pages`}
+            className="-my-1 -ml-1 flex min-w-0 items-center gap-1 rounded-md py-1 pr-1.5 pl-1 text-ink transition-[background-color,scale] duration-110 hover:bg-chip active:scale-[0.97]"
+          >
+            <span className="font-display truncate text-[17px] font-extrabold tracking-[-0.02em]">
+              {tab?.label ?? "MarkedFox"}
+            </span>
+            <Icon
+              name="chevronDown"
+              className="h-4 w-4 shrink-0 text-muted"
+              strokeWidth={2.4}
+            />
+          </button>
+        ) : (
+          <span className="font-display truncate text-[17px] font-extrabold tracking-[-0.02em] text-ink">
+            {tab?.label ?? "MarkedFox"}
+          </span>
+        )}
 
         <span className="flex-1" />
 

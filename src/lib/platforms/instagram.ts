@@ -325,6 +325,11 @@ const instagramInsights: AccountInsights = {
       thumbnailUrl:
         m.thumbnail_url ?? (m.media_type === "VIDEO" ? undefined : m.media_url),
       postedAt: m.timestamp,
+      // No durationSeconds: the Instagram media edge does not report video
+      // length at any version — `media_product_type` says REELS or FEED, which
+      // is a placement and not a duration. So Instagram videos stay unknown and
+      // appear under All rather than being guessed into Short or Long. Same for
+      // Facebook and Threads. Only YouTube, TikTok and X tell us.
       views: null,
       likes: m.like_count ?? null,
       comments: m.comments_count ?? null,

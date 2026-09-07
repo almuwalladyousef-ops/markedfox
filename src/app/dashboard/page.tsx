@@ -24,13 +24,17 @@ import {
   listAccountProfiles,
   totalsFrom,
 } from "@/lib/accounts/store";
-import type { AccountMediaRow, AccountProfileRow } from "@/lib/accounts/types";
+import type {
+  AccountMediaRow,
+  AccountProfileRow,
+  MediaTab,
+} from "@/lib/accounts/types";
 import { signOut } from "@/lib/auth/actions";
 import { requireUser } from "@/lib/auth/session";
 import { listConnections, type ConnectionRow } from "@/lib/connections/store";
 import { PLATFORM_LABELS } from "@/lib/platforms/labels";
 import { getPlatform } from "@/lib/platforms/registry";
-import { PLATFORMS, type AccountMediaKind, type Platform } from "@/lib/platforms/types";
+import { PLATFORMS, type Platform } from "@/lib/platforms/types";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
 
@@ -60,8 +64,11 @@ export const metadata: Metadata = { title: "Home · MarkedFox" };
 // on X, billed per request — a page that refreshed on every load would spend
 // every user's share of one shared budget on people idly reloading.
 
-const KIND_ICONS: Record<AccountMediaKind, IconName> = {
+const KIND_ICONS: Record<MediaTab, IconName> = {
   video: "play",
+  // A rectangle rather than another play triangle: the two video tabs sit next
+  // to each other, so they have to differ at a glance and not by inspection.
+  long: "filmstrip",
   photo: "image",
   text: "drafts",
 };
@@ -84,13 +91,18 @@ function shapeFor(platform: Platform | null): GridShape {
   }
 }
 
-function parseKind(value: string | undefined): AccountMediaKind | null {
-  return value === "video" || value === "photo" || value === "text" ? value : null;
+function parseKind(value: string | undefined): MediaTab | null {
+  return value === "video" ||
+    value === "long" ||
+    value === "photo" ||
+    value === "text"
+    ? value
+    : null;
 }
 
 function href(params: {
   account?: string | null;
-  kind?: AccountMediaKind | null;
+  kind?: MediaTab | null;
   page?: number;
 }): string {
   const search = new URLSearchParams();
@@ -168,7 +180,7 @@ export default async function HomePage({
         (platformRank.get(b.connection.platform) ?? 99),
     );
 
-  const kinds: { id: AccountMediaKind | null; label: string; icon: IconName }[] = [
+  const kinds: { id: MediaTab | null; label: string; icon: IconName }[] = [
     { id: null, label: "All", icon: "grid" },
     ...(preferences?.postTypeOrder ?? POST_TYPES).map((id) => ({
       id,

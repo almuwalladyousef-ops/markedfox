@@ -182,10 +182,31 @@ export interface AccountProfile {
 
 export type AccountMediaKind = "video" | "photo" | "text";
 
+/**
+ * Where a video stops being short. Three minutes, because that is YouTube's
+ * own Shorts ceiling and it is the only line any of these platforms actually
+ * draws — TikTok, Instagram and the rest have raised their limits so often
+ * that their numbers say nothing about what a viewer would call a short video.
+ *
+ * One number for every platform on purpose. Per-platform thresholds would mean
+ * the same 90-second clip counted as short on one tab and long on another,
+ * which is a filter nobody can predict.
+ */
+export const SHORT_VIDEO_MAX_SECONDS = 180;
+
+/** True only when the length is KNOWN to be over the line. An unknown length
+ *  is not long and not short — see `account_media.duration_seconds`. */
+export function isLongVideo(durationSeconds: number | null | undefined): boolean {
+  return typeof durationSeconds === "number" && durationSeconds > SHORT_VIDEO_MAX_SECONDS;
+}
+
 export interface AccountMediaItem {
   /** The platform's own id for this post. Unique per connection. */
   externalId: string;
   kind: AccountMediaKind;
+  /** Whole seconds, and only when the platform actually reported it. Undefined
+   *  means unknown — never 0, which would file a real video under Short. */
+  durationSeconds?: number | null;
   caption?: string;
   permalink?: string;
   thumbnailUrl?: string;

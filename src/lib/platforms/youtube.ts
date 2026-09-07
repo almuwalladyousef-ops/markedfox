@@ -298,9 +298,11 @@ const youtubeInsights: AccountInsights = {
           likeCount?: string;
           commentCount?: string;
         };
+        contentDetails?: { duration?: string };
       }[];
     }>(
-      `${API}/videos?part=snippet,statistics&id=${ids.map(encodeURIComponent).join(",")}`,
+      `${API}/videos?part=snippet,statistics,contentDetails` +
+        `&id=${ids.map(encodeURIComponent).join(",")}`,
       { headers: auth },
     );
 
@@ -314,6 +316,7 @@ const youtubeInsights: AccountInsights = {
         video.snippet?.thumbnails?.high?.url ??
         video.snippet?.thumbnails?.default?.url,
       postedAt: video.snippet?.publishedAt,
+      durationSeconds: parseIso8601Duration(video.contentDetails?.duration),
       views: numberOrNull(video.statistics?.viewCount),
       likes: numberOrNull(video.statistics?.likeCount),
       comments: numberOrNull(video.statistics?.commentCount),
@@ -321,6 +324,39 @@ const youtubeInsights: AccountInsights = {
     }));
   },
 };
+
+/**
+ * YouTube reports length as an ISO 8601 duration — "PT4M13S", "PT1H2M", "PT45S"
+ * — and it is the only place any of these platforms tells us how long a video
+ * is, so the short/long tabs stand on this function.
+ *
+ * Returns null rather than 0 for anything it cannot read. Zero would mean "a
+ * video of no length", which sorts as short and would file a live stream or an
+ * unparsed value under Shorts; null means unknown and the row simply does not
+ * appear in either tab.
+ *
+ * Days are handled because ISO 8601 allows them and YouTube emits "P0D" for a
+ * live stream that has not ended.
+ */
+export function parseIso8601Duration(value: string | undefined): number | null {
+  if (!value) return null;
+  const match =
+    /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$/.exec(value);
+  if (!match) return null;
+  const [, d, h, m, sec] = match;
+  const total =
+    Number(d ?? 0) * 86400 +
+    Number(h ?? 0) * 3600 +
+    Number(m ?? 0) * 60 +
+    Number(sec ?? 0);
+  // Zero is not a duration, it is the absence of one, and the two have to stay
+  // distinguishable. YouTube emits "P0D" for a live stream that has not ended:
+  // the string parses cleanly, so a truthiness check on the captured groups
+  // lets it through ("0" is a truthy string) and it would be stored as a
+  // zero-second video — which sorts as short and files a running stream under
+  // Shorts. Only a positive length is a length.
+  return Number.isFinite(total) && total > 0 ? Math.round(total) : null;
+}
 
 /** YouTube returns every count as a string, and omits the field entirely when
  *  a channel hides it. Absent stays null so the screen can say "—". */

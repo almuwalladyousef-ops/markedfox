@@ -45,6 +45,7 @@ export type IconName =
   | "plus"
   | "panel"
   | "menu"
+  | "filmstrip"
   | "chevronLeft"
   | "chevronRight"
   | "chevronDown"
@@ -154,6 +155,10 @@ const PATHS: Record<IconName, string[]> = {
   // The collapse toggle: a rectangle with its left panel drawn in, so the
   // glyph says which edge is about to move.
   panel: ["M3.5 5h17v14h-17z", "M9.5 5v14"],
+  // A wide frame with a play mark in it. Short and long videos sit next to
+  // each other in the home filter, so the two have to differ at a glance —
+  // two round play buttons at 22px read as the same icon twice.
+  filmstrip: ["M2.5 6.5h19v11h-19z", "m10.3 9.8 4.7 2.7-4.7 2.7Z"],
   // Three stacked lines. The section menu used `panel` and nobody read it as
   // "there is more in here" — a hamburger is the one shape every phone user
   // already knows means exactly that.

@@ -157,9 +157,7 @@ export default async function DashboardLayout({
 
           <main
             id="mf-main"
-            // The phone's bottom furniture is now two rows — the tab bar and the
-            // section bar above it — so the page has to end above both.
-            className="mx-auto flex w-full flex-col gap-6 px-4 pt-5 pb-[164px] shell:px-10 shell:pt-9 shell:pb-16"
+            className="mx-auto flex w-full flex-col gap-6 px-4 pt-5 pb-[120px] shell:px-10 shell:pt-9 shell:pb-16"
           >
             {children}
           </main>

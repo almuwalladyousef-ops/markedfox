@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { move, order, parsePreferences } from "./preferences";
+import { move, order, parsePreferences, POST_TYPES } from "./preferences";
 import { PLATFORMS } from "@/lib/platforms/types";
 
 // A stored preference is written against whatever version of the product the
@@ -38,7 +38,11 @@ describe("parsePreferences", () => {
   });
 
   it("survives a null column", () => {
-    expect(parsePreferences(null).postTypeOrder).toEqual(["video", "photo", "text"]);
+    // Against POST_TYPES rather than a written-out list: this assertion is
+    // about the null column falling back to the canonical order, not about how
+    // many tabs there happen to be. Spelling them out meant adding a fourth
+    // tab broke a test that had nothing to say about it.
+    expect(parsePreferences(null).postTypeOrder).toEqual(POST_TYPES);
   });
 });
 

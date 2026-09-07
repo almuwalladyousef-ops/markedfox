@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { PLATFORMS, type AccountMediaKind, type Platform } from "@/lib/platforms/types";
+import type { MediaTab } from "@/lib/accounts/types";
+import { PLATFORMS, type Platform } from "@/lib/platforms/types";
 
 // Display preferences: the order things appear in, and nothing else.
 //
@@ -12,17 +13,23 @@ import { PLATFORMS, type AccountMediaKind, type Platform } from "@/lib/platforms
 // end, which means a new platform always appears rather than silently
 // vanishing for everyone who ever touched this screen.
 
-export const POST_TYPES: AccountMediaKind[] = ["video", "photo", "text"];
+// Four tabs, and "long" is the odd one: the other three are stored kinds while
+// long videos are the same stored kind past a duration. It sits beside them
+// here because to the person using the screen it is simply another tab, and
+// `order` already appends anything a saved preference has never heard of — so
+// this new tab appears for existing users rather than silently vanishing.
+export const POST_TYPES: MediaTab[] = ["video", "long", "photo", "text"];
 
-export const POST_TYPE_LABELS: Record<AccountMediaKind, string> = {
+export const POST_TYPE_LABELS: Record<MediaTab, string> = {
   video: "Short videos",
+  long: "Long videos",
   photo: "Photos",
   text: "Text posts",
 };
 
 export interface Preferences {
   platformOrder: Platform[];
-  postTypeOrder: AccountMediaKind[];
+  postTypeOrder: MediaTab[];
 }
 
 /**

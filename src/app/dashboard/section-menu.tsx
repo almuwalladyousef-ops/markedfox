@@ -87,39 +87,6 @@ export function SectionMenuProvider({
     >
       {children}
 
-      {/* The visible half of this, and the reason it exists. Pressing the tab
-          you are already on is the phone convention, but a convention nobody
-          can see is a feature nobody uses — the owner went looking for these
-          pages and could not find them. So the section names itself just above
-          the bar, at thumb height, with a caret saying it opens.
-
-          Sits at the tab bar's own z-45 and directly on top of it, so the two
-          read as one piece of furniture rather than a strip floating over the
-          page. Left-aligned rather than centred because the centre of that bar
-          is where the compose button rises out of it — centred, this pill
-          landed on top of the orange +. The wrapper is pointer-events-none so
-          the strip either side of the pill does not swallow taps meant for the
-          page behind it. `shell:hidden` because above the breakpoint the rail already
-          lists every one of these rows. */}
-      {rows.length > 0 ? (
-        <div className="pointer-events-none fixed right-0 bottom-[calc(66px+env(safe-area-inset-bottom))] left-0 z-[45] flex justify-start px-4 shell:hidden">
-          <button
-            type="button"
-            onClick={() => setOpenedAt(pathname)}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-line bg-panel/95 px-3.5 py-1.5 text-[12.5px] font-bold text-ink shadow-e1 backdrop-blur-md transition-[background-color,scale] duration-110 active:scale-[0.96]"
-          >
-            {tab?.label}
-            <Icon
-              name="chevronUp"
-              className="h-3.5 w-3.5 shrink-0 text-muted"
-              strokeWidth={2.4}
-            />
-          </button>
-        </div>
-      ) : null}
-
       {open && rows.length > 0 ? (
         // Above the bottom bar's z-45. A modal the navigation paints over is
         // not modal, and this one opens FROM that navigation.

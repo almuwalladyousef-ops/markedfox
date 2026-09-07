@@ -2,7 +2,11 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { AccountMediaKind, Platform } from "@/lib/platforms/types";
+import {
+  SHORT_VIDEO_MAX_SECONDS,
+  type AccountMediaKind,
+  type Platform,
+} from "@/lib/platforms/types";
 
 import {
   MEDIA_PAGE_SIZE,
@@ -24,8 +28,8 @@ const PROFILE_COLUMNS =
   "last_synced_at, last_error";
 
 const MEDIA_COLUMNS =
-  "id, connection_id, platform, external_id, kind, caption, permalink, " +
-  "thumbnail_url, views, likes, comments, shares, posted_at";
+  "id, connection_id, platform, external_id, kind, duration_seconds, caption, " +
+  "permalink, thumbnail_url, views, likes, comments, shares, posted_at";
 
 export async function listAccountProfiles(
   supabase: SupabaseClient,
@@ -89,7 +93,18 @@ export async function listAccountMedia(
 
   if (filter.platform) query = query.eq("platform", filter.platform);
   if (filter.connectionId) query = query.eq("connection_id", filter.connectionId);
-  if (filter.kind) query = query.eq("kind", filter.kind);
+  // "long" and "video" are the same stored kind split by length. A video whose
+  // duration we have not read yet matches NEITHER: `gt`/`lte` both drop nulls
+  // in Postgres, which is exactly the behaviour wanted here. It shows under
+  // All until the next read fills the column in — an incomplete tab beats a
+  // tab that files a 40-minute upload under Short.
+  if (filter.kind === "long") {
+    query = query.eq("kind", "video").gt("duration_seconds", SHORT_VIDEO_MAX_SECONDS);
+  } else if (filter.kind === "video") {
+    query = query.eq("kind", "video").lte("duration_seconds", SHORT_VIDEO_MAX_SECONDS);
+  } else if (filter.kind) {
+    query = query.eq("kind", filter.kind);
+  }
 
   const { data, error } = await query;
   if (error) throw error;
@@ -100,6 +115,7 @@ export async function listAccountMedia(
     platform: Platform;
     external_id: string;
     kind: AccountMediaKind;
+    duration_seconds: number | null;
     caption: string | null;
     permalink: string | null;
     thumbnail_url: string | null;
@@ -119,6 +135,7 @@ export async function listAccountMedia(
       platform: row.platform,
       externalId: row.external_id,
       kind: row.kind,
+      durationSeconds: row.duration_seconds,
       caption: row.caption,
       permalink: row.permalink,
       thumbnailUrl: row.thumbnail_url,

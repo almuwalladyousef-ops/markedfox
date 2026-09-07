@@ -26,6 +26,7 @@ export interface AccountMediaRow {
   platform: Platform;
   externalId: string;
   kind: AccountMediaKind;
+  durationSeconds: number | null;
   caption: string | null;
   permalink: string | null;
   thumbnailUrl: string | null;
@@ -45,11 +46,18 @@ export interface AccountTotals {
   accounts: number;
 }
 
+/** The tabs on the home grid. Three are stored kinds; "long" is derived from
+ *  duration, which is why this is its own type rather than AccountMediaKind. */
+export type MediaTab = AccountMediaKind | "long";
+
 export type MediaFilter = {
   platform: Platform | null;
   /** One connected account, when the home screen's carousel is on it. */
   connectionId?: string | null;
-  kind: AccountMediaKind | null;
+  /** What the tabs filter by. "long" is not a stored kind — it is
+   *  kind = video with a duration past the short/long line — so this is the
+   *  UI's vocabulary, not the table's. */
+  kind: MediaTab | null;
   /** 0-based. The grid pages rather than loading a whole account's history. */
   page: number;
 };
