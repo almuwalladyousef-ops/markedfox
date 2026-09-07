@@ -3,60 +3,99 @@
 import { useState } from "react";
 
 import { Icon } from "@/components/icons";
-import { Notice, cx } from "@/components/ui";
+import { cx } from "@/components/ui";
 import type { PillTone } from "@/components/ui";
 
-// A notice that says one line until you ask for the rest.
+// A status marker that costs almost nothing until you press it.
 //
-// The account-read failures on Home are the case this exists for. Several
-// platforms failing at once produced a paragraph of raw provider messages —
-// "Malformed token envelope: expected v1.<iv>.<ciphertext>.<tag>" and its
-// friends — which on a phone pushed the entire profile header below the fold
-// on the screen the app opens on. The information is worth keeping and worth
-// hiding: nobody reads a provider's exception on the way to their own posts,
-// and the person who does need it needs all of it.
+// The account-read failures on Home are the case this exists for, and it has
+// shrunk twice. First it was a paragraph of raw provider messages. Then it was
+// a full-width tinted bar with one line in it — still a block of colour across
+// the top of the screen the app opens on, still announcing a problem the
+// person has probably already seen.
 //
-// So the summary is ours and the detail is theirs. Collapsed by default,
-// because the common case is glancing at Home and moving on.
+// It is now a dot, a count and a chevron (owner decision, 2026-09-06). Nothing
+// is a sentence until it is opened. The dot carries the tone, which is the
+// part a glance actually reads; a number says how much there is; the chevron
+// says there is more. Everything else was the screen talking about itself
+// instead of showing the person their own work.
+//
+// Open, it becomes an ordinary tinted block, because at that point they have
+// asked and the words are the point.
+
+const DOT: Record<PillTone, string> = {
+  neutral: "bg-faint",
+  ok: "bg-ok",
+  warn: "bg-warn",
+  danger: "bg-danger",
+  info: "bg-sky",
+  accent: "bg-accent",
+};
+
+const TEXT: Record<PillTone, string> = {
+  neutral: "text-muted",
+  ok: "text-ok",
+  warn: "text-warn",
+  danger: "text-danger",
+  info: "text-sky",
+  accent: "text-accent",
+};
 
 export function CollapsibleNotice({
   tone = "neutral",
   summary,
+  count,
   children,
 }: {
   tone?: PillTone;
-  /** The one line always shown. Written by us, not by the platform. */
+  /** Read out to screen readers and shown once opened. Never rendered as the
+   *  collapsed label — collapsed, this control is deliberately almost silent. */
   summary: string;
-  /** The full text, revealed on press. */
+  /** How many things are wrong. The one number worth a glance. */
+  count?: number;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <Notice tone={tone} className="p-0 text-[13px]/[19px]">
+    <div className={cx("-mt-1", open && "rounded-lg bg-warn-soft")}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        // Deliberately tight. Collapsed, this is one line of status sitting
-        // between the header and the person's own screen, and a notice with
-        // card-sized padding reads as a section of the page rather than as a
-        // line about it.
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] transition-[background-color] duration-110"
+        aria-label={summary}
+        title={summary}
+        className={cx(
+          "flex items-center gap-1.5 rounded-md py-1 pr-1.5 text-[12px] font-semibold transition-[color] duration-110",
+          open ? "px-3 pt-2" : "px-0",
+          TEXT[tone],
+        )}
       >
-        <span className="min-w-0 flex-1 truncate font-semibold">{summary}</span>
+        <span
+          aria-hidden
+          className={cx("h-[7px] w-[7px] shrink-0 rounded-full", DOT[tone])}
+        />
+        {typeof count === "number" ? (
+          <span>
+            {count} {count === 1 ? "issue" : "issues"}
+          </span>
+        ) : (
+          <span>Issue</span>
+        )}
         <Icon
           name="chevronDown"
           className={cx(
-            "h-4 w-4 shrink-0 transition-transform duration-160",
+            "h-3.5 w-3.5 shrink-0 transition-transform duration-160",
             open && "rotate-180",
           )}
         />
       </button>
 
       {open ? (
-        <div className="px-3 pt-0.5 pb-3 text-pretty">{children}</div>
+        <div className="px-3 pt-0.5 pb-3 text-[13px]/[19px] text-pretty text-ink">
+          {children}
+        </div>
       ) : null}
-    </Notice>
+    </div>
   );
 }

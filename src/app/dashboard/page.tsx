@@ -258,7 +258,11 @@ export default async function HomePage({
       {unread > 0 ? <AutoFill /> : null}
 
       {failed.length > 0 ? (
-        <CollapsibleNotice tone="warn" summary={readFailureSummary(failed)}>
+        <CollapsibleNotice
+          tone="warn"
+          count={failed.length}
+          summary={readFailureSummary(failed)}
+        >
           {readFailureNotice(failed)}{" "}
           <Link href="/dashboard/settings/accounts" className="underline">
             Manage accounts

@@ -12,20 +12,24 @@ import { activeRowHref } from "@/lib/shell";
 
 import { isDecoratedItem, type DecoratedSpace } from "./shell-types";
 
-// The pages behind the phone's current tab, opened by pressing that tab again.
+// The pages behind the phone's current tab: Calendar and Drafts on Home, all
+// eight research pages on Research.
 //
-// This lived as a hamburger next to the section name in the top bar. Owner
-// decision, 2026-09-06: move it to the bottom, where the thumb already is.
-// Pressing the tab you are already on is the phone convention for "show me
-// more of this", and it adds no control to a row that has five.
+// This control has now been in three places, and the third one is the lesson.
+// It started as a hamburger in the top-right corner — the furthest point from
+// a thumb. It moved to "press the tab you are already on", which is the phone
+// convention and is completely invisible; the owner went looking for these
+// pages and could not find them, which is the only usability test that
+// matters. It is now a named bar sitting directly on top of the tab bar:
+// "Home ▾", "Research ▾".
 //
-// The cost of that convention is that it is invisible, so the tab that has a
-// menu wears a chevron above its icon — the same hint a bottom sheet uses to
-// say it can be pulled up.
+// The gesture still works as a shortcut for anybody who knows it. It is no
+// longer the way in, because a convention nobody can see is a feature nobody
+// uses.
 //
-// The provider owns the sheet because the two halves of this live in different
-// components: MobileTabs is the bottom bar and knows what was pressed, while
-// the row data comes from the layout. A context is the join.
+// The provider owns both halves because they live in different components:
+// MobileTabs is the bottom bar and knows what was pressed, the row data comes
+// from the layout, and the sheet has to sit above both. A context is the join.
 
 /** Which desktop space each phone tab borrows its menu from, and which of that
  *  space's rows belong in it. Null means the tab has no menu — Account is
@@ -82,6 +86,39 @@ export function SectionMenuProvider({
       value={{ hasMenu: rows.length > 0, open: () => setOpenedAt(pathname) }}
     >
       {children}
+
+      {/* The visible half of this, and the reason it exists. Pressing the tab
+          you are already on is the phone convention, but a convention nobody
+          can see is a feature nobody uses — the owner went looking for these
+          pages and could not find them. So the section names itself just above
+          the bar, at thumb height, with a caret saying it opens.
+
+          Sits at the tab bar's own z-45 and directly on top of it, so the two
+          read as one piece of furniture rather than a strip floating over the
+          page. Left-aligned rather than centred because the centre of that bar
+          is where the compose button rises out of it — centred, this pill
+          landed on top of the orange +. The wrapper is pointer-events-none so
+          the strip either side of the pill does not swallow taps meant for the
+          page behind it. `shell:hidden` because above the breakpoint the rail already
+          lists every one of these rows. */}
+      {rows.length > 0 ? (
+        <div className="pointer-events-none fixed right-0 bottom-[calc(66px+env(safe-area-inset-bottom))] left-0 z-[45] flex justify-start px-4 shell:hidden">
+          <button
+            type="button"
+            onClick={() => setOpenedAt(pathname)}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-line bg-panel/95 px-3.5 py-1.5 text-[12.5px] font-bold text-ink shadow-e1 backdrop-blur-md transition-[background-color,scale] duration-110 active:scale-[0.96]"
+          >
+            {tab?.label}
+            <Icon
+              name="chevronUp"
+              className="h-3.5 w-3.5 shrink-0 text-muted"
+              strokeWidth={2.4}
+            />
+          </button>
+        </div>
+      ) : null}
 
       {open && rows.length > 0 ? (
         // Above the bottom bar's z-45. A modal the navigation paints over is

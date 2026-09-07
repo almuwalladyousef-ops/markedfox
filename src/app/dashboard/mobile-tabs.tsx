@@ -46,21 +46,15 @@ export function MobileTabs({ avatarUrl }: { avatarUrl?: string | null }) {
 
   const tab = (item: MobileTab) => {
     const on = item.id === active;
-    // Pressing the tab you are already on opens that section's pages, which is
-    // what a phone does everywhere else. The convention is invisible, so the
-    // tab carries a chevron while it has a menu — the same hint a bottom sheet
-    // uses to say it can be pulled up.
+    // Pressing the tab you are already on opens that section's pages. It is a
+    // shortcut, not the way in: the labelled bar sitting directly above this
+    // one is what actually tells anybody the pages exist. This tab used to
+    // carry a chevron to hint at the gesture, and with that bar on screen it
+    // was a second, smaller arrow saying the same thing.
     const opensMenu = on && menu.hasMenu;
 
     const face = (
       <>
-        {opensMenu ? (
-          <Icon
-            name="chevronUp"
-            className="absolute top-1 h-3 w-3 opacity-60"
-            strokeWidth={2.6}
-          />
-        ) : null}
         {item.id === "account" ? (
           // The user's own picture, exactly as the reference does it, falling
           // back to the same glyph every other tab uses when the URL is empty
