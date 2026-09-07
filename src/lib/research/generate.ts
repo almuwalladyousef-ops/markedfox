@@ -35,6 +35,10 @@ export interface GenerationRequest {
   /** Free-text angle from the user: "make it about budget travel". */
   topic?: string | null;
   source?: GenerationSource | null;
+  /** The creator's niche, audience, voice and no-go list, already rendered by
+   *  `personaLine`. Last in the prompt because it constrains everything above
+   *  it. */
+  persona?: string | null;
 }
 
 export class GenerationError extends Error {
@@ -116,6 +120,10 @@ export function buildPrompt(request: GenerationRequest): string {
 
   if (request.topic?.trim()) {
     parts.push(`\nThe creator's own topic and angle: ${request.topic.trim()}`);
+  }
+
+  if (request.persona?.trim()) {
+    parts.push(`\n${request.persona.trim()}`);
   }
 
   if (!request.source && !request.topic?.trim()) {

@@ -26,6 +26,7 @@ function video(externalId: string, viewCount: number | null): SourceVideo {
     description: null,
     url: `https://youtube.com/watch?v=${externalId}`,
     thumbnailUrl: null,
+    mediaUrl: null,
     publishedAt: new Date(NOW.getTime() - 30 * 86_400_000).toISOString(),
     durationSeconds: 60,
     viewCount,

@@ -29,6 +29,9 @@ import {
 } from "./generate";
 import { parseYouTubeVideoId } from "./links";
 import { getResearchProvider, isResearchProviderConfigured } from "./providers";
+import { getPersona } from "./studio-store";
+import { personaLine } from "./studio-types";
+import { pullTranscript, usableTranscript } from "./transcribe";
 import {
   createProject,
   createSyncStore,
@@ -44,7 +47,6 @@ import {
   saveLinkTranscript,
   saveScript,
   saveToProject,
-  saveTranscript,
   setProjectItemStage,
   toBreakdown,
   toStoredSource,
@@ -249,7 +251,7 @@ export async function deleteAllSourcesAction(): Promise<void> {
   revalidatePath("/dashboard/research");
 }
 
-/** Pull a transcript on demand. Free — no model runs, so no credit is spent. */
+/** The form-post wrapper, kept for the standalone control. */
 export async function fetchTranscriptAction(
   formData: FormData,
 ): Promise<void> {
@@ -258,27 +260,7 @@ export async function fetchTranscriptAction(
   if (!UUID.test(videoId)) return;
 
   const supabase = await createClient();
-  const video = await getVideo(supabase, videoId);
-  if (!video) return;
-
-  const source = await getSource(supabase, video.source_id);
-  if (!source) return;
-
-  const provider = getResearchProvider(source.platform);
-  if (!provider.capabilities.transcripts || !provider.fetchTranscript) return;
-
-  const result = await provider.fetchTranscript({
-    externalId: video.external_id,
-    url: video.url,
-  });
-  await saveTranscript(supabase, {
-    videoId,
-    userId: user.id,
-    workspaceId: video.workspace_id,
-    text: result.text,
-    language: result.language,
-    origin: result.origin,
-  });
+  await pullTranscript(supabase, user.id, videoId);
 
   revalidatePath(`/dashboard/research/${videoId}`);
 }
@@ -334,14 +316,15 @@ export async function generateScriptAction(
       const breakdownRow = await getBreakdown(supabase, videoId);
       const breakdown = breakdownRow ? toBreakdown(breakdownRow) : null;
       usedBreakdown = breakdown !== null;
-      const transcript = breakdown ? null : await getTranscript(supabase, videoId);
+      const transcriptRow = breakdown
+        ? null
+        : await getTranscript(supabase, videoId);
       sourceForPrompt = {
         title: video.title,
         platform: sourceRow?.platform ?? "unknown",
         url: video.url,
         description: video.description,
-        transcript:
-          transcript && transcript.origin === "captions" ? transcript.text : null,
+        transcript: usableTranscript(transcriptRow),
         outlierScore:
           video.outlier_score === null ? null : Number(video.outlier_score),
         breakdown,
@@ -349,8 +332,19 @@ export async function generateScriptAction(
     }
   }
 
+  // The persona reaches this prompt too. It used to reach only the studio's
+  // three generators, so the button most people press — "Write from this
+  // video" — ignored the form they had filled in, and the feature looked
+  // decorative.
+  const persona = personaLine(await getPersona(supabase, active.id));
+
   try {
-    const result = await generate({ kind, topic, source: sourceForPrompt });
+    const result = await generate({
+      kind,
+      topic,
+      source: sourceForPrompt,
+      persona,
+    });
 
     await saveScript(supabase, {
       userId: user.id,
@@ -431,8 +425,7 @@ export async function breakdownVideoAction(
       title: video.title,
       platform: source?.platform ?? "unknown",
       description: video.description,
-      transcript:
-        transcript && transcript.origin === "captions" ? transcript.text : null,
+      transcript: usableTranscript(transcript),
       outlierScore:
         video.outlier_score === null ? null : Number(video.outlier_score),
       durationSeconds: video.duration_seconds,
@@ -492,6 +485,36 @@ export async function breakdownVideoAction(
   revalidatePath(`/dashboard/research/${videoId}`);
   revalidatePath("/dashboard/research/ideas");
   return { ok: true, message: "Broken down." };
+}
+
+/**
+ * One press: get the words, then work out why they worked.
+ *
+ * These were two buttons, and that was wrong in a way worth recording. A
+ * breakdown with no transcript still runs — it just works from the title, says
+ * so quietly in the prompt, and produces a "script" that is invented. So the
+ * page offered a free, optional first step whose omission silently degraded
+ * the paid second one. Nobody presses an optional button, and nobody could see
+ * what skipping it cost.
+ *
+ * The transcript is deliberately best-effort: a platform that serves none
+ * (TikTok, X) must still be analysable from what we do know. What changed is
+ * that skipping it is no longer the user's job to remember.
+ */
+export async function analyzeVideoAction(
+  previous: ResearchFormState,
+  formData: FormData,
+): Promise<ResearchFormState> {
+  const user = await requireUser();
+  const videoId = String(formData.get("video_id") ?? "");
+  if (!UUID.test(videoId)) return { message: "Unknown video." };
+
+  const supabase = await createClient();
+  // Free, and before the credit is reserved — a transcript that fails must not
+  // cost anything, and the breakdown below is what actually spends.
+  await pullTranscript(supabase, user.id, videoId);
+
+  return breakdownVideoAction(previous, formData);
 }
 
 // ── standalone tools ───────────────────────────────────────────────────────
@@ -599,7 +622,17 @@ export async function transcribeLinkAction(
       externalId: videoId,
       url,
     });
-    if (result.origin === "unavailable") {
+    if (result.origin === "failed") {
+      console.error(
+        `[research] link transcript failed for ${url}: ${result.reason ?? "no reason given"}`,
+      );
+      return {
+        message:
+          "That transcript could not be fetched. Nothing was charged — transcripts are free.",
+      };
+    }
+
+    if (result.origin === "none") {
       return {
         message:
           "That video has no captions to pull. Nothing was charged — transcripts are free.",

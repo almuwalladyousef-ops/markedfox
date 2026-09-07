@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Icon } from "@/components/icons";
+import { Icon, PlanDiamond } from "@/components/icons";
 import { Button, Card } from "@/components/ui";
 import {
   dismissOnboardingAction,
@@ -139,8 +139,9 @@ export function OnboardingPanel({
                     {step.title}
                   </span>
                   {step.locked ? (
-                    <span className="rounded-full bg-warn-soft px-2 py-px text-[10px] font-semibold text-warn">
-                      💎 Studio
+                    <span className="inline-flex items-center gap-1 rounded-full bg-warn-soft px-2 py-px text-[10px] font-semibold text-warn">
+                      <PlanDiamond className="h-2.5 w-2.5" />
+                      Studio
                     </span>
                   ) : null}
                 </span>

@@ -91,6 +91,28 @@ export async function countInboxIdeas(
   return count ?? 0;
 }
 
+/** Which of these videos are saved. One query for a page of cards rather than
+ *  one per card, exactly like `breakdownVideoIds`. */
+export async function savedVideoIds(
+  supabase: SupabaseClient,
+  workspaceId: string,
+  videoIds: readonly string[],
+): Promise<Set<string>> {
+  if (videoIds.length === 0) return new Set();
+  const { data, error } = await supabase
+    .from("research_ideas")
+    .select("video_id")
+    .eq("workspace_id", workspaceId)
+    .eq("status", "saved")
+    .in("video_id", videoIds as string[]);
+  if (error) throw error;
+  return new Set(
+    (data ?? [])
+      .map((row) => (row as { video_id: string | null }).video_id)
+      .filter((id): id is string => Boolean(id)),
+  );
+}
+
 export async function getIdeaForVideo(
   supabase: SupabaseClient,
   workspaceId: string,

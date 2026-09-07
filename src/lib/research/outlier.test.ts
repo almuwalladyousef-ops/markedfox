@@ -25,6 +25,7 @@ function video(
     description: null,
     url: `https://example.com/${overrides.externalId}`,
     thumbnailUrl: null,
+    mediaUrl: null,
     // Old enough to be mature unless a test says otherwise.
     publishedAt: new Date(NOW.getTime() - 30 * 86_400_000).toISOString(),
     durationSeconds: null,

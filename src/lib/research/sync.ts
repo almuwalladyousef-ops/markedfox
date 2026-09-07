@@ -40,6 +40,7 @@ export interface VideoUpsert {
   description: string | null;
   url: string;
   thumbnailUrl: string | null;
+  mediaUrl: string | null;
   publishedAt: string | null;
   durationSeconds: number | null;
   viewCount: number | null;
@@ -129,6 +130,7 @@ export async function syncSource(
           description: video.description,
           url: video.url,
           thumbnailUrl: video.thumbnailUrl,
+          mediaUrl: video.mediaUrl,
           publishedAt: video.publishedAt,
           durationSeconds: video.durationSeconds,
           viewCount: video.viewCount,

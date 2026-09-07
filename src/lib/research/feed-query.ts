@@ -64,6 +64,7 @@ export interface ParsedFeedQuery {
     postedUnit: "days" | "months";
     analyzed: boolean;
     unanalyzed: boolean;
+    saved: boolean;
     sort: FeedSort;
   };
   /** What the store should run. Only non-default constraints appear. */
@@ -92,6 +93,11 @@ export function parseFeedQuery(query: FeedQuery): ParsedFeedQuery {
 
   // Both boxes ticked is the same set as neither ticked, so both render checked
   // by default and only a genuine one-of-two choice becomes a filter.
+  // Saved is its own switch rather than a third value in `status`, because it
+  // is a different question: "have I looked at this" and "did I keep it" are
+  // both true of the same video.
+  const saved = one(query.saved) === "1";
+
   const analyzedRaw = many(query.status);
   const hasStatus = analyzedRaw.length > 0;
   const analyzed = hasStatus ? analyzedRaw.includes("analyzed") : true;
@@ -116,6 +122,7 @@ export function parseFeedQuery(query: FeedQuery): ParsedFeedQuery {
       postedUnit === "months" ? postedWithin * 30 : postedWithin;
   }
   if (analyzed !== unanalyzed) filters.analyzed = analyzed;
+  if (saved) filters.saved = true;
 
   const active =
     Object.keys(filters).length > 2 || sort !== FEED_DEFAULTS.sort;
@@ -135,6 +142,7 @@ export function parseFeedQuery(query: FeedQuery): ParsedFeedQuery {
       postedUnit,
       analyzed,
       unanalyzed,
+      saved,
       sort,
     },
     filters,

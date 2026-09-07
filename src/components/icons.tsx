@@ -63,6 +63,11 @@ export type IconName =
   | "info"
   | "eye"
   | "spark"
+  | "star"
+  | "mic"
+  | "flask"
+  | "key"
+  | "layout"
   | "arrowLeft"
   | "arrowRight"
   | "arrowUp"
@@ -187,6 +192,18 @@ const PATHS: Record<IconName, string[]> = {
     "M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
   ],
   spark: ["M12 3v4M12 17v4M3 12h4M17 12h4", "m5.6 5.6 2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"],
+  // Favourites. Replaces a ★, which sat at a different weight from the type
+  // beside it in every theme and had no filled/hollow pair — so "favourited"
+  // and "not favourited" were told apart by colour alone.
+  star: ["m12 3.5 2.6 5.6 6 .8-4.4 4.2 1.1 6.1-5.3-3-5.3 3 1.1-6.1L6 9.9l6-.8Z"],
+  // The five analysis tabs. They were 🎙 ⚗ ⚿ ▦ 🎞 — the last emoji left in the
+  // app's own chrome, and the reason this file exists: an emoji is a font's
+  // opinion of a symbol, not ours, and ⚿ in particular has no glyph in several
+  // Android fallbacks.
+  mic: ["M12 3.5a2.5 2.5 0 0 1 2.5 2.5v6a2.5 2.5 0 0 1-5 0V6A2.5 2.5 0 0 1 12 3.5Z", "M5.5 11.5a6.5 6.5 0 0 0 13 0", "M12 18v3M9 21h6"],
+  flask: ["M9.5 3v6.2L4.6 18a2 2 0 0 0 1.7 3h11.4a2 2 0 0 0 1.7-3l-4.9-8.8V3", "M8 3h8", "M7.2 14.5h9.6"],
+  key: ["M15.5 4.5a4.5 4.5 0 1 1-3.6 7.2L4 19.6V21H7v-2h2v-2h2l.9-.9A4.5 4.5 0 0 1 15.5 4.5Z", "M17 8.5h.01"],
+  layout: ["M3 4.5h18v15H3z", "M3 9.5h18", "M9 9.5V19.5"],
   arrowLeft: ["M20 12H4", "m10 6-6 6 6 6"],
   arrowRight: ["M4 12h16", "m14 6 6 6-6 6"],
   arrowUp: ["M12 20V4", "m6 10 6-6 6 6"],
@@ -204,17 +221,23 @@ export function Icon({
   className = "h-[18px] w-[18px]",
   strokeWidth = 1.8,
   title,
+  fill = "none",
 }: {
   name: IconName;
   className?: string;
   strokeWidth?: number;
   /** Set only when the icon stands alone; omit when a label sits beside it. */
   title?: string;
+  /** "currentColor" fills the shape. Only meaningful on the closed outlines —
+   *  a favourite star needs a filled and a hollow state, because telling the
+   *  two apart by colour alone leaves it unreadable to anyone who cannot see
+   *  the colour. */
+  fill?: "none" | "currentColor";
 }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      fill="none"
+      fill={fill}
       stroke="currentColor"
       strokeWidth={strokeWidth}
       strokeLinecap="round"

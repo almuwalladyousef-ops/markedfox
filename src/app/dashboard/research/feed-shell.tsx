@@ -5,13 +5,18 @@ import { useState, type ReactNode } from "react";
 import { Icon } from "@/components/icons";
 import { TwoPane, buttonClass } from "@/components/ui";
 
-// The feed's toolbar, and the two-pane it opens.
+// The feed's toolbar and the two-pane beside it.
 //
-// The filter panel used to sit permanently beside the grid, which cost 230px
-// of the widest screen in the app to controls most people set once. Now it is
-// a toggle that wears the accent while it is open, and the grid takes the
-// whole width the rest of the time. It opens by itself when a filter is
-// already applied, so a shared link does not look unfiltered.
+// The filter panel is always on screen above the `wide` breakpoint. It was
+// behind a toggle, on the reasoning that it cost 248px of the widest screen in
+// the app to controls people set once — but the controls turned out not to be
+// set-once, and a filter you cannot see is a filter you forget the feed is
+// applying. Hidden filters also make the feed look broken from the other
+// direction: rows are missing and nothing on screen says why.
+//
+// Below `wide` the two panes stack, and there the panel IS collapsible — a
+// phone cannot afford a screenful of controls above the results, and on a
+// phone the controls are genuinely set-once.
 //
 // A client component only for that one piece of state: the panel and the grid
 // are passed through as children and stay server-rendered.
@@ -40,7 +45,10 @@ export function FeedShell({
   panel: ReactNode;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(active);
+  // Only ever consulted below `wide`, where the panel stacks above the grid.
+  // Open when a filter is already applied, so a shared link does not look
+  // unfiltered.
+  const [openOnPhone, setOpenOnPhone] = useState(active);
   const [copied, setCopied] = useState(false);
 
   // Exports what is on screen, filters and all — the list somebody just built
@@ -76,18 +84,20 @@ export function FeedShell({
       <div className="flex flex-wrap items-center gap-2.5">
         {left}
         <div className="ml-auto flex flex-wrap items-center gap-2.5">
+          {/* Hidden where the panel is permanent. A control that toggles
+              something already on screen is a control that does nothing. */}
           <button
             type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
+            onClick={() => setOpenOnPhone((v) => !v)}
+            aria-expanded={openOnPhone}
             // Not `buttonClass(...) + overrides`: two border-colour utilities
             // in one class string are resolved by CSS source order, not by the
             // order they were written, so the override silently lost.
-            className={
-              open
+            className={`wide:hidden ${
+              openOnPhone
                 ? "inline-flex items-center justify-center gap-2 rounded-md border border-accent bg-accent-soft px-2.5 py-1.5 text-[12.5px] font-semibold text-accent transition-[background-color,color,border-color] duration-110"
                 : buttonClass("secondary", "xs")
-            }
+            }`}
           >
             <Icon name="filter" className="h-3.5 w-3.5" />
             Filters
@@ -106,9 +116,13 @@ export function FeedShell({
       </div>
 
       <TwoPane>
-        {open ? (
-          <div className="min-w-[248px] flex-[0_1_248px]">{panel}</div>
-        ) : null}
+        <div
+          className={`min-w-[248px] flex-[0_1_248px] ${
+            openOnPhone ? "" : "hidden wide:block"
+          }`}
+        >
+          {panel}
+        </div>
         <div className="min-w-[min(100%,320px)] flex-[1_1_560px]">{children}</div>
       </TwoPane>
     </>

@@ -12,6 +12,7 @@ import {
   releaseResearchCredit,
   reserveResearchCredit,
 } from "./credits";
+import { usableTranscript } from "./transcribe";
 import { buildBreakdownPrompt } from "./breakdown-prompt";
 import { GenerationError, generateFromPrompt } from "./generate";
 import {
@@ -184,10 +185,7 @@ async function runRule(
           title: video.title,
           platform: source?.platform ?? "unknown",
           description: video.description,
-          transcript:
-            transcript && transcript.origin === "captions"
-              ? transcript.text
-              : null,
+          transcript: usableTranscript(transcript),
           outlierScore:
             video.outlier_score === null ? null : Number(video.outlier_score),
           durationSeconds: video.duration_seconds,

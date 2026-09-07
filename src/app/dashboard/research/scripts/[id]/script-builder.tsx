@@ -401,7 +401,13 @@ function HookStage({
                         {template.formula}
                       </span>
                       <span className="mt-1 block text-[12.5px] text-faint">
-                        {template.favorite ? "★ " : ""}
+                        {template.favorite ? (
+                          <Icon
+                            name="star"
+                            className="mr-1 inline-block h-3 w-3 align-[-1px] text-warn"
+                            fill="currentColor"
+                          />
+                        ) : null}
                         {template.sourceHandle
                           ? `@${template.sourceHandle}`
                           : "typed by hand"}

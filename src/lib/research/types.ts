@@ -54,6 +54,12 @@ export interface SourceVideo {
   description: string | null;
   url: string;
   thumbnailUrl: string | null;
+  /** A direct link to the media file, where the platform gives one.
+   *  Instagram's business-discovery media edge does; YouTube, TikTok and X do
+   *  not. It is what makes speech transcription possible on a platform that
+   *  serves no captions, and it is expected to expire — see the media_url note
+   *  in the 2026-09-07 migration. */
+  mediaUrl: string | null;
   publishedAt: string | null;
   durationSeconds: number | null;
   viewCount: number | null;
@@ -61,11 +67,38 @@ export interface SourceVideo {
   commentCount: number | null;
 }
 
+/**
+ * Where a transcript came from, or why there isn't one.
+ *
+ * The split between `none` and `failed` is the point of this type. It used to
+ * be one value, `unavailable`, covering both — and that is how a dead YouTube
+ * endpoint stayed invisible for weeks: it answered 200 with an empty body,
+ * which looked exactly like a video with no captions, so every breakdown
+ * quietly worked from the title alone and nothing ever reported a problem.
+ *
+ *   captions     the platform served real captions
+ *   transcribed  we ran the audio through a speech model ourselves
+ *   none         there is genuinely nothing to fetch — cache it, don't retry
+ *   failed       OUR side broke — never cached, always retried, always logged
+ */
+export type TranscriptOrigin =
+  | "captions"
+  | "transcribed"
+  | "none"
+  | "failed";
+
+/** The three that are worth storing. `failed` is deliberately absent: caching a
+ *  failure is what turned one broken URL into a silent product-wide fault. */
+export type StoredTranscriptOrigin = Exclude<TranscriptOrigin, "failed">;
+
 export interface TranscriptResult {
-  /** Empty string when origin is 'unavailable'. */
+  /** Empty unless origin is 'captions' or 'transcribed'. */
   text: string;
   language: string | null;
-  origin: "captions" | "unavailable";
+  origin: TranscriptOrigin;
+  /** Why it failed, for the server log only. Never rendered — an operator's
+   *  error message on a customer's screen is our problem shown to them. */
+  reason?: string;
 }
 
 /** A provider reads one platform. Adding a platform is one file in
@@ -121,6 +154,8 @@ export interface ResearchProvider {
   fetchTranscript?(video: {
     externalId: string;
     url: string;
+    /** Null on every platform that serves captions instead of a file. */
+    mediaUrl?: string | null;
   }): Promise<TranscriptResult>;
 }
 

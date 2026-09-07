@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 
 import Link from "next/link";
 
+import { Icon } from "@/components/icons";
+
 import {
   Button,
   ButtonLink,
@@ -205,11 +207,17 @@ export default async function HooksPage({
                     <button
                       type="submit"
                       aria-label={hook.favorite ? "Unfavourite" : "Favourite"}
-                      className={`rounded-sm px-1.5 py-1 text-[14.5px] transition-[background-color,color] duration-110 ${
+                      className={`rounded-sm px-1.5 py-1 transition-[background-color,color] duration-110 ${
                         hook.favorite ? "text-warn" : "text-line-strong hover:text-warn"
                       }`}
                     >
-                      ★
+                      <Icon
+                        name="star"
+                        className="h-4 w-4"
+                        // Filled when it is a favourite: colour alone did not
+                        // separate the two states for anyone who cannot see it.
+                        fill={hook.favorite ? "currentColor" : "none"}
+                      />
                     </button>
                   </form>
                   <form action={deleteHookAction}>

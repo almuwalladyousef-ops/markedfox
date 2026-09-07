@@ -121,7 +121,24 @@ export function buildContentSecurityPolicy(options: CspOptions): string {
     "worker-src": ["'self'", "blob:"],
     "child-src": ["'self'", "blob:"],
     "manifest-src": ["'self'"],
-    "frame-src": ["'self'"],
+    // The research video page plays the outlier where you are reading about
+    // it, rather than sending you to another tab and losing the analysis.
+    //
+    // Named hosts, never a bare `https:`. An iframe is a document with its own
+    // script execution, so a wildcard here would undo most of the value of the
+    // nonce above — unlike `img-src`, where the worst a wrong host can do is
+    // show the wrong picture.
+    //
+    // youtube-nocookie is the privacy-preserving variant of the same player
+    // and the one to prefer: it sets no tracking cookie until playback starts.
+    // www.youtube.com is listed beside it because the nocookie player itself
+    // redirects there for some videos.
+    "frame-src": [
+      "'self'",
+      "https://www.youtube-nocookie.com",
+      "https://www.youtube.com",
+      "https://www.instagram.com",
+    ],
   };
 
   const serialized = Object.entries(directives).map(

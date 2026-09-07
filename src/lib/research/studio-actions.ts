@@ -55,6 +55,7 @@ import {
   deleteScriptDraft,
   discardAllInbox,
   getHookTemplates,
+  getIdeaForVideo,
   getPersona,
   getScriptDraft,
   saveFilter,
@@ -71,6 +72,7 @@ import {
   type IdeaStatus,
   type ScriptStage,
 } from "./studio-store";
+import { personaLine } from "./studio-types";
 
 // Server actions for the research studio. Same contract as actions.ts: the
 // user's own client so RLS scopes every read and write, `canUserDo` before
@@ -132,13 +134,57 @@ export async function shortlistVideoAction(formData: FormData): Promise<void> {
   revalidatePath(`/dashboard/research/${videoId}`);
 }
 
+/**
+ * Keep a video, without deciding anything about it yet.
+ *
+ * Toggles: pressing Save on something already saved puts it back in the inbox,
+ * because a save button that cannot be undone is a button people stop pressing.
+ * It deliberately does NOT touch a shortlisted or discarded row — those are
+ * later judgements, and quietly demoting one to "saved" would lose a decision
+ * the user made on purpose.
+ */
+export async function saveVideoAction(formData: FormData): Promise<void> {
+  const ctx = await context();
+  if (!ctx) return;
+  const videoId = String(formData.get("video_id") ?? "");
+  if (!UUID.test(videoId)) return;
+
+  const video = await getVideo(ctx.supabase, videoId);
+  if (!video) return;
+
+  const existing = await getIdeaForVideo(ctx.supabase, ctx.active.id, videoId);
+  if (existing && existing.status !== "inbox" && existing.status !== "saved") {
+    return;
+  }
+
+  const breakdownRow = await getBreakdown(ctx.supabase, videoId);
+  const breakdown = breakdownRow ? toBreakdown(breakdownRow) : null;
+
+  const id = await upsertIdea(ctx.supabase, {
+    userId: ctx.user.id,
+    workspaceId: ctx.active.id,
+    videoId,
+    title: breakdown?.ideaSeed ?? breakdown?.uniqueAngle ?? video.title,
+    summary: breakdown?.summary ?? breakdown?.takeaway ?? null,
+  });
+  await setIdeaStatus(
+    ctx.supabase,
+    id,
+    existing?.status === "saved" ? "inbox" : "saved",
+  );
+
+  revalidatePath("/dashboard/research");
+  revalidatePath("/dashboard/research/ideas");
+  revalidatePath(`/dashboard/research/${videoId}`);
+}
+
 export async function setIdeaStatusAction(formData: FormData): Promise<void> {
   const ctx = await context();
   if (!ctx) return;
   const id = String(formData.get("idea_id") ?? "");
   const status = String(formData.get("status") ?? "");
   if (!UUID.test(id)) return;
-  if (!["inbox", "shortlisted", "discarded"].includes(status)) return;
+  if (!["inbox", "saved", "shortlisted", "discarded"].includes(status)) return;
 
   await setIdeaStatus(ctx.supabase, id, status as IdeaStatus);
   revalidatePath("/dashboard/research/ideas");
@@ -473,19 +519,6 @@ async function reserveCredit(
     };
   }
   return { ok: true, reservation };
-}
-
-/** Turn the persona into the sentence every generation prompt ends with. */
-function personaLine(
-  persona: Awaited<ReturnType<typeof getPersona>>,
-): string | null {
-  if (!persona) return null;
-  const bits: string[] = [];
-  if (persona.niche) bits.push(`The channel is about ${persona.niche}.`);
-  if (persona.audience) bits.push(`The audience is ${persona.audience}.`);
-  if (persona.tone) bits.push(`Write in this voice: ${persona.tone}.`);
-  if (persona.avoid) bits.push(`Never do this: ${persona.avoid}.`);
-  return bits.length > 0 ? bits.join(" ") : null;
 }
 
 /** The research stage: a briefing document on the topic. */

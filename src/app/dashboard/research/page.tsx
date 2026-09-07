@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import Link from "next/link";
+
 import { requireUser } from "@/lib/auth/session";
 import {
   Button,
@@ -11,13 +13,14 @@ import {
   PageHeader,
   Pill,
   UpgradeCard,
-  buttonClass,
+  segmentedItem,
+  segmentedTrack,
 } from "@/components/ui";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
 import {
-  SORT_LABELS,
   parseFeedQuery,
+  SORT_LABELS,
   type FeedQuery,
 } from "@/lib/research/feed-query";
 import { configuredModel } from "@/lib/research/generate";
@@ -31,7 +34,7 @@ import {
   deleteSavedFilterAction,
   saveFilterAction,
 } from "@/lib/research/studio-actions";
-import { listSavedFilters } from "@/lib/research/studio-store";
+import { listSavedFilters, savedVideoIds } from "@/lib/research/studio-store";
 import { savedFilterParams } from "@/lib/research/studio-types";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveWorkspace } from "@/lib/workspaces/store";
@@ -82,11 +85,12 @@ export default async function ResearchPage({
     listSavedFilters(supabase, active.id),
   ]);
 
-  // One query for the whole page rather than one per card.
-  const analysed = await breakdownVideoIds(
-    supabase,
-    feed.map((v) => v.id),
-  );
+  // Two queries for the whole page rather than two per card.
+  const videoIds = feed.map((v) => v.id);
+  const [analysed, saved] = await Promise.all([
+    breakdownVideoIds(supabase, videoIds),
+    savedVideoIds(supabase, active.id, videoIds),
+  ]);
 
   const channels: ChannelOption[] = sources.map((source) => ({
     id: source.id,
@@ -168,39 +172,36 @@ export default async function ResearchPage({
             </>
           }
           sort={
-            // Its own GET form so the sort can change without opening the
-            // filter panel; every other parameter rides along as hidden
-            // fields, or sorting would silently clear the filters.
-            <form method="get" className="flex items-center gap-2">
-              {[...currentQuery.entries()]
-                .filter(([key]) => key !== "sort")
-                .map(([key, value], index) => (
-                  <input
-                    key={`${key}-${index}`}
-                    type="hidden"
-                    name={key}
-                    value={value}
-                  />
-                ))}
-              <label className="sr-only" htmlFor="feed-sort">
-                Sort by
-              </label>
-              <select
-                id="feed-sort"
-                name="sort"
-                defaultValue={parsed.form.sort}
-                className="rounded-md border border-line bg-panel px-3 py-1.5 text-[13px] font-semibold text-ink outline-none focus:border-accent"
-              >
-                {(Object.keys(SORT_LABELS) as FeedSort[]).map((key) => (
-                  <option key={key} value={key}>
-                    Sort: {SORT_LABELS[key]}
-                  </option>
-                ))}
-              </select>
-              <button type="submit" className={buttonClass("quiet", "xs")}>
-                Go
-              </button>
-            </form>
+            /* Links, not a <select> with a Go button beside it.
+               The old control needed the form submitted before it applied, so
+               choosing an option did nothing visible — which reads as a broken
+               control, not a two-step one, and nobody presses Go. Links also
+               need no JavaScript to work at all, and each one is a URL you can
+               share or bookmark. */
+            /* Scrolls on a phone. Four options do not fit 390px, and without
+               this the last one ("Most recent") is clipped by the toolbar and
+               cannot be reached at all. */
+            <div className="-mx-1 max-w-full overflow-x-auto px-1">
+              <div className={segmentedTrack}>
+              {(Object.keys(SORT_LABELS) as FeedSort[]).map((key) => {
+                const next = new URLSearchParams(currentQuery);
+                next.set("sort", key);
+                return (
+                  <Link
+                    key={key}
+                    href={`/dashboard/research?${next.toString()}`}
+                    aria-current={parsed.form.sort === key ? "page" : undefined}
+                    className={segmentedItem(
+                      parsed.form.sort === key,
+                      "px-3 py-1 text-[13px] whitespace-nowrap",
+                    )}
+                  >
+                    {SORT_LABELS[key]}
+                  </Link>
+                );
+              })}
+              </div>
+            </div>
           }
           rows={feed.map((video) => ({
             title: video.title,
@@ -295,6 +296,7 @@ export default async function ResearchPage({
                   key={video.id}
                   video={video}
                   analyzed={analysed.has(video.id)}
+                  saved={saved.has(video.id)}
                   query={currentQuery.toString()}
                 />
               ))}

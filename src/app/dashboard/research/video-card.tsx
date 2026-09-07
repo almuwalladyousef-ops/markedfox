@@ -4,6 +4,7 @@ import { Icon } from "@/components/icons";
 import { PlatformTile } from "@/components/platform-icon";
 import { MetricPills, Pill, cx } from "@/components/ui";
 import { scoreTier } from "@/lib/research/outlier";
+import { saveVideoAction } from "@/lib/research/studio-actions";
 import type { Platform } from "@/lib/platforms/types";
 import type { FeedVideo } from "@/lib/research/store";
 
@@ -31,10 +32,13 @@ function relativeAge(iso: string | null): string {
 export function VideoCard({
   video,
   analyzed,
+  saved,
   query,
 }: {
   video: FeedVideo;
   analyzed: boolean;
+  /** Kept for later, without any judgement about whether it is worth making. */
+  saved: boolean;
   /** The feed's current query string, carried into the detail page so its
    *  prev/next arrows walk the list the user was actually looking at. */
   query?: string;
@@ -64,7 +68,20 @@ export function VideoCard({
             : "border-line",
       )}
     >
-      <div className="relative aspect-[4/5] w-full overflow-hidden bg-chip shell:aspect-[9/16] shell:max-h-[260px]">
+      {/* The card is one link, stretched over the whole tile.
+          It used to be three separate targets — the title, and two buttons in
+          a sheet that only appeared on hover — so clicking the thumbnail, which
+          is the biggest and most obvious thing on the card, did nothing at all.
+          `absolute inset-0` on an anchor under the content is the version that
+          keeps the "play in new tab" anchor clickable above it; wrapping the
+          card in an <a> would nest one anchor inside another. */}
+      <Link
+        href={href}
+        aria-label={`Open ${video.title}`}
+        className="absolute inset-0 z-0"
+      />
+
+      <div className="pointer-events-none relative aspect-[4/5] w-full overflow-hidden bg-chip shell:aspect-[9/16] shell:max-h-[260px]">
         {video.thumbnail_url ? (
           /* A plain <img>: these thumbnails come from four platforms' CDNs on
              hosts that change, and next/image would need every one whitelisted
@@ -94,39 +111,75 @@ export function VideoCard({
           </span>
         ) : null}
 
+        {/* Save sits on the thumbnail and is always visible, not only on
+            hover: it is the one thing you want to do while scrolling past,
+            and a control that appears under the pointer cannot be found on a
+            phone at all. */}
+        <form
+          action={saveVideoAction}
+          className="pointer-events-auto absolute top-2 left-2 z-10"
+          style={analyzed ? { top: "2.25rem" } : undefined}
+        >
+          <input type="hidden" name="video_id" value={video.id} />
+          <button
+            type="submit"
+            aria-label={saved ? `Unsave ${video.title}` : `Save ${video.title}`}
+            title={saved ? "Saved" : "Save"}
+            className={cx(
+              "flex h-7 w-7 items-center justify-center rounded-full border transition-colors duration-110",
+              saved
+                ? "border-transparent bg-warn text-white"
+                : "border-white/30 bg-black/55 text-white hover:bg-black/75",
+            )}
+          >
+            <Icon
+              name="star"
+              className="h-3.5 w-3.5"
+              fill={saved ? "currentColor" : "none"}
+            />
+          </button>
+        </form>
+
         {/* The hover sheet. Both actions are links rather than buttons so a
             middle-click opens them in a tab, which is how people actually work
             through a feed. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden translate-y-2 gap-1.5 bg-gradient-to-t from-black/90 to-transparent p-2 opacity-0 transition-[opacity,translate] duration-160 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 shell:flex">
-          <Link
-            href={href}
-            className="flex-1 rounded-md bg-accent px-2.5 py-2 text-center text-[13px] font-semibold text-accent-ink"
+        {/* Orange is "there is work to do here". An analysed video has had its
+            work done, so its call to action goes quiet and the green pill above
+            carries the state instead. Both used to be accent, which made a
+            worked-through feed look exactly like an untouched one. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden translate-y-2 gap-1.5 bg-gradient-to-t from-black/90 to-transparent p-2 opacity-0 transition-[opacity,translate] duration-160 group-hover:translate-y-0 group-hover:opacity-100 shell:flex">
+          <span
+            className={cx(
+              "flex-1 rounded-md px-2.5 py-2 text-center text-[13px] font-semibold",
+              analyzed
+                ? "border border-white/30 bg-black/60 text-white"
+                : "bg-accent text-accent-ink",
+            )}
           >
             {analyzed ? "Open analysis" : "Analyze video"}
-          </Link>
+          </span>
           <a
             href={video.url}
             target="_blank"
             rel="noreferrer"
             title="Play in new tab"
             aria-label="Play in new tab"
-            className="flex items-center rounded-md border border-white/30 bg-black/60 px-2.5 text-white"
+            className="pointer-events-auto relative z-10 flex items-center rounded-md border border-white/30 bg-black/60 px-2.5 text-white"
           >
             <Icon name="external" className="h-3.5 w-3.5" />
           </a>
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 px-4 py-3.5 shell:px-3.5 shell:py-3">
-        <Link
-          href={href}
+      <div className="pointer-events-none relative flex flex-1 flex-col gap-2 px-4 py-3.5 shell:px-3.5 shell:py-3">
+        <p
           title={video.title}
           // Two lines on a phone, one on the grid tile. A feed card that
           // truncates the title at 340px wide is a feed of ellipses.
-          className="line-clamp-2 text-[15px]/[21px] font-semibold text-pretty text-ink hover:underline shell:truncate shell:text-[14px]"
+          className="line-clamp-2 text-[15px]/[21px] font-semibold text-pretty text-ink group-hover:underline shell:truncate shell:text-[14px]"
         >
           {video.title}
-        </Link>
+        </p>
         <p className="truncate text-[13px] text-faint shell:text-[12.5px]">
           {video.source.handle ? `@${video.source.handle}` : video.source.title}
           {video.published_at ? ` · ${relativeAge(video.published_at)}` : ""}
@@ -145,10 +198,15 @@ export function VideoCard({
         {/* The touch half of the hover sheet above. Both are links so a
             long-press offers "open in new tab", which is how people work
             through a feed on a phone too. */}
-        <div className="flex gap-2 pt-1 shell:hidden">
+        <div className="pointer-events-auto relative z-10 flex gap-2 pt-1 shell:hidden">
           <Link
             href={href}
-            className="flex min-h-[44px] flex-1 items-center justify-center rounded-lg bg-accent px-3 text-[14px] font-semibold text-accent-ink transition-transform duration-110 active:scale-[0.97]"
+            className={cx(
+              "flex min-h-[44px] flex-1 items-center justify-center rounded-lg px-3 text-[14px] font-semibold transition-transform duration-110 active:scale-[0.97]",
+              analyzed
+                ? "border border-line text-ink"
+                : "bg-accent text-accent-ink",
+            )}
           >
             {analyzed ? "Open analysis" : "Analyze video"}
           </Link>

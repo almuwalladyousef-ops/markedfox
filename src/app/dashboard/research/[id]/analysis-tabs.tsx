@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { Icon, type IconName } from "@/components/icons";
 import { Pill } from "@/components/ui";
 import { HOOK_TYPE_LABELS, type Breakdown } from "@/lib/research/breakdown";
 
@@ -14,12 +15,12 @@ import { HOOK_TYPE_LABELS, type Breakdown } from "@/lib/research/breakdown";
 // find it.
 
 const TABS = [
-  { id: "transcript", label: "Transcript", icon: "🎙" },
-  { id: "idea", label: "Idea analysis", icon: "⚗" },
-  { id: "hook", label: "Hook", icon: "⚿" },
-  { id: "format", label: "Storytelling format", icon: "▦" },
-  { id: "visual", label: "Visual layout", icon: "🎞" },
-] as const;
+  { id: "transcript", label: "Transcript", icon: "mic" },
+  { id: "idea", label: "Idea analysis", icon: "flask" },
+  { id: "hook", label: "Hook", icon: "key" },
+  { id: "format", label: "Storytelling format", icon: "layout" },
+  { id: "visual", label: "Visual layout", icon: "filmstrip" },
+] as const satisfies readonly { id: string; label: string; icon: IconName }[];
 
 type TabId = (typeof TABS)[number]["id"];
 
@@ -54,7 +55,7 @@ export function AnalysisTabs({
                   : "text-muted hover:text-ink"
               }`}
             >
-              <span aria-hidden>{item.icon}</span>
+              <Icon name={item.icon} className="h-4 w-4" />
               {item.label}
             </button>
           ))}

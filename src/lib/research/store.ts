@@ -6,7 +6,11 @@ import { getFreshConnectionTokens } from "@/lib/connections/store";
 
 import type { Breakdown } from "./breakdown";
 import type { StoredSource, SyncStore, VideoUpsert } from "./sync";
-import type { ProviderContext, ResearchPlatform } from "./types";
+import type {
+  ProviderContext,
+  ResearchPlatform,
+  StoredTranscriptOrigin,
+} from "./types";
 
 // The Supabase side of research. Everything here runs through whichever client
 // it is handed: the user's own client from a server action (so RLS scopes it),
@@ -40,6 +44,7 @@ export interface VideoRow {
   url: string;
   thumbnail_url: string | null;
   published_at: string | null;
+  media_url: string | null;
   duration_seconds: number | null;
   view_count: number | null;
   like_count: number | null;
@@ -55,7 +60,7 @@ const SOURCE_COLUMNS =
   "id,user_id,workspace_id,platform,external_id,handle,title,thumbnail_url,follower_count,connection_id,baseline_views,baseline_sample,last_synced_at,last_error,created_at";
 
 const VIDEO_COLUMNS =
-  "id,source_id,external_id,title,description,url,thumbnail_url,published_at,duration_seconds,view_count,like_count,comment_count,outlier_score,baseline_views,engagement_rate";
+  "id,source_id,external_id,title,description,url,thumbnail_url,media_url,published_at,duration_seconds,view_count,like_count,comment_count,outlier_score,baseline_views,engagement_rate";
 
 export async function listSources(
   supabase: SupabaseClient,
@@ -158,6 +163,10 @@ export interface FeedFilters {
   postedWithinDays?: number;
   /** Undefined = both. True = only broken down, false = only not. */
   analyzed?: boolean;
+  /** Only videos the user pressed Save on. Same shape as `analyzed`: the set
+   *  lives in another table, so it is resolved to ids before the page query
+   *  rather than filtered after it. */
+  saved?: boolean;
   sort?: FeedSort;
   limit?: number;
 }
@@ -260,6 +269,12 @@ export async function listFeed(
     }
   }
 
+  if (filters.saved) {
+    const ids = await workspaceSavedVideoIds(supabase, workspaceId);
+    if (ids.length === 0) return [];
+    query = query.in("id", ids);
+  }
+
   if (filters.keywords) {
     // Escape the PostgREST `or` list separators before interpolating a user
     // string into it, or a comma in someone's search turns into a second filter.
@@ -282,6 +297,23 @@ export async function listFeed(
 
 /** Every video in this workspace that has a breakdown. Bounded by credits
  *  spent, so this is hundreds of ids rather than an unbounded scan. */
+/** The videos this workspace has saved. Bounded by how many a person presses
+ *  Save on, so it is a list rather than a join. */
+async function workspaceSavedVideoIds(
+  supabase: SupabaseClient,
+  workspaceId: string,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("research_ideas")
+    .select("video_id")
+    .eq("workspace_id", workspaceId)
+    .eq("status", "saved");
+  if (error) throw error;
+  return (data ?? [])
+    .map((row) => (row as { video_id: string | null }).video_id)
+    .filter((id): id is string => Boolean(id));
+}
+
 async function workspaceBreakdownVideoIds(
   supabase: SupabaseClient,
   workspaceId: string,
@@ -328,7 +360,7 @@ export async function saveTranscript(
     workspaceId: string;
     text: string;
     language: string | null;
-    origin: "captions" | "unavailable";
+    origin: StoredTranscriptOrigin;
   },
 ): Promise<void> {
   const { error } = await supabase.from("research_transcripts").upsert(
@@ -453,6 +485,7 @@ export function createSyncStore(supabase: SupabaseClient): SyncStore {
           description: row.description,
           url: row.url,
           thumbnail_url: row.thumbnailUrl,
+          media_url: row.mediaUrl,
           published_at: row.publishedAt,
           duration_seconds: row.durationSeconds,
           view_count: row.viewCount,
@@ -850,7 +883,7 @@ export async function saveLinkTranscript(
     title: string | null;
     text: string;
     language: string | null;
-    origin: "captions" | "unavailable";
+    origin: StoredTranscriptOrigin;
   },
 ): Promise<void> {
   const { error } = await supabase.from("research_link_transcripts").upsert(

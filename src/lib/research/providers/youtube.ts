@@ -14,6 +14,7 @@
 
 import { requireEnv } from "@/lib/env";
 
+import { fetchYouTubeTranscript } from "../transcribe/youtube-captions";
 import {
   ResearchProviderError,
   type ProviderContext,
@@ -330,6 +331,8 @@ async function listVideos(
           item.snippet?.thumbnails?.medium?.url ??
           item.snippet?.thumbnails?.default?.url ??
           null,
+        // YouTube serves real caption tracks, so it never needs the file.
+        mediaUrl: null,
         publishedAt: item.snippet?.publishedAt ?? null,
         durationSeconds: parseIsoDuration(item.contentDetails?.duration),
         viewCount: num(item.statistics?.viewCount),
@@ -347,42 +350,12 @@ async function listVideos(
 // remains; it is undocumented and frequently serves nothing. So this returns
 // origin 'unavailable' rather than throwing, and the caller records that fact
 // so the UI stops offering a button that cannot work for this video.
+/** Delegates to the InnerTube caption path — see that module for why the
+ *  obvious `api/timedtext` call does not work any more. */
 async function fetchTranscript(video: {
   externalId: string;
 }): Promise<TranscriptResult> {
-  const url = new URL("https://www.youtube.com/api/timedtext");
-  url.searchParams.set("v", video.externalId);
-  url.searchParams.set("lang", "en");
-  url.searchParams.set("fmt", "json3");
-
-  try {
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    if (!response.ok) return unavailable();
-    const body = await response.text();
-    if (!body.trim()) return unavailable();
-
-    const parsed = JSON.parse(body) as {
-      events?: { segs?: { utf8?: string }[] }[];
-    };
-    const text = (parsed.events ?? [])
-      .flatMap((event) => event.segs ?? [])
-      .map((seg) => seg.utf8 ?? "")
-      .join("")
-      .replace(/\n+/g, " ")
-      .replace(/\s{2,}/g, " ")
-      .trim();
-
-    if (!text) return unavailable();
-    return { text, language: "en", origin: "captions" };
-  } catch {
-    return unavailable();
-  }
-}
-
-function unavailable(): TranscriptResult {
-  return { text: "", language: null, origin: "unavailable" };
+  return fetchYouTubeTranscript(video.externalId);
 }
 
 export const youtubeResearch: ResearchProvider = {

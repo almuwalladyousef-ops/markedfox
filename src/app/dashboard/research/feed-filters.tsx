@@ -7,10 +7,8 @@ import { Icon } from "@/components/icons";
 import { Button, Eyebrow, cx, inputClass } from "@/components/ui";
 import {
   FEED_DEFAULTS,
-  SORT_LABELS,
   type ParsedFeedQuery,
 } from "@/lib/research/feed-query";
-import type { FeedSort } from "@/lib/research/store";
 
 // The filter panel. A plain GET form: submitting it puts every control in the
 // URL, which is what makes a filtered feed shareable and a saved filter a
@@ -236,23 +234,25 @@ export function FeedFilters({
             />
             Unanalyzed
           </label>
+          {/* Not a third value in the group above: "have I looked at this" and
+              "did I keep it" are both true of the same video, so they are two
+              questions rather than three answers to one. */}
+          <label className="flex items-center gap-2 border-t border-line pt-2">
+            <input
+              type="checkbox"
+              name="saved"
+              value="1"
+              defaultChecked={form.saved}
+              className="h-[15px] w-[15px] accent-[var(--accent)]"
+            />
+            Saved only
+          </label>
         </div>
       </fieldset>
 
-      <label className="block">
-        <span className="text-[13px] font-semibold text-muted">Sort by</span>
-        <select
-          name="sort"
-          defaultValue={form.sort}
-          className={cx(inputClass, "mt-2")}
-        >
-          {(Object.keys(SORT_LABELS) as FeedSort[]).map((key) => (
-            <option key={key} value={key}>
-              {SORT_LABELS[key]}
-            </option>
-          ))}
-        </select>
-      </label>
+      {/* Sort lives in the toolbar, not in here. It was in both, and the
+          panel's copy needed the form submitted before it applied — so the
+          two controls disagreed until you pressed a button. */}
 
       <Button type="submit" tone="primary" size="sm">
         Apply

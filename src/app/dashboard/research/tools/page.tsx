@@ -7,6 +7,7 @@ import {
   PageHeader,
 } from "@/components/ui";
 import { LocalTime } from "@/components/local-time";
+import { Markdown } from "@/components/markdown";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
@@ -109,9 +110,10 @@ export default async function ResearchToolsPage() {
                   {script.topic ? ` · ${script.topic}` : ""} ·{" "}
                   <LocalTime value={script.created_at} />
                 </p>
-                <pre className="mt-2 whitespace-pre-wrap font-sans text-[14.5px] leading-relaxed text-ink">
-                  {script.output}
-                </pre>
+                {/* The transcript above stays pre-wrapped — it is a
+                    verbatim record and its line breaks are the data. This is
+                    model output, which arrives as markdown. */}
+                <Markdown className="mt-2">{script.output}</Markdown>
               </li>
             ))}
           </ul>

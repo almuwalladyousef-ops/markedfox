@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Icon } from "@/components/icons";
+import { Markdown } from "@/components/markdown";
 import {
   Card,
   CardTitle,
@@ -20,10 +21,10 @@ import { LocalTime } from "@/components/local-time";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
-import { fetchTranscriptAction } from "@/lib/research/actions";
 import { exportAnalysis } from "@/lib/research/export";
 import { parseFeedQuery, type FeedQuery } from "@/lib/research/feed-query";
 import { configuredModel } from "@/lib/research/generate";
+import { usableTranscript } from "@/lib/research/transcribe";
 import { describeScore } from "@/lib/research/outlier";
 import { getResearchProvider } from "@/lib/research/providers";
 import {
@@ -45,8 +46,10 @@ import { getActiveWorkspace } from "@/lib/workspaces/store";
 
 import { ActionStack } from "./action-stack";
 import { AnalysisTabs } from "./analysis-tabs";
+import { AnalyzeButton } from "./analyze-button";
 import { BreakdownPanel } from "./breakdown-panel";
 import { GeneratePanel } from "./generate-panel";
+import { VideoPlayer } from "./video-player";
 
 export const metadata: Metadata = { title: "Video · MarkedFox" };
 
@@ -110,14 +113,17 @@ export default async function ResearchVideoPage({
   const score =
     video.outlier_score === null ? null : Number(video.outlier_score);
 
-  const transcriptText =
-    transcript?.origin === "captions" ? transcript.text : null;
-  const transcriptNote =
-    transcript?.origin === "unavailable"
-      ? "This video has no captions to pull. The breakdown still works from the title, description, and how it performed."
+  const transcriptText = usableTranscript(transcript);
+  // Said BEFORE the button is pressed, not discovered afterwards. Everything
+  // here is about the video or the platform — never about our configuration,
+  // which is not the customer's problem to read about.
+  const transcriptNote = transcriptText
+    ? null
+    : transcript?.origin === "none"
+      ? "There are no words to pull from this one — the analysis works from the title, the description and how it performed."
       : !transcriptsPossible
-        ? `${source?.platform ?? "This platform"} serves no transcripts through its API.`
-        : "No transcript pulled yet.";
+        ? `${PLATFORM_WORDS[source?.platform ?? ""] ?? "This platform"} gives no way to read what was said, so the analysis works from the title, the description and how it performed.`
+        : null;
 
   return (
     <Page width="max-w-[1160px]">
@@ -162,157 +168,195 @@ export default async function ResearchVideoPage({
         </div>
       </div>
 
-      {/* A wrapping flex row with a floor on each pane rather than a grid —
-          see the note in the Ideas triage for what the grid track did at
-          around 920px. */}
-      <TwoPane>
-        <div className="flex min-w-[250px] flex-[0_1_288px] flex-col gap-4">
-          <Card className="overflow-hidden p-0">
-            <div className="relative aspect-[9/16] w-full bg-chip">
-              {video.thumbnail_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={video.thumbnail_url}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              ) : null}
-              <a
-                href={video.url}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="absolute inset-0 flex items-center justify-center bg-black/30 text-white/80 opacity-0 transition-[opacity] duration-110 hover:opacity-100"
-                aria-label="Play on the platform"
-              >
-                <Icon name="play" className="h-11 w-11" strokeWidth={1.4} />
-              </a>
-            </div>
-            <div className="flex flex-col gap-2 p-3">
-              <MetricPills
-                score={score === null ? null : `${score.toFixed(1)}x`}
-                views={video.view_count}
-                engagement={
-                  video.engagement_rate === null
-                    ? null
-                    : Number(video.engagement_rate)
-                }
-                viewsLabel={
-                  source?.platform === "instagram" ? "likes" : "views"
-                }
+      {/* Before it is analysed this page is three things: the video, its
+          numbers, and one button. It used to render five panels of empty
+          affordances — tabs with nothing in them, a generator warning that it
+          had no breakdown to work from, a free "fetch transcript" step nobody
+          pressed. All of it was scaffolding for work that had not happened,
+          and it made a video look like a form to fill in. */}
+      {breakdown ? (
+        <TwoPane>
+          <div className="flex min-w-[250px] flex-[0_1_288px] flex-col gap-4">
+            <VideoPlayer
+              platform={source?.platform ?? "unknown"}
+              url={video.url}
+              thumbnailUrl={video.thumbnail_url}
+              title={video.title}
+            />
+
+            <Card>
+              <Numbers
+                score={score}
+                video={video}
+                platform={source?.platform ?? null}
+                baselineSample={source?.baseline_sample ?? 0}
               />
-              <p className="font-display text-[14px] font-bold text-ok">
-                {describeScore(score, source?.baseline_sample ?? 0)}
-              </p>
-              {video.baseline_views !== null ? (
-                <p className="text-[13px] text-faint">
-                  This channel normally does {formatCount(video.baseline_views)}.
+            </Card>
+
+            <ActionStack
+              videoId={id}
+              videoUrl={video.url}
+              breakdown={breakdown}
+              transcript={transcriptText}
+              projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+              hookSaved={hookSaved}
+              shortlisted={idea?.status === "shortlisted"}
+              exportText={exportAnalysis({
+                title: video.title,
+                url: video.url,
+                channel: source?.title ?? "Unknown channel",
+                platform: source?.platform ?? "unknown",
+                score,
+                baselineViews: video.baseline_views,
+                views: video.view_count,
+                breakdown,
+                transcript: transcriptText,
+              })}
+            />
+          </div>
+
+          <div className="flex min-w-[min(100%,440px)] flex-[1_1_480px] flex-col gap-4">
+            {breakdown.summary ? (
+              <Card>
+                <CardTitle>Summary</CardTitle>
+                <p className="mt-2 text-[14px]/[21px] text-muted">
+                  {breakdown.summary}
                 </p>
-              ) : null}
-            </div>
+              </Card>
+            ) : null}
+
+            <AnalysisTabs
+              breakdown={breakdown}
+              transcript={transcriptText}
+              transcriptNote={transcriptNote}
+            />
+
+            <BreakdownPanel
+              videoId={id}
+              breakdown={breakdown}
+              enabled={configuredModel() !== null}
+              creditsLeft={creditsLeft}
+              hasTranscript={transcriptText !== null}
+            />
+
+            <GeneratePanel
+              videoId={id}
+              enabled={configuredModel() !== null}
+              creditsLeft={creditsLeft}
+              hasBreakdown
+            />
+
+            {idea && idea.status === "discarded" ? (
+              <Notice tone="neutral">
+                This one was discarded from the idea inbox. Shortlisting it puts
+                it back.
+              </Notice>
+            ) : null}
+
+            {forThisVideo.length > 0 ? (
+              <section>
+                <h2 className="text-[14.5px] font-semibold">
+                  Generated from this video
+                </h2>
+                <ul className="mt-3 flex flex-col gap-3">
+                  {forThisVideo.map((script) => (
+                    <li
+                      key={script.id}
+                      className="rounded-lg border border-line bg-panel p-4"
+                    >
+                      <p className="flex items-center gap-2 text-[13px] text-faint">
+                        <Pill>{script.kind}</Pill>
+                        {script.topic ? script.topic : null}
+                        <span className="ml-auto">
+                          <LocalTime value={script.created_at} mode="date" />
+                        </span>
+                      </p>
+                      {/* The model answers in markdown, so a heading used to
+                          arrive as "## Hook" and a bolded beat with its
+                          asterisks showing. */}
+                      <Markdown className="mt-2">{script.output}</Markdown>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </div>
+        </TwoPane>
+      ) : (
+        <div className="mx-auto flex w-full max-w-[520px] flex-col gap-5 py-2">
+          <VideoPlayer
+            platform={source?.platform ?? "unknown"}
+            url={video.url}
+            thumbnailUrl={video.thumbnail_url}
+            title={video.title}
+          />
+
+          <Card>
+            <Numbers
+              score={score}
+              video={video}
+              platform={source?.platform ?? null}
+              baselineSample={source?.baseline_sample ?? 0}
+            />
           </Card>
 
-          <ActionStack
+          <AnalyzeButton
             videoId={id}
-            videoUrl={video.url}
-            breakdown={breakdown}
-            transcript={transcriptText}
-            projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-            hookSaved={hookSaved}
-            shortlisted={idea?.status === "shortlisted"}
-            exportText={exportAnalysis({
-              title: video.title,
-              url: video.url,
-              channel: source?.title ?? "Unknown channel",
-              platform: source?.platform ?? "unknown",
-              score,
-              baselineViews: video.baseline_views,
-              views: video.view_count,
-              breakdown,
-              transcript: transcriptText,
-            })}
-          />
-
-          {!transcriptText && transcriptsPossible && !transcript ? (
-            <form action={fetchTranscriptAction}>
-              <input type="hidden" name="video_id" value={id} />
-              <button
-                type="submit"
-                className="w-full rounded-md border border-line-strong bg-panel px-3 py-2 text-[14px] text-ink transition-colors hover:border-accent hover:text-accent"
-              >
-                Fetch transcript
-                <span className="ml-2 text-[13px] text-faint">Free</span>
-              </button>
-            </form>
-          ) : null}
-        </div>
-
-        <div className="flex min-w-[min(100%,440px)] flex-[1_1_480px] flex-col gap-4">
-          {breakdown?.summary ? (
-            <Card>
-              <CardTitle>Summary</CardTitle>
-              <p className="mt-2 text-[14px]/[21px] text-muted">
-                {breakdown.summary}
-              </p>
-            </Card>
-          ) : null}
-
-          <AnalysisTabs
-            breakdown={breakdown}
-            transcript={transcriptText}
+            enabled={configuredModel() !== null}
+            creditsLeft={creditsLeft}
             transcriptNote={transcriptNote}
           />
-
-          <BreakdownPanel
-            videoId={id}
-            breakdown={breakdown}
-            enabled={configuredModel() !== null}
-            creditsLeft={creditsLeft}
-            hasTranscript={transcript?.origin === "captions"}
-          />
-
-          <GeneratePanel
-            videoId={id}
-            enabled={configuredModel() !== null}
-            creditsLeft={creditsLeft}
-            hasBreakdown={breakdown !== null}
-          />
-
-          {idea && idea.status === "discarded" ? (
-            <Notice tone="neutral">
-              This one was discarded from the idea inbox. Shortlisting it puts it
-              back.
-            </Notice>
-          ) : null}
-
-          {forThisVideo.length > 0 ? (
-            <section>
-              <h2 className="text-[14.5px] font-semibold">Generated from this video</h2>
-              <ul className="mt-3 flex flex-col gap-3">
-                {forThisVideo.map((script) => (
-                  <li
-                    key={script.id}
-                    className="rounded-lg border border-line bg-panel p-4"
-                  >
-                    <p className="flex items-center gap-2 text-[13px] text-faint">
-                      <Pill>{script.kind}</Pill>
-                      {script.topic ? script.topic : null}
-                      <span className="ml-auto">
-                        <LocalTime value={script.created_at} mode="date" />
-                      </span>
-                    </p>
-                    <pre className="mt-2 font-sans text-[14.5px] leading-relaxed whitespace-pre-wrap text-ink">
-                      {script.output}
-                    </pre>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
         </div>
-      </TwoPane>
+      )}
+
     </Page>
   );
 }
+
+/** The same figures either side of the analysis. Extracted rather than
+ *  duplicated: two copies of a metric block is how one of them ends up saying
+ *  "views" on a platform that only reports likes. */
+function Numbers({
+  score,
+  video,
+  platform,
+  baselineSample,
+}: {
+  score: number | null;
+  video: { view_count: number | null; engagement_rate: unknown; baseline_views: number | null };
+  platform: string | null;
+  baselineSample: number;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <MetricPills
+        score={score === null ? null : `${score.toFixed(1)}x`}
+        views={video.view_count}
+        engagement={
+          video.engagement_rate === null ? null : Number(video.engagement_rate)
+        }
+        viewsLabel={platform === "instagram" ? "likes" : "views"}
+      />
+      <p className="font-display text-[14px] font-bold text-ok">
+        {describeScore(score, baselineSample)}
+      </p>
+      {video.baseline_views !== null ? (
+        <p className="text-[13px] text-faint">
+          This channel normally does {formatCount(video.baseline_views)}.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** How a platform is named in a sentence to a customer. The registry keys are
+ *  lowercase ids, and "instagram serves no transcripts" reads like a bug. */
+const PLATFORM_WORDS: Record<string, string> = {
+  youtube: "YouTube",
+  instagram: "Instagram",
+  tiktok: "TikTok",
+  x: "X",
+};
 
 function NeighborLink({
   href,

@@ -194,6 +194,10 @@ async function listVideos(
         description: description || null,
         url: node.share_url ?? `https://www.tiktok.com/video/${node.id}`,
         thumbnailUrl: node.cover_image_url ?? null,
+        // video.list returns a share page, never the file itself, so there is
+        // no route to a TikTok transcript at all — not a missing feature, a
+        // missing API.
+        mediaUrl: null,
         // create_time is Unix seconds.
         publishedAt: node.create_time
           ? new Date(node.create_time * 1000).toISOString()

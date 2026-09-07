@@ -10,7 +10,20 @@ import type { ResearchPlatform } from "./types";
 
 // ── ideas ──────────────────────────────────────────────────────────────────
 
-export type IdeaStatus = "inbox" | "shortlisted" | "discarded";
+/**
+ * Where a video sits in the user's own head.
+ *
+ *   inbox        analysed, not yet judged
+ *   saved        keep this where I can find it
+ *   shortlisted  I intend to make this
+ *   discarded    no
+ *
+ * `saved` is earlier and softer than `shortlisted`, and it is a different
+ * thought: a shortlist is a commitment, and people would not use one as a
+ * bookmark. It rides on this row rather than on a table of its own, because a
+ * video already has exactly one of these per workspace.
+ */
+export type IdeaStatus = "inbox" | "saved" | "shortlisted" | "discarded";
 
 export interface IdeaRow {
   id: string;
@@ -104,6 +117,26 @@ export interface PersonaRow {
   audience: string | null;
   tone: string | null;
   avoid: string | null;
+}
+
+/**
+ * The persona as one sentence for a prompt.
+ *
+ * Lives here rather than in studio-actions.ts because that file is
+ * "use server", where every export becomes a callable server action — and
+ * because this was reaching only three of the five places that generate text.
+ * The video page's "Write from this video", which is the one people actually
+ * use, never saw the persona at all: a user filled the form in, saw nothing
+ * change, and concluded the feature was decorative.
+ */
+export function personaLine(persona: PersonaRow | null): string | null {
+  if (!persona) return null;
+  const bits: string[] = [];
+  if (persona.niche) bits.push(`The channel is about ${persona.niche}.`);
+  if (persona.audience) bits.push(`The audience is ${persona.audience}.`);
+  if (persona.tone) bits.push(`Write in this voice: ${persona.tone}.`);
+  if (persona.avoid) bits.push(`Never do this: ${persona.avoid}.`);
+  return bits.length > 0 ? bits.join(" ") : null;
 }
 
 // ── script drafts ──────────────────────────────────────────────────────────

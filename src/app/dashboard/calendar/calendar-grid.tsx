@@ -863,7 +863,7 @@ function PostDetail({
             aria-label="Close"
             className="shrink-0 rounded-lg px-2 py-1 text-muted transition-colors hover:bg-chip hover:text-ink"
           >
-            ✕
+            <Icon name="close" className="h-4 w-4" />
           </button>
         </div>
 

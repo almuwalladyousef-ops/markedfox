@@ -13,12 +13,14 @@
 //     LIKES, not views — which is why SourceVideo.viewCount carries likes for
 //     this platform and the UI says "likes" wherever it says "views" elsewhere.
 
+import { transcribeFromMediaUrl } from "../transcribe/groq-whisper";
 import {
   ResearchProviderError,
   type ProviderContext,
   type ResearchProvider,
   type SourceIdentity,
   type SourceVideo,
+  type TranscriptResult,
 } from "../types";
 
 const GRAPH = "https://graph.facebook.com/v26.0";
@@ -185,6 +187,9 @@ async function listVideos(
       description: caption || null,
       url: node.permalink ?? `https://www.instagram.com/p/${node.id}/`,
       thumbnailUrl: node.thumbnail_url ?? node.media_url ?? null,
+      // The actual file. Instagram serves no captions, so this is the only
+      // route to a transcript here — we listen to it rather than read it.
+      mediaUrl: node.media_url ?? null,
       publishedAt: node.timestamp ?? null,
       durationSeconds: null,
       // Business discovery gives no view counts. Likes stand in as the
@@ -196,6 +201,22 @@ async function listVideos(
   });
 }
 
+/** No captions anywhere in the Instagram API, at any version. What there IS is
+ *  the file, so this listens to it. A post with no `media_url` (a plain photo,
+ *  or an expired signed URL) reports that plainly rather than failing. */
+async function fetchTranscript(video: {
+  mediaUrl?: string | null;
+}): Promise<TranscriptResult> {
+  if (!video.mediaUrl) {
+    return {
+      text: "",
+      language: null,
+      origin: "none",
+    };
+  }
+  return transcribeFromMediaUrl(video.mediaUrl);
+}
+
 export const instagramResearch: ResearchProvider = {
   platform: "instagram",
   label: "Instagram",
@@ -205,9 +226,13 @@ export const instagramResearch: ResearchProvider = {
     requiresConnection: true,
     ownContentOnly: false,
     meteredReads: false,
-    transcripts: false,
+    // Not because Instagram serves captions — it serves none. The media edge
+    // returns the video file itself, so the transcript is produced from the
+    // audio instead of fetched.
+    transcripts: true,
   },
   requiredEnv: [],
   resolveSource,
   listVideos,
+  fetchTranscript,
 };

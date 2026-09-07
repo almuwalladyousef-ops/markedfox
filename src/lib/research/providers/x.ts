@@ -151,6 +151,9 @@ async function listVideos(
       description: text || null,
       url: `https://x.com/${handle || "i"}/status/${post.id}`,
       thumbnailUrl: null,
+      // Reaching the media variants is another metered read per post, and X
+      // is the one platform that bills us for reading. No file, no transcript.
+      mediaUrl: null,
       publishedAt: post.created_at ?? null,
       durationSeconds: null,
       // impression_count is only present for posts the token's own app can see
