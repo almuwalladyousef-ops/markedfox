@@ -432,17 +432,34 @@ Supabase under the role account matters more than any other account decision her
 
 | | **Free** | **Starter $8/mo** | **Pro $20/mo** | **Studio $49/mo** | **Enterprise** |
 |---|---|---|---|---|---|
-| **Workspaces** | 2 | 2 | 5 | 10 | Unlimited |
+| **Workspaces** | 1 | 2 | 5 | 10 | Unlimited |
 | **Accounts per workspace** | 3 | Unlimited | Unlimited | Unlimited | Unlimited |
 | Posts *(pooled)* | 2/day | Unlimited | Unlimited | Unlimited | Unlimited |
+| Drafts | ✗ | Text only | ✓ | ✓ | ✓ |
 | Scheduling | ✗ | ✗ | ✓ | ✓ | ✓ |
 | Video upload | 1GB short · 256GB long | 1GB short · 256GB long | 1GB short · 256GB long | 1GB short · 256GB long | Raised |
-| Platforms | Instagram, Facebook, Threads, TikTok, YouTube | All except X | All | All | All |
-| X *(pooled)* | ✗ | ✗ | 300/mo, no external links | 300/mo, no external links | Raised |
+| Platforms | All except X | All except X | All | All | All |
+| X *(pooled)* | ✗ | ✗ | 300/mo, no external links | 400/mo, no external links | Raised |
 | DM rules *(pooled)* | 1 | Unlimited | Unlimited | Unlimited | Raised |
-| DM sends *(pooled)* | 200/mo | 5,000/mo | 10,000/mo | 10,000/mo | Raised |
+| DM sends *(pooled)* | 200/mo | 5,000/mo | 10,000/mo | 15,000/mo | Raised |
 | Research credits *(pooled)* | ✗ | ✗ | ✗ | Credit allowance | Raised |
 | Funnels *(post-launch)* | ✗ | ✗ | ✓ | ✓ | ✓ |
+
+**Drafts are a ladder, not a feature everyone has (owner decision,
+2026-09-07)** — `none` on Free, `text` on Starter, `any` on Pro and above. The
+two halves of a draft cost different amounts: media sits in R2 until the post
+goes out or the draft is deleted, which is the same open-ended storage that
+made scheduling paid, while a caption is a few hundred bytes. One string rather
+than two booleans, because two flags can contradict each other and a ladder
+cannot. A missing key reads as `any`, exactly as `scheduling` defaults to true.
+
+**The plan cards state their limits and never justify them (owner decision,
+2026-09-07).** Every line used to carry its reason — why X is capped, why a
+scheduled video waits in storage — and the pricing page had a whole "Why is X
+different?" panel. Those are our costs, argued at somebody who has not
+objected, on the screen where they decide whether to pay. The number is the
+promise; the reason is our business. Pricing rule 1 still binds: the X cap is
+stated wherever "unlimited" appears. The cap, not the excuse.
 
 **Starter $8 is the entry paid tier (owner decision 2026-09-03).** Its shape is
 one rule: it may contain nothing that costs us money or load. Posting is $0 per
@@ -1939,4 +1956,58 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   customers $59 or $79 — which is why the product is named **MarkedFox
   Starter** and why the ids were read back from the API rather than copied by
   eye.
+
+- **2026-09-06 → 09-07 — the phone rebuilt, and the plans reshaped.** Thirteen
+  commits, `1bfdea8` → `6222b14`, all deployed. Two migrations. 700 → 713
+  tests. See `sessions/2026-09-07-mobile-and-plan-shape.md` and
+  `handoff/2026-09-07-next-session.md`.
+
+  *Stripe finished.* `STRIPE_SECRET_KEY` arrived — pasted twice into one line,
+  214 chars, repaired in place rather than reissued. **MarkedFox Starter**
+  created through the owner's browser (`prod_VD9bNAYbZCCER0`, $8/mo and $80/yr,
+  descriptor on the product), both price ids in the row, proven by opening a
+  live checkout at each price. Near-miss recorded: the shared Stripe account
+  already held Codove's `Starter B2C` ($59) and `Starter B2B` ($79), which is
+  what the owner was remembering when he said Starter existed.
+
+  *The phone navigation took five attempts and four were wrong* — chip row,
+  corner hamburger, press-the-active-tab, floating pill, and finally a caret on
+  the section name. The third is the one worth remembering: it is the phone
+  convention and it is invisible, and the owner went looking for Calendar and
+  could not find them. A convention nobody can see is a feature nobody uses.
+
+  *Home reads like the profiles it shows:* small avatar left, numbers beside
+  it, one face and a count on "everything", YouTube saying **subscribers**
+  (declared on the adapter beside `primaryMetric`). The read-failure notice
+  shrank three times, ending as a dot and a count.
+
+  *Two bugs of the same shape, both about absolute positioning.* The landing
+  page scrolled 196px sideways because `.sr-only` labels escaped an
+  `overflow-x-auto` that was not their containing block; the account-size menu
+  ran 95px off a phone because a 256px panel had no horizontal anchor. And a
+  third of a different shape: **no `<img>` in the app had an `onError`**, so a
+  dead avatar URL rendered the browser's broken glyph — and `onError` alone
+  would not have fixed it, because these pages are server-rendered and the 404
+  has already failed before React hydrates.
+
+  *Screens stopped explaining our configuration to customers.* "Needs an AI key
+  on this deployment" in eight places, raw provider errors on Home
+  (`Malformed token envelope: expected "v1.<iv>.<ciphertext>.<tag>"`), and the
+  pricing page's "Why is X different?" panel — all removed.
+
+  *Long videos became possible:* `account_media.duration_seconds`, nullable,
+  where null means unknown and appears in neither Short nor Long rather than
+  being guessed into one. YouTube, TikTok and X report length; Instagram,
+  Facebook and Threads do not at any API version. The parser earned its test
+  immediately — YouTube's `"P0D"` for an unfinished live stream parsed to zero
+  seconds, which sorts as short.
+
+  *Plan rows reshaped* (`20260907010000_plan_shape.sql`): drafts ladder, Free
+  to one workspace and every platform except X, Studio to 400 X posts and
+  15,000 DM sends.
+
+  *Four tests were corrected rather than deleted*, each pinning something it
+  did not mean to check: a rule proved by a page that stopped redirecting, an X
+  assertion pinned to the literal 300, a post-type list spelled out by hand,
+  and a route list that a new page would silently fall off.
 
