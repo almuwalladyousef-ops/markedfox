@@ -537,10 +537,41 @@ try {
   );
 
   // The new tables must be as tenant-isolated as the old ones.
+  //
+  // Asserted on OWNERSHIP rather than on a count: a count says nothing about
+  // whether the rows are A's, and it breaks whenever a section above writes one
+  // more breakdown — which is a test rewriting itself for a reason that has
+  // nothing to do with tenancy.
+  // B needs a breakdown of their own, or "A sees only A's" is satisfied by an
+  // empty table and proves nothing.
+  const { data: bVideo } = await admin
+    .from("research_videos")
+    .select("id")
+    .eq("user_id", b.id)
+    .limit(1)
+    .single();
+  await admin.from("research_breakdowns").insert({
+    video_id: bVideo.id,
+    user_id: b.id,
+    workspace_id: b.workspaceId,
+    hook: "B's own breakdown",
+    model: "smoke-model",
+  });
+
   const { data: aBreakdowns } = await clientA
     .from("research_breakdowns")
-    .select("video_id");
-  check("A sees only A's breakdowns", (aBreakdowns ?? []).length === 1, `${(aBreakdowns ?? []).length}`);
+    .select("video_id,user_id");
+  const { data: allBreakdowns } = await admin
+    .from("research_breakdowns")
+    .select("user_id")
+    .in("user_id", [a.id, b.id]);
+  check(
+    "A sees only A's breakdowns",
+    (aBreakdowns ?? []).length > 0 &&
+      (aBreakdowns ?? []).every((row) => row.user_id === a.id) &&
+      (allBreakdowns ?? []).some((row) => row.user_id === b.id),
+    `A sees ${(aBreakdowns ?? []).length} of ${(allBreakdowns ?? []).length} rows`,
+  );
 
   const { data: aProjects } = await clientA.from("research_projects").select("id");
   check("A sees only A's projects", (aProjects ?? []).length === 1);
