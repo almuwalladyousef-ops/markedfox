@@ -1462,7 +1462,7 @@ function Plans() {
         <Opening
           align="center"
           title="Plans that say what they cost."
-          lede="Unlimited only where it costs nothing to serve. X charges per post, so it carries a hard 300 a month on every paid plan — stated here, not in fine print."
+          lede="Unlimited where it is genuinely unlimited. X carries a monthly number on every paid plan, stated on the plan itself rather than in fine print."
         />
         <PlanGrid plans={PLANS} />
         <p className="mt-8 text-center text-[14px] text-muted">

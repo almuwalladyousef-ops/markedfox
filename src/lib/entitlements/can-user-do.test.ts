@@ -22,6 +22,7 @@ const FREE_LIMITS: PlanLimits = {
   dmSendsPerMonth: 200,
   videoUploadMinutesPerMonth: 60,
   scheduling: false,
+  drafts: "none",
   funnels: false,
   researchCreditsPerMonth: 0,
   researchSourcesMax: 0,
@@ -51,6 +52,7 @@ const STARTER_LIMITS: PlanLimits = {
   dmSendsPerMonth: 5000,
   videoUploadMinutesPerMonth: 300,
   scheduling: false,
+  drafts: "text",
   funnels: false,
   researchCreditsPerMonth: 0,
   researchSourcesMax: 0,
@@ -68,6 +70,7 @@ const PRO_LIMITS: PlanLimits = {
   dmSendsPerMonth: 10000,
   videoUploadMinutesPerMonth: 600,
   scheduling: true,
+  drafts: "any",
   funnels: true,
   researchCreditsPerMonth: 0,
   researchSourcesMax: 0,
@@ -281,6 +284,7 @@ describe("parsePlanLimits", () => {
     dm_sends_per_month: 200,
     video_upload_minutes_per_month: 60,
     scheduling: false,
+    drafts: "none",
     funnels: false,
     research_credits_per_month: 0,
     research_sources_max: 0,
@@ -508,6 +512,7 @@ describe("the Starter plan", () => {
         dm_sends_per_month: 5000,
         video_upload_minutes_per_month: 300,
         scheduling: false,
+        drafts: "text",
         funnels: false,
         research_credits_per_month: 0,
         research_sources_max: 0,
@@ -516,3 +521,92 @@ describe("the Starter plan", () => {
     ).toEqual(STARTER_LIMITS);
   });
 });
+
+// Drafts are a ladder rather than a flag, because the two halves of a draft
+// cost different amounts: a caption is a few hundred bytes, and the video sits
+// in the bucket until the post goes out or somebody deletes it.
+describe("keeping an unfinished post", () => {
+  it("Free keeps nothing, with or without media", () => {
+    expect(denialCode(free(), { type: "save_draft", hasMedia: false })).toBe(
+      "drafts_locked",
+    );
+    expect(denialCode(free(), { type: "save_draft", hasMedia: true })).toBe(
+      "drafts_locked",
+    );
+  });
+
+  it("Starter keeps the words and not the video", () => {
+    expect(
+      canUserDo(starter(), { type: "save_draft", hasMedia: false }).allowed,
+    ).toBe(true);
+    expect(denialCode(starter(), { type: "save_draft", hasMedia: true })).toBe(
+      "media_drafts_locked",
+    );
+  });
+
+  it("Pro keeps both", () => {
+    expect(canUserDo(pro(), { type: "save_draft", hasMedia: false }).allowed).toBe(
+      true,
+    );
+    expect(canUserDo(pro(), { type: "save_draft", hasMedia: true }).allowed).toBe(
+      true,
+    );
+  });
+
+  it("tells a Starter user what to do about it rather than only refusing", () => {
+    const decision = canUserDo(starter(), { type: "save_draft", hasMedia: true });
+    expect(decision.allowed).toBe(false);
+    if (!decision.allowed) {
+      expect(decision.reason).toMatch(/remove the file|post it now/i);
+    }
+  });
+
+  // A missing key is the generous answer, exactly as `scheduling` is. The
+  // migration adding it runs before the code reading it, and a key that has
+  // not landed must never take drafts from somebody paying for them.
+  it("treats a plans row with no drafts key as keeping everything", () => {
+    const limits = parsePlanLimits({
+      posts_per_day: null,
+      platforms: null,
+      max_connected_accounts_per_workspace: null,
+      max_workspaces: null,
+      x_posts_per_month: 0,
+      x_links_allowed: false,
+      dm_rules_max: null,
+      dm_sends_per_month: 0,
+      video_upload_minutes_per_month: 0,
+      funnels: false,
+      research_credits_per_month: 0,
+      research_sources_max: 0,
+      research_refresh_hours: 24,
+    });
+    expect(limits.drafts).toBe("any");
+  });
+
+  it("refuses a plans row whose drafts value is not one of the three", () => {
+    const row = {
+      posts_per_day: null,
+      platforms: null,
+      max_connected_accounts_per_workspace: null,
+      max_workspaces: null,
+      x_posts_per_month: 0,
+      x_links_allowed: false,
+      dm_rules_max: null,
+      dm_sends_per_month: 0,
+      video_upload_minutes_per_month: 0,
+      funnels: false,
+      research_credits_per_month: 0,
+      research_sources_max: 0,
+      research_refresh_hours: 24,
+    };
+    expect(() => parsePlanLimits({ ...row, drafts: "sometimes" })).toThrow(
+      PlanLimitsParseError,
+    );
+    // …and the three that are valid still parse, so the guard above is not
+    // simply rejecting everything.
+    for (const value of ["none", "text", "any"]) {
+      expect(parsePlanLimits({ ...row, drafts: value }).drafts).toBe(value);
+    }
+  });
+});
+

@@ -22,6 +22,8 @@ import { createClient } from "@/lib/supabase/server";
 //   403 { error: "plan_denied", issues: [{platform, code, message}] }
 //   403 { error: "schedule_denied", code, message }   — the plan cannot
 //        schedule, or the file is too large to park until it is due
+//   403 { error: "draft_denied", code, message }      — the plan keeps no
+//        drafts at all, or keeps them without media
 //
 // Runs as the signed-in user: RLS scopes every read and write. Route
 // handlers, not Server Components, on purpose — a native client calls this
@@ -82,6 +84,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: "schedule_denied",
+          code: result.problem.code,
+          message: result.problem.message,
+        },
+        { status: 403 },
+      );
+    case "draft_denied":
+      return NextResponse.json(
+        {
+          error: "draft_denied",
           code: result.problem.code,
           message: result.problem.message,
         },

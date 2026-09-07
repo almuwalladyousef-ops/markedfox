@@ -37,6 +37,7 @@ const proSnapshot = (): EntitlementSnapshot => ({
     dmSendsPerMonth: 10000,
     videoUploadMinutesPerMonth: 600,
     scheduling: true,
+    drafts: "any",
     funnels: true,
     researchCreditsPerMonth: 0,
     researchSourcesMax: 150,

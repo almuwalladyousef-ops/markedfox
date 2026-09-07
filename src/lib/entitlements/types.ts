@@ -45,6 +45,20 @@ export interface PlanLimits {
    * park storage for a fortnight at a time. Posting now spends it in minutes.
    */
   scheduling: boolean;
+  /**
+   * How much of an unfinished post this plan may keep.
+   *
+   *   "none"  nothing is stored (Free)
+   *   "text"  a caption, but not the media it would carry (Starter)
+   *   "any"   the whole draft (Pro and above)
+   *
+   * Same reasoning as `scheduling`, and the same real cost: a draft's media
+   * sits in the bucket until the post goes out or the draft is thrown away,
+   * and "until" has no upper bound. A caption is a few hundred bytes, so the
+   * middle rung is free to give and is the one people actually want — writing
+   * ahead is not the expensive half.
+   */
+  drafts: "none" | "text" | "any";
   funnels: boolean;
   /** Pooled. Studio's AI credits, spendable from any workspace. */
   researchCreditsPerMonth: number;
@@ -93,6 +107,9 @@ export type Action =
   | { type: "upload_video"; minutes: number }
   /** Setting a time on a post rather than publishing it now. */
   | { type: "schedule_post" }
+  /** Keeping an unfinished post. `hasMedia` is the whole question on Starter,
+   *  which may keep the words and not the video. */
+  | { type: "save_draft"; hasMedia: boolean }
   | { type: "use_funnels" }
   /** Watching channels and reading the outlier feed. Gated on the plan having
    *  any research allowance at all, so Free and Pro see the upgrade prompt. */
@@ -113,6 +130,8 @@ export type DenialCode =
   | "dm_send_cap"
   | "video_minutes_cap"
   | "scheduling_locked"
+  | "drafts_locked"
+  | "media_drafts_locked"
   /** Not a plan limit — a scheduled post holds its media in storage until it
    *  goes out, and past a point that stops being transient. */
   | "scheduled_media_too_large"
@@ -167,6 +186,14 @@ export function parsePlanLimits(json: unknown): PlanLimits {
     throw new PlanLimitsParseError(`limits.${field} must be a boolean`);
   };
 
+  const draftsLevel = (value: unknown): PlanLimits["drafts"] => {
+    if (value === undefined || value === null) return "any";
+    if (value === "none" || value === "text" || value === "any") return value;
+    throw new PlanLimitsParseError(
+      'limits.drafts must be "none", "text" or "any"',
+    );
+  };
+
   const platformsRaw = o["platforms"];
   let platforms: Platform[] | null;
   if (platformsRaw === null) {
@@ -201,6 +228,11 @@ export function parsePlanLimits(json: unknown): PlanLimits {
     // quietly take scheduling away from someone paying for it. Free says
     // false explicitly.
     scheduling: optionalBoolean("scheduling", true),
+    // Optional, and "any" when absent, for the same reason `scheduling`
+    // defaults to true: the migration that adds this key runs before the code
+    // that reads it, and a key that has not landed yet must not quietly take
+    // drafts away from somebody paying for them. Free says "none" explicitly.
+    drafts: draftsLevel(o["drafts"]),
     funnels: requiredBoolean("funnels"),
     researchCreditsPerMonth: requiredNumber("research_credits_per_month"),
     researchSourcesMax: nullableNumber("research_sources_max"),

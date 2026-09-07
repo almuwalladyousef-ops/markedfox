@@ -64,8 +64,11 @@ describe("every plan card that says \"unlimited\" settles X on the card", () => 
       // The three honest ways a card can settle X: a hard number, an outright
       // exclusion, or Enterprise's raised-but-still-a-cap. What none of them
       // may do is let "unlimited" stand unqualified.
+      // Any number, not the literal 300. Studio's allowance went to 400 on
+      // 2026-09-07 and this assertion failed for a plan that settles X
+      // perfectly well — it was pinning Pro's figure, not the rule.
       const settled =
-        /300 posts per month/.test(text) ||
+        /\d[\d,]* posts per month/.test(text) ||
         /X not included/.test(text) ||
         /[Rr]aised caps on X posts/.test(text);
       expect(

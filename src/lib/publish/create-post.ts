@@ -76,6 +76,13 @@ export type CreatePostResult =
   /** This workspace is holding as many drafts as it may. */
   | { kind: "too_many_drafts"; limit: number }
   | {
+      kind: "draft_denied";
+      // The DenialCode as returned, not a narrowed pair. In practice it is
+      // drafts_locked or media_drafts_locked, but narrowing it here would mean
+      // asserting a shape canUserDo does not promise.
+      problem: { code: DenialCode; message: string };
+    }
+  | {
       kind: "published";
       post: PostRow;
       status: "published" | "partial" | "failed";
@@ -125,6 +132,26 @@ export async function createPost(
   // disconnected this morning, is how people lose work they were in the middle
   // of. Everything here is re-checked when it is actually published.
   if (request.draft) {
+    // The one plan question a draft DOES answer, and it is answered here
+    // rather than inside saveDraft because it is about whether this may be
+    // kept at all — before the row is written and before any bytes are
+    // committed to the bucket. Everything else above is about publishing,
+    // which a draft is by definition not doing yet.
+    const snapshot = await getEntitlementSnapshot(
+      supabase,
+      userId,
+      request.workspaceId,
+    );
+    const decision = canUserDo(snapshot, {
+      type: "save_draft",
+      hasMedia: request.media.length > 0,
+    });
+    if (!decision.allowed) {
+      return {
+        kind: "draft_denied",
+        problem: { code: decision.code, message: decision.reason },
+      };
+    }
     return saveDraft(supabase, userId, request);
   }
 

@@ -145,6 +145,25 @@ export function canUserDo(
       return { allowed: true };
     }
 
+    case "save_draft": {
+      if (limits.drafts === "none") {
+        return deny(
+          "drafts_locked",
+          `The ${snapshot.planId} plan does not keep drafts — post now, or upgrade to save this for later`,
+        );
+      }
+      // The words are free to keep; the video is what waits in storage. So a
+      // text-only draft passes on the middle rung and the same draft with a
+      // file attached does not.
+      if (limits.drafts === "text" && action.hasMedia) {
+        return deny(
+          "media_drafts_locked",
+          `The ${snapshot.planId} plan keeps drafts without media — remove the file to save this, or post it now`,
+        );
+      }
+      return { allowed: true };
+    }
+
     case "use_research": {
       if (limits.researchCreditsPerMonth <= 0) {
         return deny(

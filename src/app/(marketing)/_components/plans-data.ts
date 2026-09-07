@@ -9,8 +9,13 @@ import type { MarketingPlan } from "../pricing/plan-grid";
 // "unlimited" appears, in the comparison itself — X bills per post and is
 // never unlimited on any plan.
 
-export const X_LINE =
-  "X: 300 posts per month, no external links — X charges per post, so it is never unlimited";
+/** The X allowance, which differs per plan. A function rather than a constant
+ *  because Studio's is larger, and a shared string would have made every plan
+ *  claim Pro's number. */
+export const xLine = (perMonth: number) =>
+  `X: ${perMonth.toLocaleString("en-US")} posts per month, no external links`;
+
+export const X_LINE = xLine(300);
 
 export const PLANS: MarketingPlan[] = [
   {
@@ -21,17 +26,16 @@ export const PLANS: MarketingPlan[] = [
     blurb: "Everything you need to see it work.",
     cta: { label: "Start free", href: "/signup" },
     features: [
-      { text: "2 workspaces" },
-      { text: "3 connected accounts per workspace" },
-      { text: "2 posts per day (pooled)" },
-      { text: "Instagram, Facebook, Threads, TikTok, YouTube, Snapchat" },
+      { text: "1 workspace" },
+      { text: "3 connected accounts" },
+      { text: "2 posts per day" },
+      { text: "Every platform except X" },
+      { text: "Your posts from every account, on one screen" },
       { text: "1 DM rule · 200 DM sends per month" },
-      { text: "Post now and save drafts" },
-      {
-        text: "Scheduling not included — a scheduled post's video waits in storage until it goes out",
-        included: false,
-      },
-      { text: "X not included — X charges per post", included: false },
+      { text: "Post now" },
+      { text: "Drafts not included", included: false },
+      { text: "Scheduling not included", included: false },
+      { text: "X not included", included: false },
       { text: "No research credits", included: false },
     ],
   },
@@ -46,14 +50,11 @@ export const PLANS: MarketingPlan[] = [
       { text: "2 workspaces" },
       { text: "Unlimited connected accounts" },
       { text: "Unlimited posts" },
-      { text: "Instagram, Facebook, Threads, TikTok, YouTube, Snapchat" },
+      { text: "Every platform except X" },
       { text: "Unlimited DM rules \u00b7 5,000 DM sends per month" },
-      { text: "Post now and save drafts" },
-      {
-        text: "Scheduling not included \u2014 a scheduled post's video waits in storage until it goes out",
-        included: false,
-      },
-      { text: "X not included \u2014 X charges per post", included: false },
+      { text: "Post now, and save drafts without media" },
+      { text: "Scheduling not included", included: false },
+      { text: "X not included", included: false },
       { text: "No research credits", included: false },
     ],
   },
@@ -70,6 +71,7 @@ export const PLANS: MarketingPlan[] = [
       { text: "Unlimited connected accounts" },
       { text: "Unlimited posts" },
       { text: "Schedule to any date, on the calendar or from the composer" },
+      { text: "Drafts with video and photos" },
       { text: "All platforms" },
       { text: X_LINE },
       { text: "Unlimited DM rules · 10,000 DM sends per month" },
@@ -88,9 +90,10 @@ export const PLANS: MarketingPlan[] = [
       { text: "Unlimited connected accounts" },
       { text: "Unlimited posts" },
       { text: "Schedule to any date, on the calendar or from the composer" },
+      { text: "Drafts with video and photos" },
       { text: "All platforms" },
-      { text: X_LINE },
-      { text: "Unlimited DM rules · 10,000 DM sends per month" },
+      { text: xLine(400) },
+      { text: "Unlimited DM rules · 15,000 DM sends per month" },
       {
         text: "Research: watch any creator's channel and see which videos beat that channel's own average",
       },

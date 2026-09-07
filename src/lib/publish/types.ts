@@ -124,6 +124,11 @@ export type TargetFailureCode =
   | "dm_send_cap"
   | "video_minutes_cap"
   | "scheduling_locked"
+  // Never reached on a publish — a draft is not a target — but the publisher
+  // widens DenialCode into this union, so leaving them out makes the compiler
+  // right and the type a lie.
+  | "drafts_locked"
+  | "media_drafts_locked"
   | "scheduled_media_too_large"
   | "funnels_locked"
   | "research_locked"

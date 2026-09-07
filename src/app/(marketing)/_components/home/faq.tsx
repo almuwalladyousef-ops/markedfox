@@ -59,7 +59,7 @@ const FAQ: Record<Category, { q: string; a: string }[]> = {
     },
     {
       q: "Can I schedule posts?",
-      a: "On Pro and Studio. Free can post now and save drafts. The reason is a real cost rather than packaging: a scheduled post’s video is uploaded when you press Schedule and waits in storage until it goes out, which may be weeks.",
+      a: "On Pro and Studio. Free and Starter post now; Starter can also save drafts without media.",
     },
     {
       q: "What happens if one platform fails?",

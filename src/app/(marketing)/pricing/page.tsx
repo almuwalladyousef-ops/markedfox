@@ -26,17 +26,12 @@ export default function PricingPage() {
 
       <PlanGrid plans={PLANS} />
 
-      <div className="mx-auto mt-12 max-w-2xl rounded-lg border border-line bg-panel p-5 text-[13px]/[20px] text-muted">
-        <h2 className="font-semibold text-ink">Why is X different?</h2>
-        <p className="mt-2">
-          Every other platform costs nothing per post, so those are genuinely
-          unlimited. X charges for every post made through its API — and 13x
-          more when the post contains an external link — so X carries a hard
-          monthly number on every plan and links in X posts are blocked. This
-          is stated here rather than in fine print because it will never
-          change.
-        </p>
-      </div>
+      {/* A "Why is X different?" panel stood here explaining our costs — that
+          X bills per post, 13x with a link. Removed 2026-09-07: the cap is
+          already on every plan card, and the reason for it is our business
+          rather than something a buyer has to read on the way to choosing.
+          Stating a limit is honest; justifying it is arguing with somebody who
+          has not objected. */}
 
       <p className="mt-8 text-center text-[13px] text-faint">
         Questions?{" "}

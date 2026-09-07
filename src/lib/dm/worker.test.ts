@@ -29,6 +29,7 @@ const snapshot = (over: { dmSendsThisMonth?: number; dmSendsPerMonth?: number } 
     dmSendsPerMonth: over.dmSendsPerMonth ?? 200,
     videoUploadMinutesPerMonth: 60,
     scheduling: true,
+    drafts: "any",
     funnels: false,
     researchCreditsPerMonth: 0,
     researchSourcesMax: 150,

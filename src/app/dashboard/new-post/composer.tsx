@@ -1361,7 +1361,12 @@ export function Composer({
              description, made five short choices look like a form. The
              description now lives on the hover title, where it is there when
              somebody wants it and silent when they do not. */
-          <div className="flex flex-col items-center pt-4 pb-2">
+          /* Centred in the screen rather than sitting under the header. This
+             step is five pills and nothing else — pressing one moves straight
+             on — so anchoring it to the top left most of a phone empty with
+             the choice stranded at the ceiling. The height is the viewport
+             minus the two bars this screen already reserves. */
+          <div className="flex min-h-[calc(100dvh-260px)] flex-col items-center justify-center pb-2">
             <ul className="flex flex-wrap justify-center gap-1.5">
               {KINDS.map((option) => {
                 const on = kind === option.id;
@@ -1944,7 +1949,17 @@ export function Composer({
           was unreachable on a phone. */}
       {/* No panel, no border, no backdrop — the buttons are the bar. A filled
           strip drawn under two buttons was a box around a box. */}
-      <div className="sticky bottom-[calc(70px+env(safe-area-inset-bottom))] z-40 mt-8 py-3.5 shell:bottom-0">
+      {/* Nothing on the kind step. "Next" is meaningless there — pressing a
+          kind IS next — and "Save draft" cannot save anything yet, since the
+          only thing chosen is which kind of empty post this would be. A bar
+          holding two buttons that both do nothing is worse than no bar
+          (owner decision, 2026-09-07). */}
+      <div
+        className={cx(
+          "sticky bottom-[calc(70px+env(safe-area-inset-bottom))] z-40 mt-8 py-3.5 shell:bottom-0",
+          step === "kind" && "hidden",
+        )}
+      >
         <div className="mx-auto flex max-w-[1000px] flex-col items-center gap-1.5">
           <div className="flex items-center gap-2.5">
             {/* Two buttons at the end, not three: the reference has Schedule
