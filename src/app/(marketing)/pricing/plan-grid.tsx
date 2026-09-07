@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+
 
 import { Icon } from "@/components/icons";
+
+import { useBillingInterval } from "../_components/billing-interval";
 import { cx, segmentedItem, segmentedTrack } from "@/components/ui";
 
 // The plan cards, with the one piece of interactivity on the page: monthly or
@@ -27,7 +29,7 @@ export type MarketingPlan = {
 };
 
 export function PlanGrid({ plans }: { plans: MarketingPlan[] }) {
-  const [interval, setInterval] = useState<"monthly" | "yearly">("monthly");
+  const { interval, setInterval } = useBillingInterval();
 
   const columns = plans.filter((plan) => !plan.contact);
   const contact = plans.find((plan) => plan.contact);

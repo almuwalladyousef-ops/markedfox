@@ -25,6 +25,7 @@ import {
   PostTile,
   SettingRow,
 } from "./_components/home/mocks";
+import { BillingIntervalProvider } from "./_components/billing-interval";
 import { StackCalculator } from "./_components/home/stack-calculator";
 import { PLANS } from "./_components/plans-data";
 import { PlanGrid } from "./pricing/plan-grid";
@@ -153,8 +154,15 @@ export default function Home() {
       <Own />
       <Manage />
       <Compare />
-      <Stack />
-      <Plans />
+      {/* Both of these ask "monthly or yearly?" and they are the same
+          question, so they share one answer. Wrapped together rather than
+          each holding its own state: they had different defaults, so the
+          page contradicted itself on load and setting one did nothing to
+          the other. */}
+      <BillingIntervalProvider>
+        <Stack />
+        <Plans />
+      </BillingIntervalProvider>
       <Questions />
       <Closer />
     </main>

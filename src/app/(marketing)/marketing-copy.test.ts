@@ -126,3 +126,46 @@ describe("horizontal scrollers containing absolutely positioned children", () =>
   });
 });
 
+
+// The landing page asks "monthly or yearly?" twice — once in the stack
+// calculator, once in the plan grid. They are the same question, and they used
+// to be two independent useStates with DIFFERENT defaults: the calculator
+// opened on yearly and the grid on monthly, so the page disagreed with itself
+// before anybody pressed anything, and setting one left the other alone.
+//
+// Geometry and clicks cannot be asserted here, so this pins the structural
+// fact that made it possible: neither component owns the state any more.
+describe("the billing toggle is one control, not two", () => {
+  const read = (path: string) => readFileSync(join(HERE, path), "utf8");
+
+  it("neither the calculator nor the grid holds its own interval state", () => {
+    for (const path of [
+      "_components/home/stack-calculator.tsx",
+      "pricing/plan-grid.tsx",
+    ]) {
+      const source = read(path);
+      expect(source, `${path} must read the shared interval`).toContain(
+        "useBillingInterval",
+      );
+      expect(
+        /useState[<(][^)]*(yearly|monthly|interval)/i.test(source),
+        `${path} still owns a private billing-interval useState`,
+      ).toBe(false);
+    }
+  });
+
+  it("the landing page puts both under one provider", () => {
+    const source = read("page.tsx");
+    const block = source.slice(
+      source.indexOf("<BillingIntervalProvider>"),
+      source.indexOf("</BillingIntervalProvider>"),
+    );
+    expect(block, "the provider must wrap the calculator").toContain("<Stack />");
+    expect(block, "the provider must wrap the plan grid").toContain("<Plans />");
+  });
+
+  it("both start on the same interval, since one of them is now the other", () => {
+    const provider = read("_components/billing-interval.tsx");
+    expect(provider).toContain('initial = "monthly"');
+  });
+});

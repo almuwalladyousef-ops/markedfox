@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { useBillingInterval } from "../billing-interval";
+
 import { Icon } from "@/components/icons";
 import { buttonClass, cx, segmentedItem, segmentedTrack } from "@/components/ui";
 
@@ -49,7 +51,11 @@ export function StackCalculator() {
   const [spend, setSpend] = useState<Record<string, number>>(() =>
     Object.fromEntries(LINES.map((line) => [line.id, line.start])),
   );
-  const [yearly, setYearly] = useState(true);
+  // Not its own state any more. This control and the plan grid at the bottom
+  // of the page are the same question, and they used to disagree on load.
+  const { interval, setInterval } = useBillingInterval();
+  const yearly = interval === "yearly";
+  const setYearly = (next: boolean) => setInterval(next ? "yearly" : "monthly");
   const [plan, setPlan] = useState<PaidPlanId>("pro");
 
   const today = LINES.reduce((sum, line) => sum + (spend[line.id] ?? 0), 0);

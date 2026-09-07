@@ -319,6 +319,129 @@ try {
     `crossDelete=${crossDelete?.code ?? "affected 0 rows"}`,
   );
 
+  // ── 7b. the SIGNED-IN user must be able to write, not just read ───────
+  //
+  // The gap that hid a total outage. Every write above uses `admin`, the
+  // service-role client, which bypasses RLS — so this file proved the schema
+  // accepted the rows and never proved the person in the browser was allowed
+  // to insert them. They were not: research_videos, research_transcripts,
+  // research_scripts and research_breakdowns shipped with SELECT and DELETE
+  // policies and no INSERT, so syncing a channel died with
+  // "new row violates row-level security policy" from the day it shipped.
+  //
+  // Every check here therefore runs through clientA, the user's own session,
+  // and mirrors exactly what a server action does.
+  const ownSource = await mkSource(a, { title: "Written by the user" });
+
+  const { data: ownVideo, error: userVideoInsert } = await clientA
+    .from("research_videos")
+    .insert({
+      user_id: a.id,
+      workspace_id: a.workspaceId,
+      source_id: ownSource.id,
+      external_id: `v-user-${stamp}`,
+      title: "Synced by the signed-in user",
+      url: "https://youtube.com/watch?v=user",
+      view_count: 4321,
+    })
+    .select("id")
+    .single();
+  check(
+    "the signed-in user can insert a video — the sync that used to fail",
+    !userVideoInsert,
+    userVideoInsert?.message ?? "",
+  );
+
+  // A re-sync upserts, so the UPDATE half has to be allowed too or the second
+  // sync of a channel fails where the first one passed.
+  const { error: userVideoUpdate } = await clientA
+    .from("research_videos")
+    .update({ view_count: 9999 })
+    .eq("id", ownVideo?.id ?? "00000000-0000-0000-0000-000000000000");
+  const { data: reSynced } = await admin
+    .from("research_videos")
+    .select("view_count")
+    .eq("id", ownVideo?.id ?? "00000000-0000-0000-0000-000000000000")
+    .maybeSingle();
+  check(
+    "the signed-in user can update a video — the re-sync",
+    !userVideoUpdate && Number(reSynced?.view_count) === 9999,
+    userVideoUpdate?.message ?? `view_count=${reSynced?.view_count}`,
+  );
+
+  const { error: userTranscript } = await clientA.from("research_transcripts").insert({
+    video_id: ownVideo?.id,
+    user_id: a.id,
+    workspace_id: a.workspaceId,
+    text: "fetched by the user",
+    origin: "captions",
+  });
+  check(
+    "the signed-in user can store a transcript",
+    !userTranscript,
+    userTranscript?.message ?? "",
+  );
+
+  const { error: userBreakdown } = await clientA.from("research_breakdowns").insert({
+    video_id: ownVideo?.id,
+    user_id: a.id,
+    workspace_id: a.workspaceId,
+    hook: "Written by the user",
+    hook_type: "contradiction",
+    structure: [{ label: "hook", detail: "opens on a contradiction" }],
+    model: "smoke-model",
+  });
+  check(
+    "the signed-in user can store a breakdown — step 3",
+    !userBreakdown,
+    userBreakdown?.message ?? "",
+  );
+
+  const { error: userScript } = await clientA.from("research_scripts").insert({
+    user_id: a.id,
+    workspace_id: a.workspaceId,
+    video_id: ownVideo?.id,
+    kind: "hooks",
+    output: "1. Written by the user",
+    model: "smoke-model",
+    credits_spent: 1,
+  });
+  check(
+    "the signed-in user can store a generation",
+    !userScript,
+    userScript?.message ?? "",
+  );
+
+  // And the new policies must not have opened the door the old ones closed.
+  const { error: crossVideo } = await clientA.from("research_videos").insert({
+    user_id: b.id,
+    workspace_id: b.workspaceId,
+    source_id: sourceB.id,
+    external_id: `v-evil-${stamp}`,
+    title: "planted in B's channel",
+    url: "https://youtube.com/watch?v=evil",
+  });
+  check(
+    "A still cannot insert a video owned by B",
+    Boolean(crossVideo),
+    crossVideo?.code ?? "no error",
+  );
+
+  const { error: crossBreakdownWrite } = await clientA
+    .from("research_breakdowns")
+    .insert({
+      video_id: ownVideo?.id,
+      user_id: b.id,
+      workspace_id: b.workspaceId,
+      hook: "planted",
+      model: "smoke-model",
+    });
+  check(
+    "A still cannot write a breakdown owned by B",
+    Boolean(crossBreakdownWrite),
+    crossBreakdownWrite?.code ?? "no error",
+  );
+
   // ── 8. deleting a source takes its videos with it ─────────────────────
   const { error: ownDelete } = await clientA
     .from("research_sources")
