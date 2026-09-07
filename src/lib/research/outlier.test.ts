@@ -71,6 +71,31 @@ describe("computeBaseline", () => {
     expect(withViral.views).toBe(100);
   });
 
+  // Regression: baseline_views is `bigint` in both tables that hold it, and an
+  // even-length median averages the two middle values. A channel with an even
+  // number of mature videos and unequal middles produced 38759.5, and Postgres
+  // refused the entire sync with "invalid input syntax for type bigint". Every
+  // fixture above happens to have equal middle values, which is exactly why
+  // this went unseen — so the assertion here is on WHOLENESS, not on a number.
+  it("returns a whole view count from an even-length window", () => {
+    const baseline = computeBaseline(
+      channel([100, 200, 300, 38_519, 39_000, 500_000]),
+      NOW,
+    );
+    expect(baseline.views).not.toBeNull();
+    expect(Number.isInteger(baseline.views)).toBe(true);
+  });
+
+  it("never returns a fraction, whatever the window length", () => {
+    for (let n = 5; n <= 20; n++) {
+      // Distinct, non-consecutive counts, so the two middle values differ and
+      // their average genuinely lands on a half for every even n.
+      const views = Array.from({ length: n }, (_, i) => 1_001 + i * 3);
+      const baseline = computeBaseline(channel(views), NOW);
+      expect(Number.isInteger(baseline.views), `window of ${n}`).toBe(true);
+    }
+  });
+
   it("skips videos with no view count instead of counting them as zero", () => {
     const videos = [
       ...channel([100, 100, 100, 100, 100]),

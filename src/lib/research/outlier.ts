@@ -137,7 +137,28 @@ export function computeBaseline(
   if (counts.length < MIN_BASELINE_SAMPLE) {
     return { views: null, sample: counts.length };
   }
-  return { views: median(counts), sample: counts.length };
+
+  // Rounded, because a median over an EVEN number of videos averages the two
+  // middle values and lands on a half — and `research_videos.baseline_views`
+  // and `research_sources.baseline_views` are both `bigint`, so Postgres
+  // refuses the whole sync with:
+  //
+  //     invalid input syntax for type bigint: "38759.5"
+  //
+  // That killed the sync for any channel whose baseline window happened to
+  // hold an even number of mature videos, which is roughly half of them — a
+  // coin toss on every channel somebody adds. It hid in the tests because the
+  // fixtures' two middle values were always equal, so the average of them was
+  // already whole.
+  //
+  // Rounding belongs here rather than inside median(): median() is arithmetic
+  // and should stay honest, while this function returns a VIEW COUNT, and half
+  // a view does not exist.
+  const views = median(counts);
+  return {
+    views: views === null ? null : Math.round(views),
+    sample: counts.length,
+  };
 }
 
 function publishedMs(v: SourceVideo): number {
