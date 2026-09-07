@@ -181,7 +181,13 @@ export function ChannelPicker({
               <Icon name="chevronDown" className="h-3 w-3 text-faint" />
             </button>
             {sizeOpen ? (
-              <div className="absolute z-20 mt-1.5 w-64 rounded-lg border border-line bg-panel p-1.5 shadow-e2">
+              // Anchored to its RIGHT edge and capped to the viewport. This
+              // button sits at the right of its row, and a 256px panel hung
+              // from the button's LEFT edge ran ~190px off the side of a 390px
+              // phone — you had to scroll sideways to reach the options.
+              // Opening leftwards is what a menu near the right edge has to do,
+              // and the min() keeps it inside the screen even on a narrow one.
+              <div className="absolute right-0 z-20 mt-1.5 w-[min(16rem,calc(100vw-2rem))] rounded-lg border border-line bg-panel p-1.5 shadow-e2">
                 {SIZE_TIERS.map((tier) => (
                   <label
                     key={tier.id}
