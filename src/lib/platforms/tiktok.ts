@@ -49,15 +49,28 @@ const API = "https://open.tiktokapis.com/v2";
 
 // user.info.profile and user.info.stats carry the avatar, bio, follower and
 // video counts the home screen shows; video.list is the connected account's
-// own videos with view counts. All four are self-serve scopes on the app —
-// none of them is part of the Content Posting audit.
+// own videos with view counts.
+//
+// Every scope here is one this adapter actually calls, and that is a review
+// requirement rather than tidiness. TikTok refused the 2026-09-08 submission
+// with "Scopes mismatch — all selected products and scopes must be clearly
+// demonstrated in the video. If you don't need certain products or scopes,
+// make sure to remove them before review." video.upload was the mismatch: it
+// is Content Posting's OTHER product, the one that drops a video into the
+// user's TikTok inbox as a draft, and nothing here has ever called
+// /post/publish/inbox/video/init/. This adapter direct-posts, through
+// /post/publish/video/init/ and /post/publish/content/init/ with
+// post_mode DIRECT_POST, which is video.publish. So a reviewer was being
+// asked to approve a product the demo could not show being used.
+//
+// Adding a scope back means adding the call that uses it AND the step in the
+// demo video that shows it.
 const OAUTH_SCOPES = [
   "user.info.basic",
   "user.info.profile",
   "user.info.stats",
   "video.list",
   "video.publish",
-  "video.upload",
 ];
 
 type TikTokError = {
