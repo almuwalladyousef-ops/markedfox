@@ -185,9 +185,6 @@ function Hero() {
             <Link href="/signup" className={buttonClass("primary", "lg")}>
               Start free — no card
             </Link>
-            <a href="#how" className={buttonClass("secondary", "lg")}>
-              See how it works
-            </a>
           </div>
           <ul className="mt-10 flex flex-wrap items-center gap-x-4 gap-y-3">
             {PLATFORM_ROW.map(({ platform, label }) => (
