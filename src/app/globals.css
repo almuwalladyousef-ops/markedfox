@@ -54,6 +54,13 @@
      hairline covers both without a per-platform list, and is invisible on the
      coloured marks in between. */
   --platform-edge: rgba(0, 0, 0, 0.12);
+  /* The landing page's alternating band. --bg to --panel is 247 to 255 — an
+     eight-point step that is a whisper on a full-width section, so fifteen
+     sections read as one column. This recedes instead of advancing, which
+     also gives the white cards inside a band twenty-one points to lift off
+     rather than eight. It is deliberately not a warm tint: the paper palette
+     was reversed on 2026-08-24 and this is not the place to walk that back. */
+  --band: #eaeaef;
 }
 
 [data-theme="dark"] {
@@ -86,6 +93,9 @@
   --dock-idle: #8d8d99;
   --dock-hover: #f2f2f5;
   --platform-edge: rgba(255, 255, 255, 0.17);
+  /* Dark already separates well (--bg 14 to --panel 23), so the band moves
+     the other way here: below --bg, leaving --panel cards above both. */
+  --band: #08080a;
 }
 
 /* `@theme inline` is what turns the variables above into Tailwind utilities:
@@ -428,6 +438,23 @@ input[type="time"] {
   --mk-muted: #a3a3ae;
   --mk-faint: #7d7d89;
   color: var(--mk-text);
+}
+
+/* ── the landing page's alternating band ────────────────────────────────────
+
+   Every other section sits on this instead of on --panel. --faint is
+   re-derived inside it: the 2026-08-29 legibility audit set that colour's
+   4.5:1 floor against --bg, --panel and --chip, and a band is darker than all
+   three, so 11–13px labels would land at 4.4:1 on it. #63636d holds 4.95:1
+   here. Scoped like .mf-mock's tokens, so nothing outside a band picks it up. */
+.mf-band {
+  background: var(--band);
+}
+
+/* Light only. `:root .mf-band` would have out-specified the dark theme's own
+   --faint and painted #63636d onto a near-black band. */
+:root:not([data-theme="dark"]) .mf-band {
+  --faint: #63636d;
 }
 
 /* A row of tabs that scrolls sideways on a phone without drawing a scrollbar

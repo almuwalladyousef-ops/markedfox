@@ -13,14 +13,11 @@ import { Faq } from "./_components/home/faq";
 import {
   AccountRow,
   Avatar,
-  Bubble,
   Chip,
-  Comment,
   Frame,
   MockStat,
   MockStatRow,
   OutlierPill,
-  Phone,
   PlatformPick,
   PostTile,
   SettingRow,
@@ -144,15 +141,11 @@ export default function Home() {
     <main>
       <Hero />
       <Ticker />
-      <Audiences />
       <HowItWorks />
       <Automate />
-      <BeforeAfter />
       <Research />
       <Publish />
-      <Everywhere />
       <Own />
-      <Manage />
       <Compare />
       {/* Both of these ask "monthly or yearly?" and they are the same
           question, so they share one answer. Wrapped together rather than
@@ -174,20 +167,19 @@ export default function Home() {
 function Hero() {
   return (
     <section className="overflow-hidden">
-      <Container className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 pt-14 pb-16 wide:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] wide:pt-24 wide:pb-24">
+      <Container className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 pt-14 pb-16 wide:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] wide:pt-24 wide:pb-24">
         <div>
-          <h1 className="font-display text-[42px]/[46px] font-bold tracking-[-0.035em] text-ink text-balance shell:text-[52px]/[54px]">
+          <h1 className="font-display text-[42px]/[46px] font-bold tracking-[-0.035em] text-ink text-balance shell:text-[52px]/[56px] xl:text-[60px]/[62px]">
             Publish everywhere.
             <br />
             Answer everyone.
             <br />
             <span className="text-accent">Know what works.</span>
           </h1>
-          <p className="mt-6 max-w-[520px] text-[17px]/[27px] text-muted text-pretty">
-            One composer posts to seven platforms at once. One rule answers
-            every comment and DM while you sleep. One feed shows which videos
-            beat their own channel’s average — and why. For less than either
-            tool it replaces.
+          <p className="mt-6 max-w-[500px] text-[17px]/[26px] text-muted text-pretty shell:text-[18px]/[28px]">
+            Post to seven platforms at once. Answer every comment and DM while
+            you sleep. See which videos beat their own channel’s average. One
+            tool, not three.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link href="/signup" className={buttonClass("primary", "lg")}>
@@ -216,126 +208,61 @@ function Hero() {
   );
 }
 
-/** Three pieces of the product, arranged: the composer behind, the phone in
- *  front, the outlier card tucked under. The one authored entrance on the
- *  page — each piece rises in turn — and the only place the page staggers. */
+/** One piece of the product, at full size: the composer on step three, with
+ *  three accounts selected and four platforms picked. It used to be three
+ *  frames — composer, phone and outlier card — overlapping in a 600px box,
+ *  and they competed: no single thing for the eye to land on beside a
+ *  headline that is itself three lines. The other two pillars each own a
+ *  whole section further down, so the hero no longer has to carry all three. */
 function HeroScene() {
   return (
-    <div className="relative mx-auto w-full max-w-[600px] wide:mx-0 wide:h-[560px] wide:w-[600px] wide:max-w-none">
-      <div className="flex flex-col gap-4 wide:contents">
-        {/* The composer, step three of five. */}
-        <Frame
-          title="New post"
-          aside="Step 3 of 5 · Caption and platforms"
-          className="mf-enter w-full wide:absolute wide:top-0 wide:left-0 wide:w-[350px]"
-          style={staggerStyle(0, 70, 3)}
-        >
-          <div className="flex items-center gap-2">
-            <span className="flex -space-x-2">
-              <Avatar name="maya.kim" size={30} hue={0} className="ring-2 ring-[var(--mk-panel)]" />
-              <Avatar name="maya on tiktok" size={30} hue={1} className="ring-2 ring-[var(--mk-panel)]" />
-              <Avatar name="Maya Kim Studio" size={30} hue={3} className="ring-2 ring-[var(--mk-panel)]" />
-            </span>
-            <span className="text-[12px] text-[var(--mk-muted)]">3 accounts · Reel</span>
-          </div>
-          <p className="mt-4 text-[15px]/[22px] text-[var(--mk-text)]">
-            Three things I wish I knew before my first 100k views 👇
-          </p>
-          <p className="mt-2 flex flex-wrap gap-x-3 text-[11px] text-[var(--mk-faint)] tabular-nums">
-            <span>Instagram 58/2,200</span>
-            <span>TikTok 58/2,200</span>
-            <span>YouTube 58/5,000</span>
-            <span>Threads 58/500</span>
-          </p>
-          <p className="mt-4 text-[11.5px] font-semibold text-[var(--mk-muted)]">
-            Choose platforms
-          </p>
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-3">
-            <PlatformPick platform="instagram" label="Reel" />
-            <PlatformPick platform="tiktok" label="TikTok" />
-            <PlatformPick platform="youtube" label="Short" />
-            <PlatformPick platform="threads" label="Thread" />
-            <PlatformPick platform="facebook" label="Reel" selected={false} />
-          </div>
-          <div className="mt-4 flex items-center justify-between gap-3 border-t border-[var(--mk-line)] pt-3">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-soft px-2.5 py-1 text-[11px] font-semibold text-sky">
-              <Icon name="calendar" className="h-3 w-3" />
-              Fri 9:00 AM
-            </span>
-            <span className="rounded-md bg-[var(--mk-text)] px-4 py-2 text-[12.5px] font-semibold text-[var(--mk-bg)]">
-              Next
-            </span>
-          </div>
-        </Frame>
-
-        {/* The DM a comment turned into. */}
-        <Phone
-          className="mf-enter mx-auto wide:absolute wide:top-8 wide:right-0 wide:z-10 wide:mx-0"
-          style={staggerStyle(1, 70, 3)}
-        >
-          <div className="border-b border-[var(--mk-line)] px-4 pt-1 pb-3">
-            <p className="mb-2 text-center text-[10px] font-semibold text-[var(--mk-faint)]">
-              Comments
-            </p>
-            <Comment name="jordan.p">link pls 🙏</Comment>
-            <Comment name="maya.kim" own className="mt-2.5 pl-[30px]">
-              Just sent it to your DMs 📩
-            </Comment>
-          </div>
-          <div className="flex flex-col gap-2 px-3 pt-3 pb-4">
-            <div className="mb-1 flex items-center gap-2 px-1">
-              <Avatar name="maya.kim" size={22} />
-              <span className="text-[11px] font-semibold text-[var(--mk-text)]">maya.kim</span>
-              <span className="ml-auto rounded-full bg-[var(--mk-chip)] px-2 py-[2px] text-[9.5px] font-semibold text-[var(--mk-muted)]">
-                Automated
-              </span>
-            </div>
-            <Bubble from="business" button="Send me the link">
-              Hey! Thanks so much for your interest 😊 Tap below and I’ll send
-              the link straight over.
-            </Bubble>
-            <Bubble from="person">Send me the link</Bubble>
-            <Bubble from="business" button="Open the guide">
-              Here you go 👇
-            </Bubble>
-            <p className="pt-1 text-center text-[10.5px] font-medium text-ok">
-              Sent 0.9s after the comment · tap counted
-            </p>
-          </div>
-        </Phone>
-
-        {/* One video from the research feed, beating its own channel. */}
-        <Frame
-          className="mf-enter w-full wide:absolute wide:bottom-0 wide:left-8 wide:z-20 wide:w-[330px]"
-          style={staggerStyle(2, 70, 3)}
-        >
-          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-            <div className="flex items-center gap-2">
-              <PlatformTile platform="youtube" size={22} />
-              <span className="text-[12px] font-semibold text-[var(--mk-muted)]">
-                @smallkitchen · 18K subscribers
-              </span>
-            </div>
-            <OutlierPill multiple="14.2x" tier="validated" />
-          </div>
-          <p className="mt-3 text-[15px]/[21px] font-semibold text-[var(--mk-text)] text-pretty">
-            I stopped posting every day. Here’s what my views did.
-          </p>
-          <div className="mt-3 flex items-end justify-between gap-4">
-            <MockStat label="Views" value="312K" />
-            <MockStat label="Channel median" value="22K" />
-            <span className="inline-flex items-center gap-1 rounded-md bg-[var(--mk-chip)] px-2.5 py-1.5 text-[11.5px] font-semibold text-[var(--mk-text)]">
-              <Icon name="spark" className="h-3 w-3 text-accent" />
-              Break it down
-            </span>
-          </div>
-        </Frame>
-      </div>
+    <div className="mx-auto w-full max-w-[460px] wide:mx-0 wide:ml-auto">
+      <Frame
+        title="New post"
+        aside="Step 3 of 5 · Caption and platforms"
+        className="mf-enter w-full"
+        style={staggerStyle(0, 70, 1)}
+      >
+        <div className="flex items-center gap-2">
+          <span className="flex -space-x-2">
+            <Avatar name="maya.kim" size={32} hue={0} className="ring-2 ring-[var(--mk-panel)]" />
+            <Avatar name="maya on tiktok" size={32} hue={1} className="ring-2 ring-[var(--mk-panel)]" />
+            <Avatar name="Maya Kim Studio" size={32} hue={3} className="ring-2 ring-[var(--mk-panel)]" />
+          </span>
+          <span className="text-[12.5px] text-[var(--mk-muted)]">3 accounts · Reel</span>
+        </div>
+        <p className="mt-5 text-[16px]/[24px] text-[var(--mk-text)]">
+          Three things I wish I knew before my first 100k views 👇
+        </p>
+        <p className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-[var(--mk-faint)] tabular-nums">
+          <span>Instagram 58/2,200</span>
+          <span>TikTok 58/2,200</span>
+          <span>YouTube 58/5,000</span>
+          <span>Threads 58/500</span>
+        </p>
+        <p className="mt-5 text-[12px] font-semibold text-[var(--mk-muted)]">
+          Choose platforms
+        </p>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-3">
+          <PlatformPick platform="instagram" label="Reel" />
+          <PlatformPick platform="tiktok" label="TikTok" />
+          <PlatformPick platform="youtube" label="Short" />
+          <PlatformPick platform="threads" label="Thread" />
+          <PlatformPick platform="facebook" label="Reel" selected={false} />
+        </div>
+        <div className="mt-5 flex items-center justify-between gap-3 border-t border-[var(--mk-line)] pt-4">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-soft px-2.5 py-1 text-[11.5px] font-semibold text-sky">
+            <Icon name="calendar" className="h-3 w-3" />
+            Fri 9:00 AM
+          </span>
+          <span className="rounded-md bg-[var(--mk-text)] px-4 py-2 text-[13px] font-semibold text-[var(--mk-bg)]">
+            Next
+          </span>
+        </div>
+      </Frame>
     </div>
   );
 }
-
-// ── who it is for ──────────────────────────────────────────────────────────
 
 // ── ticker ─────────────────────────────────────────────────────────────────
 
@@ -374,199 +301,12 @@ function TickerRun({ hidden }: { hidden?: boolean }) {
 
 function Ticker() {
   return (
-    <div className="overflow-hidden border-y border-line bg-panel py-3.5">
+    <div className="mf-band overflow-hidden border-y border-line py-3.5">
       <div className="mf-ticker flex w-max">
         <TickerRun />
         <TickerRun hidden />
       </div>
     </div>
-  );
-}
-
-function Audiences() {
-  return (
-    <section id="creators" className="border-t border-line bg-panel">
-      <Container className="py-20 shell:py-28">
-        <Opening
-          title="For the person posting, the business selling, and the agency running both."
-          lede="Every path uses the same three tools. What changes is which one earns its keep first."
-        />
-
-        <div className="mt-6 divide-y divide-line">
-          <Path
-            title="Creators"
-            headline="Post once, everywhere. Turn every “link?” comment into a DM."
-            body="The composer takes one video and gives each platform its own settings, caption limits and word for the post. A rule answers the comments the post earns. Research tells you what to make next."
-            points={[
-              "Unlimited posts and connected accounts on Pro — X is the one exception, at 300 a month",
-              "Comment-to-DM with a public reply, once per person, tracked to the click",
-              "Which of a channel’s videos beat that channel’s own average, and why",
-            ]}
-            visual={<CreatorMock />}
-          />
-          <Path
-            flip
-            title="Businesses"
-            headline="Answer the questions people keep asking. Collect the email while you’re at it."
-            body="Price, hours, shipping, “where is this from” — a keyword rule answers each in the words you wrote, and a step inside the same DM asks for the email and keeps it on the contact."
-            points={[
-              "Keyword DMs that answer every time, not once per person",
-              "Email capture inside the conversation, exportable any time",
-              "Runs, sends, clicks and CTR on every rule, so you know which one pays",
-            ]}
-            visual={<BusinessMock />}
-          />
-          <Path
-            title="Agencies"
-            headline="One workspace per client. One login. Budgets that never leak between them."
-            body="Each client is a workspace with its own connected accounts, calendar and rules. Posts, DM sends and research credits are one pooled allowance across all of them, so a client can never spend another’s."
-            points={[
-              "Five workspaces on Pro, ten on Studio, unlimited on Enterprise",
-              "Several accounts per platform in each workspace",
-              "Export everything a client owns as one file when they leave",
-            ]}
-            visual={<AgencyMock />}
-          />
-        </div>
-      </Container>
-    </section>
-  );
-}
-
-function Path({
-  title,
-  headline,
-  body,
-  points,
-  visual,
-  flip,
-}: {
-  title: string;
-  headline: string;
-  body: string;
-  points: string[];
-  visual: ReactNode;
-  flip?: boolean;
-}) {
-  return (
-    <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-10 py-12 wide:grid-cols-2 wide:gap-16 wide:py-16">
-      <div className={cx(flip && "wide:order-2")}>
-        <p className="text-[15px] font-semibold text-accent">{title}</p>
-        <h3 className="font-display mt-2 text-[26px]/[32px] font-bold tracking-[-0.025em] text-ink text-balance shell:text-[32px]/[38px]">
-          {headline}
-        </h3>
-        <p className="mt-4 text-[16px]/[25px] text-muted text-pretty">{body}</p>
-        <ul className="mt-5 flex flex-col gap-2.5">
-          {points.map((point) => (
-            <Check key={point}>{point}</Check>
-          ))}
-        </ul>
-      </div>
-      <div className={cx("flex justify-center", flip && "wide:order-1")}>{visual}</div>
-    </div>
-  );
-}
-
-function CreatorMock() {
-  return (
-    <Frame title="Home" aside="All accounts" className="w-full max-w-[460px]">
-      <div className="flex items-center gap-3">
-        <span className="flex -space-x-2">
-          <Avatar name="maya.kim" size={34} hue={0} className="ring-2 ring-[var(--mk-panel)]" />
-          <Avatar name="maya on tiktok" size={34} hue={1} className="ring-2 ring-[var(--mk-panel)]" />
-          <Avatar name="Maya Kim Studio" size={34} hue={3} className="ring-2 ring-[var(--mk-panel)]" />
-        </span>
-        <div>
-          <p className="text-[14px] font-semibold text-[var(--mk-text)]">Maya Kim</p>
-          <p className="text-[11.5px] text-[var(--mk-faint)]">3 accounts · refreshed 2h ago</p>
-        </div>
-      </div>
-      <div className="mt-4">
-        <MockStatRow>
-          <MockStat label="Posts" value="412" />
-          <MockStat label="Followers" value="128K" />
-          <MockStat label="Following" value="310" />
-        </MockStatRow>
-      </div>
-      <div className="mt-4 grid grid-cols-4 gap-2">
-        <PostTile platform="instagram" hue={0} caption="Three things I wish I knew before 100k" metric="41.2K" />
-        <PostTile platform="tiktok" hue={1} caption="Stop editing like this" metric="188K" />
-        <PostTile platform="youtube" hue={2} caption="I posted daily for 30 days" metric="92.5K" />
-        <PostTile platform="instagram" hue={3} caption="My whole desk setup" metric="12.8K" />
-      </div>
-    </Frame>
-  );
-}
-
-function BusinessMock() {
-  return (
-    <div className="flex w-full max-w-[460px] flex-col items-center gap-4">
-      <Phone>
-        <div className="flex flex-col gap-2 px-3 pt-2 pb-4">
-          <div className="mb-1 flex items-center gap-2 px-1">
-            <Avatar name="northline.coffee" size={22} hue={4} />
-            <span className="text-[11px] font-semibold text-[var(--mk-text)]">northline.coffee</span>
-            <span className="ml-auto rounded-full bg-[var(--mk-chip)] px-2 py-[2px] text-[9.5px] font-semibold text-[var(--mk-muted)]">
-              Automated
-            </span>
-          </div>
-          <Bubble from="person">do you ship the beans? how much</Bubble>
-          <Bubble from="business" button="See shipping and prices">
-            Great question — here’s exactly how the pricing works, and what’s
-            included at each level.
-          </Bubble>
-          <Bubble from="business">What’s the best email to send the roast guide to?</Bubble>
-          <Bubble from="person">sam.reyes@example.com</Bubble>
-          <p className="pt-1 text-center text-[10.5px] font-medium text-ok">
-            Email saved on the contact
-          </p>
-        </div>
-      </Phone>
-      <Frame className="w-full" title="Shipping & prices" aside="Live · DM keyword">
-        <MockStatRow>
-          <MockStat label="Runs" value="1,284" />
-          <MockStat label="Sends" value="1,190" />
-          <MockStat label="Clicks" value="402" accent />
-          <MockStat label="CTR" value="34%" />
-          <MockStat label="Emails" value="96" />
-        </MockStatRow>
-      </Frame>
-    </div>
-  );
-}
-
-function AgencyMock() {
-  const clients: { name: string; accounts: Platform[]; posts: string }[] = [
-    { name: "Northline Coffee", accounts: ["instagram", "facebook", "tiktok"], posts: "38 posts" },
-    { name: "Ruby Fitness", accounts: ["instagram", "youtube", "tiktok", "threads"], posts: "61 posts" },
-    { name: "Patel Dental", accounts: ["instagram", "facebook"], posts: "12 posts" },
-    { name: "Hollow Records", accounts: ["instagram", "x", "youtube", "snapchat"], posts: "104 posts" },
-  ];
-  return (
-    <Frame title="Workspaces" aside="4 of 5 on Pro" className="w-full max-w-[460px]" pad={false}>
-      <ul className="divide-y divide-[var(--mk-line)]">
-        {clients.map((client, index) => (
-          <li key={client.name} className="flex items-center gap-3 px-4 py-3">
-            <Avatar name={client.name} size={30} hue={index + 1} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-semibold text-[var(--mk-text)]">{client.name}</p>
-              <p className="text-[11px] text-[var(--mk-faint)]">
-                {client.accounts.length} accounts · {client.posts} this month
-              </p>
-            </div>
-            <span className="flex -space-x-1.5">
-              {client.accounts.map((platform) => (
-                <PlatformTile key={platform} platform={platform} size={20} radius={999} className="ring-2 ring-[var(--mk-panel)]" />
-              ))}
-            </span>
-          </li>
-        ))}
-      </ul>
-      <div className="flex items-center justify-between gap-3 border-t border-[var(--mk-line)] px-4 py-3 text-[11.5px]">
-        <span className="text-[var(--mk-muted)]">Posts this month, pooled across clients</span>
-        <span className="font-semibold text-[var(--mk-text)] tabular-nums">215 · no cap</span>
-      </div>
-    </Frame>
   );
 }
 
@@ -779,7 +519,7 @@ function Word({ children }: { children: ReactNode }) {
 
 function Automate() {
   return (
-    <section id="automate" className="border-t border-line bg-panel">
+    <section id="automate" className="mf-band border-t border-line">
       <Container className="py-20 shell:py-28">
         <Opening
           title="Turn comments into conversations that convert."
@@ -820,76 +560,11 @@ function Automate() {
   );
 }
 
-// ── before and after ───────────────────────────────────────────────────────
-
-function BeforeAfter() {
-  const before = [
-    "Copy-pasting the same link into two hundred DMs.",
-    "A reel takes off at 2am and every “where is this from?” goes unanswered.",
-    "Uploading the same video into five apps, five times, with five sets of settings.",
-    "Guessing what to make next from a feed of other people’s wins.",
-  ];
-  const after = [
-    "One rule answers every keyword comment in seconds, all night.",
-    "One upload goes to seven platforms, each with its own settings.",
-    "Every click is counted on the rule that earned it.",
-    "The videos beating their own channel’s average, ranked, with the reason why.",
-  ];
-  return (
-    <section>
-      <Container className="py-20 shell:py-28">
-        <Opening
-          align="center"
-          title="Your week, before and after."
-          lede="Less of the part that feels like work. More of the part that is."
-        />
-        <div className="mt-12 grid grid-cols-[minmax(0,1fr)] gap-4 shell:grid-cols-2">
-          <div className="rounded-2xl border border-line bg-panel p-6 shell:p-8">
-            <p className="text-[13px] font-semibold text-faint">Before</p>
-            <h3 className="font-display mt-1 text-[26px]/[32px] font-bold tracking-[-0.025em] text-ink">
-              All grind, no leverage
-            </h3>
-            <ul className="mt-6 divide-y divide-line">
-              {before.map((line) => (
-                <li key={line} className="flex gap-3 py-3.5 text-[15px]/[23px] text-muted">
-                  <span className="mt-[5px] inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-faint">
-                    <Icon name="minus" className="h-3.5 w-3.5" strokeWidth={2.4} />
-                  </span>
-                  <span className="text-pretty">{line}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="rounded-2xl bg-dock p-6 text-dock-hover shell:p-8">
-            <p className="text-[13px] font-semibold text-accent">After</p>
-            <h3 className="font-display mt-1 text-[26px]/[32px] font-bold tracking-[-0.025em]">
-              Same audience, more of it answered
-            </h3>
-            <ul className="mt-6 divide-y divide-[rgba(255,255,255,0.12)]">
-              {after.map((line) => (
-                <li key={line} className="flex gap-3 py-3.5 text-[15px]/[23px] text-[rgba(255,255,255,0.78)]">
-                  <span className="mt-[5px] inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-accent">
-                    <Icon name="check" className="h-3.5 w-3.5" strokeWidth={2.4} />
-                  </span>
-                  <span className="text-pretty">{line}</span>
-                </li>
-              ))}
-            </ul>
-            <Link href="/signup" className={buttonClass("primary", "md", "mt-8")}>
-              Start free
-            </Link>
-          </div>
-        </div>
-      </Container>
-    </section>
-  );
-}
-
 // ── research ───────────────────────────────────────────────────────────────
 
 function Research() {
   return (
-    <section id="research" className="border-t border-line bg-panel">
+    <section id="research">
       <Container className="py-20 shell:py-28">
         <Opening
           title="Find what already worked. Then make yours."
@@ -1008,7 +683,7 @@ function Research() {
 
 function Publish() {
   return (
-    <section id="publish">
+    <section id="publish" className="mf-band border-t border-line">
       <Container className="py-20 shell:py-28">
         <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 wide:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] wide:gap-16">
           <div>
@@ -1033,6 +708,12 @@ function Publish() {
                 If one platform fails, the others still go out, and the post says which one failed and why
               </Check>
             </ul>
+            <p className="mt-6 max-w-[520px] text-[14px]/[22px] text-faint text-pretty">
+              Instagram, Facebook and Threads are open now. TikTok, YouTube, X
+              and Snapchat are wired and switch on inside the app as each
+              platform’s own review clears — the toggle on the account tells
+              you where it stands. LinkedIn and Pinterest follow after launch.
+            </p>
           </div>
 
           <div className="flex flex-col gap-4">
@@ -1092,54 +773,6 @@ function Publish() {
             </Frame>
           </div>
         </div>
-      </Container>
-    </section>
-  );
-}
-
-// ── platform coverage ──────────────────────────────────────────────────────
-
-function Everywhere() {
-  const rows: { platform: Platform; title: string; body: string }[] = [
-    { platform: "instagram", title: "Instagram", body: "Reels, photos and carousels, with share-to-feed and profile display settings — plus comment, DM and story-reply automation." },
-    { platform: "facebook", title: "Facebook", body: "Pages: video, photos and text, with a title and embed control." },
-    { platform: "threads", title: "Threads", body: "Text, photos and video up to 500 characters, with reply control." },
-    { platform: "tiktok", title: "TikTok", body: "Direct post with the privacy level, comment and duet settings, and the commercial-content disclosure TikTok requires." },
-    { platform: "youtube", title: "YouTube", body: "Shorts and long videos up to 256GB, with visibility, tags, #shorts and the made-for-kids flag." },
-    { platform: "x", title: "X", body: "Text posts with reply control, 300 a month on paid plans, and no external links in the caption." },
-    { platform: "snapchat", title: "Snapchat", body: "Spotlight: one vertical video, up to 160 characters, saved to your public profile." },
-  ];
-  return (
-    <section className="border-t border-line bg-panel">
-      <Container className="py-20 shell:py-28">
-        <Opening
-          title="Everywhere your audience is."
-          lede="Seven platforms today, each connected through its own official login. LinkedIn and Pinterest follow after launch."
-        />
-        <ul className="mt-10 grid gap-x-12 sm:grid-cols-2">
-          {rows.map((row) => (
-            <li key={row.platform} className="flex gap-4 border-t border-line py-5">
-              <PlatformTile platform={row.platform} size={36} />
-              <div>
-                <h3 className="text-[16px] font-semibold text-ink">{row.title}</h3>
-                <p className="mt-1 text-[14.5px]/[22px] text-muted text-pretty">{row.body}</p>
-              </div>
-            </li>
-          ))}
-          <li className="flex gap-4 border-t border-line py-5">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-chip text-muted">
-              <Icon name="shield" className="h-[18px] w-[18px]" />
-            </span>
-            <div>
-              <h3 className="text-[16px] font-semibold text-ink">Each platform reviews apps on its own clock</h3>
-              <p className="mt-1 text-[14.5px]/[22px] text-muted text-pretty">
-                Instagram, Facebook and Threads are open now. The rest are
-                wired and switch on inside the app as each review clears — the
-                platform’s own toggle tells you where it stands.
-              </p>
-            </div>
-          </li>
-        </ul>
       </Container>
     </section>
   );
@@ -1220,119 +853,6 @@ function Own() {
   );
 }
 
-// ── one place ──────────────────────────────────────────────────────────────
-
-function Manage() {
-  const nav: { icon: IconName; label: string; active?: boolean }[] = [
-    { icon: "home", label: "Home", active: true },
-    { icon: "calendar", label: "Calendar" },
-    { icon: "drafts", label: "Drafts" },
-    { icon: "automations", label: "Automations" },
-    { icon: "videos", label: "Research" },
-    { icon: "settings", label: "Settings" },
-  ];
-  return (
-    <section id="manage" className="border-t border-line bg-panel">
-      <Container className="py-20 shell:py-28">
-        <Opening
-          align="center"
-          title="One dashboard for all of it."
-          lede="Publish, automate and research from one sidebar, in one workspace per brand, on a screen or in the browser on your phone."
-        />
-
-        <Frame className="mx-auto mt-12 w-full max-w-[880px]" pad={false}>
-          <div className="grid grid-cols-[minmax(0,1fr)] shell:grid-cols-[176px_minmax(0,1fr)]">
-            <div className="flex min-w-0 items-center gap-2 border-b border-[var(--mk-line)] p-3 shell:flex-col shell:items-stretch shell:border-r shell:border-b-0">
-              <div className="hidden items-center gap-2 px-2 pb-3 shell:flex">
-                <FoxMark className="h-5" />
-                <span className="font-display text-[14px] font-bold text-[var(--mk-text)]">MarkedFox</span>
-              </div>
-              <div className="mf-noscroll flex min-w-0 gap-1 overflow-x-auto shell:flex-col">
-                {nav.map((item) => (
-                  <span
-                    key={item.label}
-                    className={cx(
-                      "flex shrink-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-[12.5px] font-medium whitespace-nowrap",
-                      item.active
-                        ? "bg-[var(--mk-chip)] text-[var(--mk-text)]"
-                        : "text-[var(--mk-muted)]",
-                    )}
-                  >
-                    <Icon name={item.icon} className="h-4 w-4" />
-                    {item.label}
-                  </span>
-                ))}
-              </div>
-              <div className="ml-auto hidden shell:mt-auto shell:ml-0 shell:block">
-                <p className="px-2.5 text-[10.5px] font-semibold text-[var(--mk-faint)]">Workspace</p>
-                <div className="mt-1 flex items-center gap-2 rounded-md border border-[var(--mk-line)] px-2.5 py-2">
-                  <Avatar name="Ruby Fitness" size={18} hue={2} />
-                  <span className="truncate text-[12px] font-semibold text-[var(--mk-text)]">Ruby Fitness</span>
-                  <span className="ml-auto text-[10px] text-[var(--mk-faint)]">2 / 5</span>
-                </div>
-              </div>
-            </div>
-            <div className="min-w-0 p-4 shell:p-5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="flex -space-x-2">
-                    <Avatar name="ruby.fit" size={30} hue={2} className="ring-2 ring-[var(--mk-panel)]" />
-                    <Avatar name="Ruby on YouTube" size={30} hue={1} className="ring-2 ring-[var(--mk-panel)]" />
-                    <Avatar name="ruby tiktok" size={30} hue={3} className="ring-2 ring-[var(--mk-panel)]" />
-                    <Avatar name="Ruby threads" size={30} hue={4} className="ring-2 ring-[var(--mk-panel)]" />
-                  </span>
-                  <div>
-                    <p className="text-[14px] font-semibold text-[var(--mk-text)]">Ruby Fitness</p>
-                    <p className="text-[11px] text-[var(--mk-faint)]">4 accounts</p>
-                  </div>
-                </div>
-                <span className="rounded-md bg-[var(--mk-text)] px-3 py-1.5 text-[12px] font-semibold text-[var(--mk-bg)]">
-                  + New post
-                </span>
-              </div>
-              <div className="mt-4">
-                <MockStatRow>
-                  <MockStat label="Posts" value="1,062" />
-                  <MockStat label="Followers" value="284K" />
-                  <MockStat label="Scheduled" value="9" />
-                  <MockStat label="Rules live" value="4" />
-                </MockStatRow>
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
-                <PostTile platform="instagram" hue={0} caption="20-minute back day" metric="31K" />
-                <PostTile platform="tiktok" hue={1} caption="Form check: RDLs" metric="402K" />
-                <PostTile platform="youtube" hue={2} caption="Everything I eat on a cut" metric="88K" />
-                <PostTile platform="instagram" hue={3} caption="The warm-up nobody does" metric="19K" />
-                <PostTile platform="threads" hue={4} caption="Rest days are training" metric="2.1K" />
-                <PostTile platform="tiktok" hue={0} caption="Coach reacts to your lifts" metric="156K" />
-              </div>
-            </div>
-          </div>
-        </Frame>
-
-        <div className="mt-12 grid gap-x-12 gap-y-8 sm:grid-cols-2 wide:grid-cols-4">
-          <Fact icon="people" title="A workspace per brand or client">
-            Its own accounts, calendar, rules and channels. Two on Free, five on
-            Pro, ten on Studio.
-          </Fact>
-          <Fact icon="chart" title="One allowance, pooled">
-            Posts, DM sends and research credits are one budget spent from
-            whichever workspace you like — a client never spends another’s.
-          </Fact>
-          <Fact icon="panel" title="Built for a phone screen too">
-            The same dashboard in the browser on your phone: a bottom tab bar
-            with New post in the centre, every screen laid out for one hand.
-          </Fact>
-          <Fact icon="paint" title="Light or dark, your call">
-            One switch in Settings, remembered on every device you sign in
-            from, with no flash on load.
-          </Fact>
-        </div>
-      </Container>
-    </section>
-  );
-}
-
 // ── the three tools, side by side ──────────────────────────────────────────
 
 /** The stack most people run, as a table.
@@ -1362,7 +882,7 @@ function Compare() {
     { label: "One bill, one login, one dashboard", has: [true, false, false, false] },
   ];
   return (
-    <section id="compare">
+    <section id="compare" data-theme="dark" className="bg-bg text-ink">
       <Container className="py-20 shell:py-28">
         <Opening
           align="center"
@@ -1446,7 +966,7 @@ function Compare() {
 
 function Stack() {
   return (
-    <section id="stack" className="border-t border-line bg-panel">
+    <section id="stack">
       <Container className="py-20 shell:py-28">
         <Opening
           align="center"
@@ -1465,7 +985,7 @@ function Stack() {
 
 function Plans() {
   return (
-    <section id="plans">
+    <section id="plans" className="mf-band border-t border-line">
       <Container className="py-20 shell:py-28">
         <Opening
           align="center"
@@ -1488,7 +1008,7 @@ function Plans() {
 
 function Questions() {
   return (
-    <section id="faq" className="border-t border-line bg-panel">
+    <section id="faq">
       <Container className="py-20 shell:py-28">
         <div className="grid grid-cols-[minmax(0,1fr)] gap-10 wide:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] wide:gap-16">
           <div>
