@@ -9,6 +9,10 @@
 #
 #   --skip-snapshot   deploy without one (development only, never for a release)
 #
+# After taking one it deletes the older ones, keeping the newest SNAPSHOT_KEEP
+# (default 3). Without that the pile grows by one per deploy and never shrinks;
+# it had reached 66 by 2026-09-09, billing more than the droplet it backed up.
+#
 # The build happens in a SEPARATE tree and is swapped in at the end.
 #
 # It used to happen in place, in the directory the live process was serving
@@ -34,6 +38,13 @@ CURRENT="${APP_DIR}/current"
 BUILD="${APP_DIR}/build"
 BRANCH="${DEPLOY_BRANCH:-main}"
 SKIP_SNAPSHOT=0
+# How many pre-deploy snapshots to keep, newest first. Raising it costs about
+# $0.50/month per extra snapshot at the current image size.
+SNAPSHOT_KEEP="${SNAPSHOT_KEEP:-3}"
+if ! [[ "$SNAPSHOT_KEEP" =~ ^[1-9][0-9]*$ ]]; then
+  echo "SNAPSHOT_KEEP must be a positive integer, got: ${SNAPSHOT_KEEP}" >&2
+  exit 1
+fi
 
 for arg in "$@"; do
   case "$arg" in
@@ -94,6 +105,67 @@ else
   doctl compute droplet-action snapshot "$DROPLET_ID" \
     --snapshot-name "$SNAPSHOT_NAME" --wait
   echo "Snapshot taken: ${SNAPSHOT_NAME}"
+
+  # ── prune ─────────────────────────────────────────────────────────────────
+  # This script created one snapshot per deploy and deleted none, so by
+  # 2026-09-09 the account held 66 of them: about $20/month of backups guarding
+  # a droplet costing $11. The rollback story had come to cost twice the thing
+  # it was insuring, and 65 had to be deleted by hand through the dashboard,
+  # one at a time, each behind a type-the-full-name confirmation.
+  #
+  # Three is enough — the release now live, and two behind it. Older ones are
+  # of a tree nobody would choose to go back to over the ones kept.
+  #
+  # Two deliberate safety properties:
+  #
+  #   - Only names this script itself writes are ever considered. The pattern
+  #     is anchored, so a hand-named snapshot, a volume snapshot, or anything
+  #     belonging to another product on the account is invisible here.
+  #   - It can never fail the deploy. The new snapshot already exists, so the
+  #     rollback point is safe; an untidy account is not a reason to abort a
+  #     release. Every failure warns and continues.
+  #
+  # The names carry a UTC timestamp in a fixed width, so a plain sort is
+  # chronological: `sort -r` puts the newest first and `tail -n +KEEP+1` drops
+  # them, leaving exactly the ones to remove. Written this way rather than as
+  # `head -n -KEEP` because a negative count is a GNU extension — it works on
+  # this Ubuntu box but cannot be tested anywhere else, and this is a loop that
+  # deletes things.
+  prune_snapshots() {
+    local listing stale count id
+    if ! listing="$(doctl compute snapshot list \
+                      --resource droplet --format ID,Name --no-header 2>&1)"; then
+      warn "Could not list snapshots, so none were pruned:"
+      warn "${listing}"
+      return 0
+    fi
+
+    stale="$(printf '%s\n' "$listing" \
+      | awk '$2 ~ /^markedfox-predeploy-[0-9]{8}-[0-9]{6}$/ { print $2 "\t" $1 }' \
+      | sort -r \
+      | tail -n "+$((SNAPSHOT_KEEP + 1))" \
+      | cut -f2)"
+
+    if [[ -z "$stale" ]]; then
+      echo "Nothing to prune; at or under ${SNAPSHOT_KEEP} snapshots."
+      return 0
+    fi
+
+    count="$(printf '%s\n' "$stale" | grep -c .)"
+    echo "Deleting ${count} snapshot(s) older than the newest ${SNAPSHOT_KEEP}."
+    while read -r id; do
+      [[ -z "$id" ]] && continue
+      if doctl compute snapshot delete "$id" --force >/dev/null 2>&1; then
+        echo "  deleted ${id}"
+      else
+        warn "Could not delete snapshot ${id}; leaving it in place."
+      fi
+    done <<< "$stale"
+  }
+
+  log "Pruning old snapshots, keeping the newest ${SNAPSHOT_KEEP}"
+  # Called with `||` so a failure inside can never abort the release.
+  prune_snapshots || warn "Snapshot pruning failed. The new snapshot is safe."
 fi
 
 # ── fetch ───────────────────────────────────────────────────────────────────
