@@ -2015,8 +2015,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - **2026-09-08 — hosting settled: it stays on the VPS.** No code changed. See
   `sessions/2026-09-08-hosting-and-costs.md`.
 
-  *Spend today is ~$14/month* and there is nothing else billing: $12 droplet,
-  ~$1 of accumulated deploy snapshots, $1 domain, everything else on free tiers.
+  *Spend was ~$31/month, not the ~$14 first estimated here.* Read off the live
+  billing page 2026-09-09: September 1-9 billed $5.98 for **66 droplet
+  snapshots** and $3.43 for the droplet, so the snapshot pile was running about
+  $20/month against the server's $11 — nearly twice the box it was backing up.
+  `deploy.sh` takes one before every deploy and nothing prunes them, and 24 days
+  of deploys had accumulated 66. Note the billed figure sits well under
+  66 x 8.3GB x $0.06, so estimate this from the billing page rather than by
+  multiplying. **65 were deleted 2026-09-09**, keeping only
+  `markedfox-predeploy-20260908-181725` as the live release's rollback; expected
+  spend is now ~$12.50/month plus the $1 domain, everything else on free tiers.
 
   *Cloudflare Workers was investigated against the codebase and rejected.* Most
   of it would port — `node:fs` appears only in tests, runtime Node usage is
@@ -2042,12 +2050,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
   **Two open cost items, neither done:**
 
-  - **Prune the deploy snapshots.** `deploy.sh` takes one before every deploy and
-    nothing deletes them, so they have piled up since 2026-08-14. Keep the newest
-    (it is the live release's rollback), delete the rest. The pile rebuilds
-    itself, so prune inside `deploy.sh` or sweep periodically. Attempted today
-    and blocked: no `doctl`, no DigitalOcean API token, and the Claude in Chrome
-    extension was not connected.
+  - **Make `deploy.sh` prune its own snapshots.** The 65 stale ones are gone, but
+    nothing stops it happening again — the script creates one per deploy and
+    deletes none, at roughly $0.50/month each. Keep the last two or three inside
+    the script, or sweep by hand periodically. Today's cleanup is undone by about
+    forty more deploys. Doing it in the dashboard is slow: there is no bulk
+    select and each delete makes you type the snapshot's full name. (`doctl` is
+    not installed and no DigitalOcean API token exists; the browser was the only
+    route available.)
   - **The $6 droplet.** `s-1vcpu-1gb` instead of `s-1vcpu-2gb`, wanted once the
     build is finished. `deploy.sh` runs `next build` on the box and Next 16 with
     Turbopack is unlikely to build inside 1GB, so this needs swap or a build
