@@ -2050,14 +2050,24 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
   **Two open cost items, neither done:**
 
-  - **Make `deploy.sh` prune its own snapshots.** The 65 stale ones are gone, but
-    nothing stops it happening again — the script creates one per deploy and
-    deletes none, at roughly $0.50/month each. Keep the last two or three inside
-    the script, or sweep by hand periodically. Today's cleanup is undone by about
-    forty more deploys. Doing it in the dashboard is slow: there is no bulk
-    select and each delete makes you type the snapshot's full name. (`doctl` is
-    not installed and no DigitalOcean API token exists; the browser was the only
-    route available.)
+  - ~~**Make `deploy.sh` prune its own snapshots.**~~ **Done, deployed
+    `d35bff8`.** It now keeps the newest `SNAPSHOT_KEEP` (default 3) and deletes
+    the rest, immediately after taking the new one while the token is already
+    sourced. Two properties it is built around: only names the script itself
+    writes are considered, anchored to the exact timestamp shape, so a
+    hand-named snapshot or another product's backup on the shared account is
+    invisible to it; and it can never fail a deploy — the new snapshot exists by
+    then, so every failure warns and returns 0 rather than aborting a release
+    over an untidy account. Selection is `sort -r | tail -n +KEEP+1` rather than
+    `head -n -KEEP`, because a negative count is a GNU extension that cannot be
+    tested off the droplet and this is a loop that deletes things; verified
+    against a stub `doctl` for correct-ids-with-decoys, a failing list, a failing
+    delete, and fewer snapshots than KEEP.
+
+    Note `doctl` **is** installed on the droplet and reads
+    `DIGITALOCEAN_ACCESS_TOKEN` from `/srv/markedfox/.env.production` — it is
+    only the owner's Mac that has neither, which is why the 65-snapshot cleanup
+    had to go through the browser.
   - **The $6 droplet.** `s-1vcpu-1gb` instead of `s-1vcpu-2gb`, wanted once the
     build is finished. `deploy.sh` runs `next build` on the box and Next 16 with
     Turbopack is unlikely to build inside 1GB, so this needs swap or a build
