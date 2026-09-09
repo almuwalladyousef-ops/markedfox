@@ -2011,3 +2011,45 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   assertion pinned to the literal 300, a post-type list spelled out by hand,
   and a route list that a new page would silently fall off.
 
+
+- **2026-09-08 — hosting settled: it stays on the VPS.** No code changed. See
+  `sessions/2026-09-08-hosting-and-costs.md`.
+
+  *Spend today is ~$14/month* and there is nothing else billing: $12 droplet,
+  ~$1 of accumulated deploy snapshots, $1 domain, everything else on free tiers.
+
+  *Cloudflare Workers was investigated against the codebase and rejected.* Most
+  of it would port — `node:fs` appears only in tests, runtime Node usage is
+  `node:crypto` and `node:path` (both covered by `nodejs_compat`), no route
+  declares `export const runtime`, SigV4 is WebCrypto-compatible, and
+  browser-to-R2 presigned uploads never touch the server. Two things do not, and
+  both sit on the publish path: `youtube.ts:156-170` streams upload bytes through
+  the server against a 256GB advertised ceiling while `snapchat.ts:331` buffers
+  chunks into a `Blob`, and a Worker has 128MB against the droplet's 2GB; and
+  `polling.ts` holds a single publish request open for `VIDEO_POLL_TOTAL_MS =
+  300_000`. Against ~$10/month of saving, the cost is rewriting all of `deploy/`
+  including the 2026-08-29 atomic swap and the snapshot rollback Rule 5 depends
+  on. Recorded so it is not re-argued.
+
+  *Shutting the droplet down is safe and was rejected only because the project is
+  active.* The VPS is disposable by design, so **if the project ever goes quiet,
+  destroy it rather than paying to idle it** — `deploy/bootstrap.sh` is the
+  rebuild. Corollary, and it cuts the other way: Phase 5 review requires the
+  legal and marketing pages **live on the domain**, and reviewers open the site,
+  so the server must be up *before* anything is filed. Note that nothing has been
+  filed yet — the Meta app has no App Review submission and the TikTok app does
+  not exist — so the wait is on us, not on the reviewers.
+
+  **Two open cost items, neither done:**
+
+  - **Prune the deploy snapshots.** `deploy.sh` takes one before every deploy and
+    nothing deletes them, so they have piled up since 2026-08-14. Keep the newest
+    (it is the live release's rollback), delete the rest. The pile rebuilds
+    itself, so prune inside `deploy.sh` or sweep periodically. Attempted today
+    and blocked: no `doctl`, no DigitalOcean API token, and the Claude in Chrome
+    extension was not connected.
+  - **The $6 droplet.** `s-1vcpu-1gb` instead of `s-1vcpu-2gb`, wanted once the
+    build is finished. `deploy.sh` runs `next build` on the box and Next 16 with
+    Turbopack is unlikely to build inside 1GB, so this needs swap or a build
+    moved off the box — it touches the one script that must not break.
+    Post-launch, not now.
