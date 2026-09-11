@@ -13,6 +13,9 @@ const LINK_ERRORS: Record<string, string> = {
   invalid_link: "That link was not valid. Request a new one below.",
   expired_link:
     "That link has expired or was already used. Request a new one below.",
+  confirmed: "Your email is confirmed. Sign in below.",
+  other_browser:
+    "That reset link only works in the browser you requested it from. Request a new one from this browser.",
 };
 
 export default async function LoginPage({

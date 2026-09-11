@@ -61,11 +61,11 @@ export async function signUp(
   // nothing by itself — entitlements come only from `subscriptions`.
   const intendedPlan = parseIntendedPlan(formData.get("plan"));
 
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email: parsed.value.email,
     password: parsed.value.password,
     options: {
-      emailRedirectTo: `${siteUrl}/auth/confirm`,
+      emailRedirectTo: `${siteUrl}/auth/confirm?flow=signup`,
       ...(intendedPlan ? { data: { intended_plan: intendedPlan } } : {}),
     },
   });
@@ -79,22 +79,18 @@ export async function signUp(
     : "";
 
   // Account enumeration guard. With email confirmation on, Supabase answers a
-  // signup for an existing address with a success-shaped response carrying an
-  // empty `identities` array, so that a stranger cannot use this form to learn
-  // who has an account. Mirroring the ordinary message keeps that property —
-  // the real owner still gets an email, and nobody else learns anything.
-  if (data.user && data.user.identities?.length === 0) {
-    return {
-      success: true,
-      message:
-        "Check your email for a confirmation link. If you already have an account, we sent a sign-in reminder instead." +
-        planNote,
-    };
-  }
-
+  // signup for an already-confirmed address with a success-shaped response
+  // carrying an empty `identities` array — and sends NO email at all. So the
+  // answer must be one message, word for word, whichever case this is: a
+  // different line for the existing-account case would tell a stranger who
+  // has an account. It used to be different, and it also promised a
+  // "sign-in reminder" Supabase never sends, which left a real person waiting
+  // on an inbox that stayed empty. The line below is true in both cases.
   return {
     success: true,
-    message: "Check your email for a confirmation link to finish signing up." + planNote,
+    message:
+      "Check your email for a confirmation link to finish signing up. No email after a few minutes? This address may already have an account — sign in, or reset your password." +
+      planNote,
   };
 }
 
@@ -163,7 +159,7 @@ export async function requestPasswordReset(
   // registered and an unregistered address, so the same confirmation shows
   // either way and real failures go to the server log.
   const { error } = await supabase.auth.resetPasswordForEmail(email.value, {
-    redirectTo: `${siteUrl}/auth/confirm?next=/update-password`,
+    redirectTo: `${siteUrl}/auth/confirm?flow=recovery&next=/update-password`,
   });
   if (error) {
     console.error("Password reset request failed:", error.message);
