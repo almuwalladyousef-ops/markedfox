@@ -107,20 +107,25 @@ refactor, or preserve.
       harmless, but confirm it is an ads-only restriction and not a wider
       portfolio limitation before filing anything that depends on the portfolio
       being in good standing.
-- [ ] **Create the MarkedFox TikTok app.** Verified 2026-08-13 by signing into
-      the developer portal: the MarkedFox developer account exists (settings
-      show `m***a@gmail.com`) but **contains no apps at all**. The earlier
-      "two apps exist, resolve the duplicate" note was wrong — the pre-existing
-      personal app is under a different TikTok login, not this one, so there is
-      nothing here to delete and nothing to choose between. Create the app,
-      then record its client key and secret in `.env.local`.
+- [x] **MarkedFox TikTok app created 2026-08-30** — id `7679794203760576532`,
+      Login Kit + Content Posting API, keys in `.env.local` and on the droplet.
+      Submitted the same day, **rejected 2026-09-08** ("Scopes mismatch"),
+      returned to Draft 2026-09-11. **`video.upload` cannot be removed in the
+      portal** — it is bundled into Content Posting API with no switch — so the
+      resubmission needs either the scope demonstrated (inbox upload built and
+      shown) or TikTok asked directly; owner decision pending. Sandbox
+      `markedfox` exists with **no target user** yet. See
+      `sessions/2026-09-11-portal-sweep.md`.
 - [ ] Separately, check whether the old personal TikTok app has a completed
       Content Posting API audit worth preserving. This requires signing into
       that other TikTok account. If it has no audit, ignore it entirely —
       TikTok offers no transfer path, so it cannot be moved regardless.
 - [ ] Facebook Page for MarkedFox, Instagram account switched to **Business**, and
       the two linked — the Instagram Graph API does not work without this
-- [ ] Cloudflare Email Routing for `admin@` / `hello@` / `support@markedfox.com`
+- [x] Cloudflare Email Routing for `admin@` / `hello@` / `support@markedfox.com`
+      → `markedfox.usa@gmail.com`, configured 2026-09-11 with MX/DKIM/SPF
+      added. **Destination is Pending until the owner clicks Cloudflare's
+      verification email.**
 - [x] Cloudflare: `markedfox.usa@gmail.com` added as Super Administrator on the
       owner's personal Cloudflare account. Note that Super Admin covers the **whole
       account**, not just `markedfox.com` — Cloudflare's per-domain scoped roles are
@@ -147,10 +152,8 @@ refactor, or preserve.
 - [x] Provision Supabase (hosted project created 2026-08-12; CLI installed;
       stays in the personal default org by owner decision 2026-08-13 — an empty
       MarkedFox org exists as the exit-time transfer destination)
-- [ ] **Create the DigitalOcean droplet** — `tor1`, `s-1vcpu-2gb`, Ubuntu 24.04,
-      SSH key auth, on an account owned by the role account. The entire server
-      layer is already written and waiting in `deploy/`; this one click unblocks
-      all of Phase 1.
+- [x] DigitalOcean droplet `ubuntu-s-1vcpu-2gb-tor1` (`159.203.32.105`), live
+      since 2026-08-14.
 - [ ] Provision Cloudflare R2 and an AI key (GitHub repo exists)
 
 An older personal single-user app lives at GitHub remote
@@ -2073,3 +2076,39 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
     Turbopack is unlikely to build inside 1GB, so this needs swap or a build
     moved off the box — it touches the one script that must not break.
     Post-launch, not now.
+
+- **2026-09-11 — portal sweep: Meta made submittable, TikTok back in Draft,
+  email routing on.** No application code changed. See
+  `sessions/2026-09-11-portal-sweep.md`.
+
+  *Meta.* The dashboard said verbatim *"Currently ineligible for submission —
+  missing Privacy policy URL, Category"*, and terms and data-deletion both
+  pointed at `https://www.facebook.com/`. Set through the owner's Chrome and
+  read back via the MCP: privacy `https://markedfox.com/privacy`, terms
+  `https://markedfox.com/terms`, data deletion switched to the **callback**
+  type at `https://markedfox.com/api/meta/data-deletion` (the route is a
+  signed-request handler, so the type matters), category Business and pages.
+  `has_privacy_policy` is now true. Also learned: the Instagram webhook
+  (`comments`, `messages`, `messaging_postbacks`) **is** configured and
+  enabled, contrary to the 2026-09-07 handoff; Use cases holds only Facebook
+  Login for Business, so permission requests are still the open item;
+  `contact_email_verified` is still false.
+
+  *TikTok.* Rejected 2026-09-08 for a scopes mismatch. Returned to Draft.
+  **`video.upload` has no remove control** — bundled into Content Posting API
+  — so the 2026-09-08 handoff's "uncheck it" step does not exist; the choice
+  is now demonstrate-it (build inbox upload, re-add the scope) or ask TikTok.
+  Sandbox exists with no target user, and has its own client key/secret, so
+  recording in sandbox means swapping those onto the droplet by hand
+  (`sync-env.sh` cannot push a changed value).
+
+  *Cloudflare.* Email Routing for `support@`/`admin@`/`hello@` →
+  `markedfox.usa@gmail.com`, MX/DKIM/SPF added. Pending the owner's click on
+  the verification email.
+
+  *Credentials, corrected.* X, TikTok, Snapchat, `YOUTUBE_API_KEY`, Gemini,
+  Groq and Stripe are all set locally and on the droplet — the 2026-09-07
+  handoff's "unset" list was stale. Only `YOUTUBE_CLIENT_ID`/`_SECRET` are
+  missing, and the signed-in Google Cloud console is the owner's **personal**
+  project (`day-logger-496815`, old ContentOS), so a MarkedFox OAuth client
+  must wait for a role-account sign-in per the ownership rule.
