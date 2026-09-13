@@ -21,8 +21,12 @@ export function Skeleton({
   className?: string;
   style?: CSSProperties;
 }) {
+  // The default corner only when the caller names none: two radius utilities
+  // in one class string are settled by stylesheet order, not writing order,
+  // so `rounded-md` would silently beat a caller's `rounded-full`.
+  const corner = className?.includes("rounded") ? undefined : "rounded-md";
   return (
-    <div aria-hidden className={cx("mf-skeleton rounded-md", className)} style={style} />
+    <div aria-hidden className={cx("mf-skeleton", corner, className)} style={style} />
   );
 }
 
