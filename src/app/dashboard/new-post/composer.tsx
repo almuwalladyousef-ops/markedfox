@@ -1057,6 +1057,19 @@ export function Composer({
           id: string;
           status: "published" | "partial" | "failed";
         };
+        // A published post's media is deleted from storage the moment it
+        // settles, so the URL on the row now points at nothing. Keeping it
+        // meant pressing Publish a second time sent that dead URL and the
+        // platform failed with "could not fetch media from storage: HTTP
+        // 404". Forget it wherever the file is still in the tab, so the next
+        // press uploads again. Partial and failed posts keep their media for
+        // a day, and a new post referencing it keeps it longer, so a retry
+        // there still skips the upload.
+        if (post.status === "published") {
+          setMedia((rows) =>
+            rows.map((row) => (row.file ? { ...row, url: "" } : row)),
+          );
+        }
         setOutcome({
           kind: "published",
           status: post.status,
