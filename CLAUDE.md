@@ -113,9 +113,11 @@ refactor, or preserve.
       returned to Draft 2026-09-11. **`video.upload` cannot be removed in the
       portal** — it is bundled into Content Posting API with no switch — so the
       resubmission needs either the scope demonstrated (inbox upload built and
-      shown) or TikTok asked directly; owner decision pending. Sandbox
-      `markedfox` exists with **no target user** yet. See
-      `sessions/2026-09-11-portal-sweep.md`.
+      shown) or TikTok asked directly. **Owner chose to demonstrate it
+      (2026-09-12): "Send to TikTok drafts" built and deployed `4752a61`,
+      videos now upload by FILE_UPLOAD, sandbox keys live on the droplet.**
+      Waiting on the owner to add @markedfox as sandbox target user and
+      record the demo; then resubmit. See `sessions/2026-09-13-tiktok-drafts.md`.
 - [ ] Separately, check whether the old personal TikTok app has a completed
       Content Posting API audit worth preserving. This requires signing into
       that other TikTok account. If it has no audit, ignore it entirely —
@@ -2112,3 +2114,17 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   missing, and the signed-in Google Cloud console is the owner's **personal**
   project (`day-logger-496815`, old ContentOS), so a MarkedFox OAuth client
   must wait for a role-account sign-in per the ownership rule.
+
+- **2026-09-13 — TikTok: send to drafts, upload by file.** See
+  `sessions/2026-09-13-tiktok-drafts.md`. The rejected app had not changed
+  since 2026-08-30, so resubmitting it as-is would have failed the same way.
+  `video.upload` cannot be removed in the portal, so it is now used: the
+  composer's TikTok section offers *Send to TikTok drafts* beside *Post to
+  TikTok* (`/post/publish/inbox/video/init/`). Reading the adapter turned up a
+  worse fault: videos went by PULL_FROM_URL from `pub-*.r2.dev`, a domain
+  TikTok can never verify, so **no TikTok video publish could have
+  succeeded**. Videos now go by FILE_UPLOAD in 10MB chunks; photos still pull
+  and still need a verified R2 custom domain. 863 tests; deployed `4752a61`.
+  **The droplet now runs the TikTok sandbox key pair** for the demo; the
+  production pair is saved in `/srv/markedfox/.env.tiktok-production-keys`
+  and must be swapped back by hand.
