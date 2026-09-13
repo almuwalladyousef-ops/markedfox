@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
+import { NavProgress } from "@/components/nav-progress";
 import { getProfile } from "@/lib/account/preferences";
 import { requireUser } from "@/lib/auth/session";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
@@ -140,6 +141,10 @@ export default async function DashboardLayout({
       {/* For keyboard and screen-reader users: the sidebar is ~40 tab stops,
           and this is the only way past them that is not pressing Tab 40
           times. Visually hidden until focused. */}
+      {/* useSearchParams needs a Suspense boundary in an app-router layout. */}
+      <Suspense fallback={null}>
+        <NavProgress />
+      </Suspense>
       <a
         href="#mf-main"
         className="sr-only z-50 rounded-lg bg-panel px-4 py-2.5 text-[14.5px] font-semibold text-ink shadow-e2 focus:not-sr-only focus:fixed focus:top-3 focus:left-3"

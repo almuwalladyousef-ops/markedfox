@@ -1,16 +1,27 @@
-import { Spinner } from "@/components/ui";
+import {
+  Skeleton,
+  SkeletonGrid,
+  SkeletonPage,
+  SkeletonPills,
+  SkeletonProfile,
+} from "@/components/skeleton";
 
-// Shown inside the shell while a dashboard page's server fetch runs. Before
-// this file existed a navigation gave no feedback at all until the new page
-// arrived — the one wait in the app with nothing on screen answering it.
+// Home's outline while its reads run: the account strip, the profile and its
+// three totals, the post-type filter, then the grid. This file is also the
+// fallback for any dashboard route without a loading screen of its own, which
+// is why it replaced the lone spinner — a spinner in 40vh of empty space was
+// the one wait in the app that looked like nothing was happening.
 export default function DashboardLoading() {
   return (
-    <div
-      className="flex min-h-[40vh] items-center justify-center"
-      role="status"
-      aria-label="Loading"
-    >
-      <Spinner className="h-5 w-5 text-faint" />
-    </div>
+    <SkeletonPage label="Loading home">
+      <div className="flex items-center gap-2">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="h-9 w-9 rounded-full" />
+        ))}
+      </div>
+      <SkeletonProfile />
+      <SkeletonPills count={4} centered />
+      <SkeletonGrid count={8} aspect="aspect-square" />
+    </SkeletonPage>
   );
 }

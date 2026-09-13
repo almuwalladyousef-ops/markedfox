@@ -377,6 +377,53 @@ input[type="time"] {
   animation: mf-spin 700ms linear infinite;
 }
 
+/* ── skeletons ──────────────────────────────────────────────────────────────
+
+   The shape of a page that is still on its way. A soft band sweeps across a
+   chip-coloured block so the wait reads as progress rather than as a frozen
+   screen. The band is a background-position animation, so it costs no layout.
+   Under reduced motion it stops sweeping and the block simply sits there,
+   which is still the shape of the page. */
+.mf-skeleton {
+  background-color: var(--chip);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklab, var(--panel) 55%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: mf-skeleton 1300ms var(--mf-ease-in-out) infinite;
+}
+
+@keyframes mf-skeleton {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+/* The navigation bar: a thin accent line along the top of the viewport from
+   the press of a link until the next page is on screen. It creeps toward the
+   end and never reaches it on its own, so it cannot claim a finish that has
+   not happened. */
+.mf-nav-progress {
+  transform-origin: left;
+  animation: mf-nav-progress 8s cubic-bezier(0.1, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes mf-nav-progress {
+  from {
+    transform: scaleX(0.08);
+  }
+  to {
+    transform: scaleX(0.92);
+  }
+}
+
 /* ── reduced motion ─────────────────────────────────────────────────────────
 
    Fewer and gentler, not none. Colour and opacity still transition, because
@@ -401,6 +448,12 @@ input[type="time"] {
      speed. */
   .mf-spin {
     animation: mf-spin 1600ms linear infinite !important;
+  }
+
+  /* Nothing sweeps and nothing creeps: the bar sits half full, which still
+     says "on its way". */
+  .mf-nav-progress {
+    transform: scaleX(0.5);
   }
 }
 
