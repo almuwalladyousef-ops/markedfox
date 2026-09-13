@@ -2128,3 +2128,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   **The droplet now runs the TikTok sandbox key pair** for the demo; the
   production pair is saved in `/srv/markedfox/.env.tiktok-production-keys`
   and must be swapped back by hand.
+
+- **2026-09-13 (later) — TikTok unblocked in the composer, and skeletons.**
+  See `sessions/2026-09-13-tiktok-drafts.md`. Two composer bugs made TikTok
+  impossible to post to: creator_info was fetched only from a selection click,
+  so a preselected TikTok account sat on "Loading TikTok account details…"
+  forever; and the caption step blocked Next on TikTok's privacy level, which
+  only exists on the next step. Both fixed and walked through on production up
+  to Publish. Every dashboard page now has a `loading.tsx` skeleton shaped like
+  itself (pinned by `loading-screens.test.ts`), plus a top progress bar on any
+  internal link press. 886 tests; live at `331f317`.
+
