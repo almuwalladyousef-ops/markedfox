@@ -541,11 +541,17 @@ export function Composer({
 
   // TikTok requires creator_info BEFORE the post form is usable: it is where
   // the allowed privacy levels and disabled interactions come from. Fetched
-  // from the click that selects the account (never from an effect), once per
-  // connection; the panel renders from whatever state each one is in.
-  const ensureContext = (account: ComposerAccount) => {
-    if (account.platform !== "tiktok" || contexts[account.id]) return;
-    setContexts((prev) => ({ ...prev, [account.id]: { status: "loading" } }));
+  // once per connection for every TikTok account that is selected, however it
+  // got selected. It used to run only from the click that selects an account,
+  // so an account that started selected — the default for every active one —
+  // never fetched, and the composer sat on "Loading TikTok account details…"
+  // with Next disabled forever. A missing entry already reads as loading, so
+  // nothing is set until the answer arrives.
+  const requestedContexts = useRef(new Set<string>());
+  const ensureContext = useCallback((account: ComposerAccount) => {
+    if (account.platform !== "tiktok") return;
+    if (requestedContexts.current.has(account.id)) return;
+    requestedContexts.current.add(account.id);
     void (async () => {
       try {
         const response = await fetch(
@@ -584,7 +590,10 @@ export function Composer({
         }));
       }
     })();
-  };
+  }, []);
+  useEffect(() => {
+    for (const account of selectedTikTok) ensureContext(account);
+  }, [selectedTikTok, ensureContext]);
 
   // ── live validation ────────────────────────────────────────────────────
   const issues: Issue[] = useMemo(() => {
