@@ -159,7 +159,14 @@ type MediaRow = {
  */
 const PENDING_MEDIA_URL = "https://upload.pending.markedfox.com/";
 
-type Issue = { platform: Platform | null; message: string };
+/**
+ * `settings` marks a problem that can only be fixed on the per-platform
+ * settings step — a TikTok privacy level, a YouTube title. The caption step
+ * does not wait on those: blocking Next there on a choice that only exists
+ * one screen later was a dead end, and nobody could reach TikTok's settings to
+ * make the choice the block was asking for.
+ */
+type Issue = { platform: Platform | null; message: string; settings?: boolean };
 
 type Outcome =
   | { kind: "scheduled"; id: string; scheduledFor: string }
@@ -628,7 +635,7 @@ export function Composer({
         platform,
         platformOptions[platform],
       )) {
-        out.push({ platform, message });
+        out.push({ platform, message, settings: true });
       }
 
       if (platform === "tiktok") {
@@ -658,7 +665,7 @@ export function Composer({
           )) {
             if (seen.has(message)) continue;
             seen.add(message);
-            out.push({ platform, message });
+            out.push({ platform, message, settings: true });
           }
         }
       }
@@ -716,6 +723,9 @@ export function Composer({
   ]);
 
   const contentReady = selected.length > 0 && issues.length === 0;
+  // What the caption step answers for: everything except the choices that
+  // live on the settings step.
+  const captionIssues = issues.filter((issue) => !issue.settings);
   const busy = submitting || savingDraft;
   /** Post now needs no time; Schedule does. */
   const canSubmitNow = contentReady && !busy;
@@ -1213,7 +1223,7 @@ export function Composer({
         : step === "caption"
           ? selected.length === 0
             ? "Pick at least one account."
-            : issues.length > 0
+            : captionIssues.length > 0
               ? "Fix the problems listed below first."
               : null
           : step === "settings"
@@ -1311,15 +1321,17 @@ export function Composer({
     </label>
   ) : null;
 
+  // The caption step lists only what can be fixed there.
+  const shownIssues = step === "caption" ? captionIssues : issues;
   const issuePanel =
-    issues.length > 0 && selected.length > 0 ? (
+    shownIssues.length > 0 && selected.length > 0 ? (
       <div
         aria-live="polite"
         className="mt-6 rounded-lg border border-warn bg-warn-soft px-4 py-3.5"
       >
         <p className="text-[13px] font-bold text-warn">Fix before publishing</p>
         <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-4 text-[14px]/[21px] text-ink">
-          {issues.map((issue, i) => (
+          {shownIssues.map((issue, i) => (
             <li key={i}>
               {issue.platform ? (
                 <span className="font-semibold">{labels[issue.platform]}: </span>
