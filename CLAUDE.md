@@ -2138,4 +2138,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   to Publish. Every dashboard page now has a `loading.tsx` skeleton shaped like
   itself (pinned by `loading-screens.test.ts`), plus a top progress bar on any
   internal link press. 886 tests; live at `331f317`.
+  Then the first real TikTok post **published** (110MB, FILE_UPLOAD), and a
+  second press 404'd: the composer reused the URL of media already purged
+  after the first publish. It now forgets uploaded URLs after a published
+  outcome (`63844c7`).
 
