@@ -2,7 +2,7 @@
 
 import { Icon, type IconName } from "@/components/icons";
 import { PlatformBadge } from "@/components/platform-icon";
-import { Toggle, cx } from "@/components/ui";
+import { Toggle, cx, segmentedItem, segmentedTrack } from "@/components/ui";
 import {
   TIKTOK_PRIVACY_LABELS,
   tiktokConsentText,
@@ -26,6 +26,12 @@ import {
 // brand choices, and branded content still cannot be posted as "Only you".
 // A checkbox became a Toggle; `checked`, `disabled` and `onChange` are the
 // same values they were.
+//
+// The first choice is HOW the video goes to TikTok: posted directly
+// (video.publish) or sent to the creator's TikTok inbox as a draft
+// (video.upload). Every control described above belongs to the first. A draft
+// carries none of them — the creator sets privacy, interactions and
+// disclosure in the TikTok app when they post it — so they are not shown.
 
 export type ContextState =
   | { status: "loading" }
@@ -69,6 +75,7 @@ export function TikTokOptionsPanel({
 
   const set = (patch: Partial<TikTokPublishOptions>) => onChange({ ...options, ...patch });
   const consent = tiktokConsentText(options);
+  const inbox = options.post_mode === "inbox";
 
   /** One row: glyph, label, control on the right — the same shape every other
    *  platform's settings use. */
@@ -105,24 +112,30 @@ export function TikTokOptionsPanel({
           <PlatformBadge platform="tiktok" className="h-6 w-6 rounded-md" />
           Share on TikTok
         </h3>
-        <p className="mt-1.5 text-[12.5px]/[18px] text-muted">
-          These settings are only for TikTok. By posting, you agree to
-          TikTok&apos;s{" "}
-          {consent.links.map((link, index) => (
-            <span key={link.href}>
-              <a
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent underline"
-              >
-                {link.label}
-              </a>
-              {index < consent.links.length - 1 ? " and " : ""}
-            </span>
-          ))}
-          .
-        </p>
+        {inbox ? (
+          <p className="mt-1.5 text-[12.5px]/[18px] text-muted">
+            These settings are only for TikTok.
+          </p>
+        ) : (
+          <p className="mt-1.5 text-[12.5px]/[18px] text-muted">
+            These settings are only for TikTok. By posting, you agree to
+            TikTok&apos;s{" "}
+            {consent.links.map((link, index) => (
+              <span key={link.href}>
+                <a
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent underline"
+                >
+                  {link.label}
+                </a>
+                {index < consent.links.length - 1 ? " and " : ""}
+              </span>
+            ))}
+            .
+          </p>
+        )}
 
         {/* Who the post goes to, by the name TikTok knows them by. An audit
             requirement, not decoration — a reviewer looks for it. */}
@@ -148,7 +161,7 @@ export function TikTokOptionsPanel({
                   />
                 )}
                 <span className="min-w-0 truncate">
-                  Posting to{" "}
+                  {inbox ? "Sending a draft to" : "Posting to"}{" "}
                   <span className="font-semibold text-ink">
                     {state?.status === "ready"
                       ? (state.context.creatorNickname ?? account.name)
@@ -178,188 +191,224 @@ export function TikTokOptionsPanel({
       </div>
 
       <div className="flex flex-col divide-y divide-line">
-        {/* No preselected privacy: TikTok's guidelines require the person to
-            choose, so the empty option is the initial value and stays. */}
         <div className="py-3">
-          <div className="flex items-center justify-between gap-4">
-            <label
-              htmlFor="tiktok-privacy"
-              className="flex min-w-0 items-center gap-2.5 text-sm text-ink"
+          <div
+            className={segmentedTrack}
+            role="radiogroup"
+            aria-label="How to send this to TikTok"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={!inbox}
+              className={segmentedItem(!inbox)}
+              onClick={() => set({ post_mode: "direct" })}
             >
-              <Icon name="eye" className="h-[17px] w-[17px] shrink-0 text-muted" />
-              Who can see this post
-            </label>
-            <select
-              id="tiktok-privacy"
-              value={options.privacy_level ?? ""}
-              disabled={!allReady}
-              onChange={(e) => set({ privacy_level: e.target.value || undefined })}
-              className="max-w-[55%] shrink-0 cursor-pointer truncate rounded-lg border-0 bg-transparent py-1 pr-1 text-right text-sm text-muted outline-none hover:text-ink focus:text-ink disabled:cursor-not-allowed disabled:opacity-60"
+              Post to TikTok
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={inbox}
+              className={segmentedItem(inbox)}
+              onClick={() => set({ post_mode: "inbox" })}
             >
-              <option value="">
-                {/* These three strings are pinned by tiktok-options-panel's
-                    tests, which stand in for what the audit reviewer reads.
-                    Shortening them for the narrower column was the kind of
-                    "just a restyle" change that is not one. */}
-                {allReady
-                  ? "Choose…"
-                  : anyError
-                    ? "Unavailable — see above"
-                    : "Loading account details…"}
-              </option>
-              {privacyOptions.map((level) => (
-                <option
-                  key={level}
-                  value={level}
-                  disabled={level === "SELF_ONLY" && Boolean(options.brand_content)}
-                >
-                  {TIKTOK_PRIVACY_LABELS[level] ?? level}
-                  {level === "SELF_ONLY" && options.brand_content
-                    ? " — not available for branded content"
-                    : ""}
-                </option>
-              ))}
-            </select>
+              Send to TikTok drafts
+            </button>
           </div>
-          {allReady && privacyOptions.length === 0 ? (
-            <p className="mt-1 pl-[27px] text-xs text-danger">
-              These accounts share no allowed visibility — post to them
-              separately.
-            </p>
-          ) : null}
+          <p className="mt-2 text-xs/[17px] text-faint">
+            {inbox
+              ? "TikTok puts this video in your TikTok inbox as a draft. Open TikTok to edit it and post it."
+              : "The video goes straight to your TikTok profile with the settings below."}
+          </p>
         </div>
 
-        {/* Opt-in, and greyed out when creator_info says the account has them
-            switched off. Both are audit requirements. */}
-        {row(
-          "chat",
-          "Allow Comments",
-          <Toggle
-            on={Boolean(options.allow_comment)}
-            disabled={commentDisabled}
-            label="Allow comments"
-            onClick={() => set({ allow_comment: !options.allow_comment })}
-          />,
-          {
-            dimmed: commentDisabled,
-            note: commentDisabled
-              ? "Turned off in the account's TikTok settings."
-              : undefined,
-          },
-        )}
-        {hasVideo
-          ? row(
-              "people",
-              "Allow Duet",
-              <Toggle
-                on={Boolean(options.allow_duet)}
-                disabled={duetDisabled}
-                label="Allow duet"
-                onClick={() => set({ allow_duet: !options.allow_duet })}
-              />,
-              {
-                dimmed: duetDisabled,
-                note: duetDisabled
-                  ? "Turned off in the account's TikTok settings."
-                  : undefined,
-              },
-            )
-          : null}
-        {hasVideo
-          ? row(
-              "link",
-              "Allow Stitch",
-              <Toggle
-                on={Boolean(options.allow_stitch)}
-                disabled={stitchDisabled}
-                label="Allow stitch"
-                onClick={() => set({ allow_stitch: !options.allow_stitch })}
-              />,
-              {
-                dimmed: stitchDisabled,
-                note: stitchDisabled
-                  ? "Turned off in the account's TikTok settings."
-                  : undefined,
-              },
-            )
-          : null}
-
-        {/* Disclosure, and the two brand choices it reveals. */}
-        <div className="py-3">
-          <div className="flex items-center justify-between gap-4">
-            <span className="flex min-w-0 items-center gap-2.5 text-sm text-ink">
-              <Icon name="card" className="h-[17px] w-[17px] shrink-0 text-muted" />
-              Disclose video content
-            </span>
-            <Toggle
-              on={Boolean(options.disclose_commercial)}
-              label="Disclose commercial content"
-              onClick={() =>
-                set(
-                  options.disclose_commercial
-                    ? {
-                        disclose_commercial: false,
-                        brand_organic: false,
-                        brand_content: false,
-                      }
-                    : { disclose_commercial: true },
-                )
-              }
-            />
-          </div>
-          <p className="mt-1 pl-[27px] text-xs/[17px] text-faint">
-            Turn on to disclose that this video promotes goods or services in
-            exchange for something of value. Your video could promote yourself,
-            a third party, or both.
-          </p>
-
-          {options.disclose_commercial ? (
-            <div className="mt-2.5 flex flex-col gap-2.5 pl-[27px]">
-              <label className="flex cursor-pointer items-start gap-2.5">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-[15px] w-[15px] accent-[var(--accent)]"
-                  checked={Boolean(options.brand_organic)}
-                  onChange={(e) => set({ brand_organic: e.target.checked })}
-                />
-                <span className="text-sm text-ink">
-                  Your brand
-                  <span className="mt-0.5 block text-xs/[17px] text-faint">
-                    You are promoting yourself or your own business. TikTok
-                    labels this &ldquo;Promotional content&rdquo;.
-                  </span>
-                </span>
-              </label>
-              <label className="flex cursor-pointer items-start gap-2.5">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-[15px] w-[15px] accent-[var(--accent)]"
-                  checked={Boolean(options.brand_content)}
-                  onChange={(e) => set({ brand_content: e.target.checked })}
-                />
-                <span className="text-sm text-ink">
-                  Branded content
-                  <span className="mt-0.5 block text-xs/[17px] text-faint">
-                    You are promoting another brand or a third party. TikTok
-                    labels this &ldquo;Paid partnership&rdquo; and it cannot be
-                    posted as &ldquo;Only you&rdquo;.
-                  </span>
-                </span>
-              </label>
-              {options.brand_content || options.brand_organic ? (
-                <p className="text-xs text-muted">
-                  Your post will be labeled{" "}
-                  <span className="font-semibold text-ink">
-                    {options.brand_content
-                      ? "Paid partnership"
-                      : "Promotional content"}
-                  </span>
-                  .
+        {inbox ? null : (
+          <>
+            {/* No preselected privacy: TikTok's guidelines require the person to
+                choose, so the empty option is the initial value and stays. */}
+            <div className="py-3">
+              <div className="flex items-center justify-between gap-4">
+                <label
+                  htmlFor="tiktok-privacy"
+                  className="flex min-w-0 items-center gap-2.5 text-sm text-ink"
+                >
+                  <Icon name="eye" className="h-[17px] w-[17px] shrink-0 text-muted" />
+                  Who can see this post
+                </label>
+                <select
+                  id="tiktok-privacy"
+                  value={options.privacy_level ?? ""}
+                  disabled={!allReady}
+                  onChange={(e) => set({ privacy_level: e.target.value || undefined })}
+                  className="max-w-[55%] shrink-0 cursor-pointer truncate rounded-lg border-0 bg-transparent py-1 pr-1 text-right text-sm text-muted outline-none hover:text-ink focus:text-ink disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="">
+                    {/* These three strings are pinned by tiktok-options-panel's
+                        tests, which stand in for what the audit reviewer reads.
+                        Shortening them for the narrower column was the kind of
+                        "just a restyle" change that is not one. */}
+                    {allReady
+                      ? "Choose…"
+                      : anyError
+                        ? "Unavailable — see above"
+                        : "Loading account details…"}
+                  </option>
+                  {privacyOptions.map((level) => (
+                    <option
+                      key={level}
+                      value={level}
+                      disabled={level === "SELF_ONLY" && Boolean(options.brand_content)}
+                    >
+                      {TIKTOK_PRIVACY_LABELS[level] ?? level}
+                      {level === "SELF_ONLY" && options.brand_content
+                        ? " — not available for branded content"
+                        : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {allReady && privacyOptions.length === 0 ? (
+                <p className="mt-1 pl-[27px] text-xs text-danger">
+                  These accounts share no allowed visibility — post to them
+                  separately.
                 </p>
               ) : null}
             </div>
-          ) : null}
-        </div>
+
+            {/* Opt-in, and greyed out when creator_info says the account has them
+                switched off. Both are audit requirements. */}
+            {row(
+              "chat",
+              "Allow Comments",
+              <Toggle
+                on={Boolean(options.allow_comment)}
+                disabled={commentDisabled}
+                label="Allow comments"
+                onClick={() => set({ allow_comment: !options.allow_comment })}
+              />,
+              {
+                dimmed: commentDisabled,
+                note: commentDisabled
+                  ? "Turned off in the account's TikTok settings."
+                  : undefined,
+              },
+            )}
+            {hasVideo
+              ? row(
+                  "people",
+                  "Allow Duet",
+                  <Toggle
+                    on={Boolean(options.allow_duet)}
+                    disabled={duetDisabled}
+                    label="Allow duet"
+                    onClick={() => set({ allow_duet: !options.allow_duet })}
+                  />,
+                  {
+                    dimmed: duetDisabled,
+                    note: duetDisabled
+                      ? "Turned off in the account's TikTok settings."
+                      : undefined,
+                  },
+                )
+              : null}
+            {hasVideo
+              ? row(
+                  "link",
+                  "Allow Stitch",
+                  <Toggle
+                    on={Boolean(options.allow_stitch)}
+                    disabled={stitchDisabled}
+                    label="Allow stitch"
+                    onClick={() => set({ allow_stitch: !options.allow_stitch })}
+                  />,
+                  {
+                    dimmed: stitchDisabled,
+                    note: stitchDisabled
+                      ? "Turned off in the account's TikTok settings."
+                      : undefined,
+                  },
+                )
+              : null}
+
+            {/* Disclosure, and the two brand choices it reveals. */}
+            <div className="py-3">
+              <div className="flex items-center justify-between gap-4">
+                <span className="flex min-w-0 items-center gap-2.5 text-sm text-ink">
+                  <Icon name="card" className="h-[17px] w-[17px] shrink-0 text-muted" />
+                  Disclose video content
+                </span>
+                <Toggle
+                  on={Boolean(options.disclose_commercial)}
+                  label="Disclose commercial content"
+                  onClick={() =>
+                    set(
+                      options.disclose_commercial
+                        ? {
+                            disclose_commercial: false,
+                            brand_organic: false,
+                            brand_content: false,
+                          }
+                        : { disclose_commercial: true },
+                    )
+                  }
+                />
+              </div>
+              <p className="mt-1 pl-[27px] text-xs/[17px] text-faint">
+                Turn on to disclose that this video promotes goods or services in
+                exchange for something of value. Your video could promote yourself,
+                a third party, or both.
+              </p>
+
+              {options.disclose_commercial ? (
+                <div className="mt-2.5 flex flex-col gap-2.5 pl-[27px]">
+                  <label className="flex cursor-pointer items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-[15px] w-[15px] accent-[var(--accent)]"
+                      checked={Boolean(options.brand_organic)}
+                      onChange={(e) => set({ brand_organic: e.target.checked })}
+                    />
+                    <span className="text-sm text-ink">
+                      Your brand
+                      <span className="mt-0.5 block text-xs/[17px] text-faint">
+                        You are promoting yourself or your own business. TikTok
+                        labels this &ldquo;Promotional content&rdquo;.
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-[15px] w-[15px] accent-[var(--accent)]"
+                      checked={Boolean(options.brand_content)}
+                      onChange={(e) => set({ brand_content: e.target.checked })}
+                    />
+                    <span className="text-sm text-ink">
+                      Branded content
+                      <span className="mt-0.5 block text-xs/[17px] text-faint">
+                        You are promoting another brand or a third party. TikTok
+                        labels this &ldquo;Paid partnership&rdquo; and it cannot be
+                        posted as &ldquo;Only you&rdquo;.
+                      </span>
+                    </span>
+                  </label>
+                  {options.brand_content || options.brand_organic ? (
+                    <p className="text-xs text-muted">
+                      Your post will be labeled{" "}
+                      <span className="font-semibold text-ink">
+                        {options.brand_content
+                          ? "Paid partnership"
+                          : "Promotional content"}
+                      </span>
+                      .
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </>
+        )}
       </div>
     </section>
   );

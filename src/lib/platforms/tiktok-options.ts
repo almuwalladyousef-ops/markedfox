@@ -30,7 +30,16 @@ export type TikTokCreatorContext = {
   maxVideoPostDurationSec?: number;
 };
 
+/**
+ * How the video reaches TikTok. "direct" posts it to the profile
+ * (video.publish). "inbox" sends it to the creator's TikTok inbox as a draft
+ * they finish and post inside the TikTok app (video.upload). Missing means
+ * direct, which is what every post made before this option existed did.
+ */
+export type TikTokPostMode = "direct" | "inbox";
+
 export type TikTokPublishOptions = {
+  post_mode?: TikTokPostMode;
   privacy_level?: string;
   allow_comment?: boolean;
   allow_duet?: boolean;
@@ -71,6 +80,9 @@ export function parseTikTokOptions(raw: unknown): TikTokPublishOptions {
   if (typeof raw !== "object" || raw === null) return {};
   const source = raw as Record<string, unknown>;
   const out: TikTokPublishOptions = {};
+  if (source.post_mode === "direct" || source.post_mode === "inbox") {
+    out.post_mode = source.post_mode;
+  }
   if (typeof source.privacy_level === "string" && source.privacy_level) {
     out.privacy_level = source.privacy_level;
   }
@@ -109,6 +121,11 @@ export function validateTikTokOptions(
   input: { hasVideo?: boolean } = {},
 ): string[] {
   const issues: string[] = [];
+
+  // A draft sent to the TikTok inbox carries none of these choices. The
+  // creator makes them in the TikTok app when they post it, so there is
+  // nothing here to refuse.
+  if (options.post_mode === "inbox") return issues;
 
   if (!options.privacy_level) {
     issues.push("Choose who can see this TikTok post.");

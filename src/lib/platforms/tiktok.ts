@@ -1,4 +1,5 @@
 import { requireEnv } from "@/lib/env";
+import { fetchMedia, UnsafeMediaUrlError } from "@/lib/media/fetch-guard";
 
 import { PlatformApiError, PlatformAuthError } from "./errors";
 import { pollDelays, VIDEO_POLL_TOTAL_MS } from "./polling";
@@ -16,26 +17,36 @@ import type {
   PlatformAdapter,
   PublishResult,
 } from "./types";
+import { withStallWatchdog } from "./youtube";
 
-// TikTok Content Posting API (Direct Post).
+// TikTok Content Posting API — both of its products.
+//
+//   - Direct Post (video.publish): the video goes straight to the profile.
+//   - Upload (video.upload): the video lands in the creator's TikTok inbox as
+//     a draft, and they finish and post it inside the TikTok app.
+//
+// The creator picks one per post in the composer (options.post_mode).
 //
 // Until TikTok's audit passes, this adapter works but the results are
 // deliberately crippled by TikTok (CLAUDE.md platform table): every post is
 // forced to SELF_ONLY, the posting account must be private, and only 5 users
 // may post per 24h. Build now, audit in Phase 5, useful after.
 //
-// Media reaches TikTok by PULL_FROM_URL: TikTok downloads from our public R2
-// URL. Two consequences, both load-bearing:
+// Videos reach TikTok by FILE_UPLOAD: our server reads the file from R2 and
+// PUTs it to TikTok in chunks. The alternative, PULL_FROM_URL, has TikTok
+// download from our media URL, and TikTok only does that from a domain
+// verified as ours in the portal. Our media lives on a pub-*.r2.dev
+// subdomain, which can never be verified, so every pulled video failed with
+// url_ownership_unverified. Only one chunk (10MB, the last up to 20MB) is in
+// memory at a time.
 //
-//   1. The media URL's domain must be VERIFIED as ours in the TikTok
-//      developer portal (URL properties). A raw pub-*.r2.dev subdomain can
-//      never be verified — the R2 bucket needs a custom domain on
-//      markedfox.com before TikTok publishing works. 403
-//      url_ownership_unverified is the symptom.
-//   2. TikTok downloads asynchronously (up to an hour), so publish() polls
-//      status/fetch and only returns once the download+post settled — which
-//      also keeps the media-purge sweep from deleting a file TikTok has not
-//      fetched yet, since the post row stays unsettled until then.
+// Photo posts have no FILE_UPLOAD source at all, so they still pull by URL
+// and still need the R2 bucket on a verified custom domain before they work.
+//
+// TikTok processes asynchronously, so publish() polls status/fetch and only
+// returns once the post settled — which also keeps the media-purge sweep from
+// deleting a file TikTok has not finished with, since the post row stays
+// unsettled until then.
 //
 // The audit-visible UX duties (privacy dropdown with no default, creator
 // nickname shown, interaction toggles off by default, commercial-content
@@ -54,23 +65,21 @@ const API = "https://open.tiktokapis.com/v2";
 // Every scope here is one this adapter actually calls, and that is a review
 // requirement rather than tidiness. TikTok refused the 2026-09-08 submission
 // with "Scopes mismatch — all selected products and scopes must be clearly
-// demonstrated in the video. If you don't need certain products or scopes,
-// make sure to remove them before review." video.upload was the mismatch: it
-// is Content Posting's OTHER product, the one that drops a video into the
-// user's TikTok inbox as a draft, and nothing here has ever called
-// /post/publish/inbox/video/init/. This adapter direct-posts, through
-// /post/publish/video/init/ and /post/publish/content/init/ with
-// post_mode DIRECT_POST, which is video.publish. So a reviewer was being
-// asked to approve a product the demo could not show being used.
+// demonstrated in the video." video.upload was the mismatch: nothing called
+// the inbox endpoint. The portal offers no way to remove video.upload — it is
+// bundled into Content Posting API — so it came back WITH the call that uses
+// it: "Send to TikTok drafts" in the composer, through
+// /post/publish/inbox/video/init/ and post_mode MEDIA_UPLOAD.
 //
-// Adding a scope back means adding the call that uses it AND the step in the
-// demo video that shows it.
+// Adding a scope means adding the call that uses it AND the step in the demo
+// video that shows it.
 const OAUTH_SCOPES = [
   "user.info.basic",
   "user.info.profile",
   "user.info.stats",
   "video.list",
   "video.publish",
+  "video.upload",
 ];
 
 type TikTokError = {
@@ -178,6 +187,181 @@ async function queryCreatorInfo(token: string): Promise<TikTokCreatorContext> {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// TikTok's chunk rules (Media Transfer Guide): chunks are 5–64MB; a file of
+// one chunk or less goes up whole; every chunk is chunk_size except the last,
+// which takes the remainder (so total_chunk_count rounds DOWN); at most 1000
+// chunks. 10MB keeps one chunk in memory on a 2GB box.
+export const TIKTOK_CHUNK_BYTES = 10 * 1024 * 1024;
+const TIKTOK_MAX_CHUNKS = 1000;
+
+export type TikTokChunkPlan = {
+  videoSize: number;
+  chunkSize: number;
+  totalChunkCount: number;
+  /** Inclusive byte ranges, one per chunk, exactly as Content-Range names them. */
+  ranges: [number, number][];
+};
+
+export function planTikTokChunks(videoSize: number): TikTokChunkPlan {
+  if (!Number.isSafeInteger(videoSize) || videoSize <= 0) {
+    throw new PlatformApiError("tiktok", "storage did not report the video's size");
+  }
+  if (videoSize <= TIKTOK_CHUNK_BYTES) {
+    return {
+      videoSize,
+      chunkSize: videoSize,
+      totalChunkCount: 1,
+      ranges: [[0, videoSize - 1]],
+    };
+  }
+  const totalChunkCount = Math.floor(videoSize / TIKTOK_CHUNK_BYTES);
+  if (totalChunkCount > TIKTOK_MAX_CHUNKS) {
+    throw new PlatformApiError(
+      "tiktok",
+      `video is ${Math.round(videoSize / 1024 / 1024)}MB, too large for TikTok`,
+    );
+  }
+  const ranges: [number, number][] = [];
+  for (let i = 0; i < totalChunkCount; i++) {
+    const start = i * TIKTOK_CHUNK_BYTES;
+    const last = i === totalChunkCount - 1;
+    ranges.push([start, last ? videoSize - 1 : start + TIKTOK_CHUNK_BYTES - 1]);
+  }
+  return { videoSize, chunkSize: TIKTOK_CHUNK_BYTES, totalChunkCount, ranges };
+}
+
+// TikTok accepts these three container types for an uploaded video.
+export function tiktokVideoContentType(video: { url: string; mime?: string }): string {
+  const mime = video.mime?.toLowerCase();
+  if (mime === "video/quicktime" || mime === "video/webm" || mime === "video/mp4") {
+    return mime;
+  }
+  const path = video.url.split("?")[0].toLowerCase();
+  if (path.endsWith(".mov")) return "video/quicktime";
+  if (path.endsWith(".webm")) return "video/webm";
+  return "video/mp4";
+}
+
+// The R2 fetch must answer with headers inside this window; the body is then
+// governed by the stall watchdog, not by a clock.
+const SOURCE_HEADERS_TIMEOUT_MS = 60_000;
+const STREAM_STALL_MS = 120_000;
+const CHUNK_PUT_TIMEOUT_MS = 180_000;
+
+// Opens the video from storage and reports its size, which TikTok needs
+// before it hands out an upload URL. Guarded: this is the server fetching a
+// tenant-chosen URL — our own storage by prefix, or a public host.
+async function openVideoSource(
+  url: string,
+): Promise<{ body: ReadableStream<Uint8Array>; size: number; abort: () => void }> {
+  const controller = new AbortController();
+  const headerTimer = setTimeout(() => controller.abort(), SOURCE_HEADERS_TIMEOUT_MS);
+  let source: Response;
+  try {
+    source = await fetchMedia(
+      url,
+      { signal: controller.signal },
+      { trustedPrefix: process.env.R2_PUBLIC_BASE_URL },
+    );
+  } catch (error) {
+    if (error instanceof UnsafeMediaUrlError) {
+      throw new PlatformApiError("tiktok", error.message);
+    }
+    throw new PlatformApiError(
+      "tiktok",
+      `could not fetch media from storage: ${error instanceof Error ? error.message : String(error)}`,
+      true,
+    );
+  } finally {
+    clearTimeout(headerTimer);
+  }
+  if (!source.ok || !source.body) {
+    throw new PlatformApiError(
+      "tiktok",
+      `could not fetch media from storage: HTTP ${source.status}`,
+      true,
+    );
+  }
+  const size = Number(source.headers.get("content-length"));
+  if (!Number.isSafeInteger(size) || size <= 0) {
+    controller.abort();
+    throw new PlatformApiError("tiktok", "storage did not report the video's size", true);
+  }
+  return {
+    body: withStallWatchdog(source.body, () => controller.abort(), STREAM_STALL_MS),
+    size,
+    abort: () => controller.abort(),
+  };
+}
+
+// Reads the stream and PUTs it to TikTok one planned chunk at a time.
+export async function pushTikTokChunks(
+  body: ReadableStream<Uint8Array>,
+  plan: TikTokChunkPlan,
+  uploadUrl: string,
+  contentType: string,
+  put: typeof fetch = fetch,
+): Promise<void> {
+  const reader = body.getReader();
+  let pending: Buffer[] = [];
+  let pendingBytes = 0;
+  let sent = 0;
+
+  const send = async (chunk: Buffer, [start, end]: [number, number]) => {
+    const response = await put(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": contentType,
+        "Content-Length": String(chunk.byteLength),
+        "Content-Range": `bytes ${start}-${end}/${plan.videoSize}`,
+      },
+      body: new Uint8Array(chunk),
+      signal: AbortSignal.timeout(CHUNK_PUT_TIMEOUT_MS),
+    });
+    // 206 while chunks remain, 201 once the file is whole.
+    if (response.status !== 206 && response.status !== 201 && !response.ok) {
+      throw new PlatformApiError(
+        "tiktok",
+        `video upload failed at bytes ${start}-${end}: HTTP ${response.status}`,
+        response.status === 429 || response.status >= 500,
+      );
+    }
+  };
+
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (value && value.byteLength > 0) {
+        pending.push(Buffer.from(value.buffer, value.byteOffset, value.byteLength));
+        pendingBytes += value.byteLength;
+      }
+      while (sent < plan.ranges.length) {
+        const range = plan.ranges[sent];
+        const need = range[1] - range[0] + 1;
+        if (pendingBytes < need) break;
+        const joined = Buffer.concat(pending, pendingBytes);
+        await send(joined.subarray(0, need), range);
+        const rest = joined.subarray(need);
+        pending = rest.byteLength > 0 ? [Buffer.from(rest)] : [];
+        pendingBytes = rest.byteLength;
+        sent += 1;
+      }
+      if (done) break;
+    }
+  } catch (error) {
+    await reader.cancel().catch(() => undefined);
+    throw error;
+  }
+
+  if (sent !== plan.ranges.length || pendingBytes !== 0) {
+    throw new PlatformApiError(
+      "tiktok",
+      `storage sent a different number of bytes than the ${plan.videoSize} it declared`,
+      true,
+    );
+  }
+}
 
 // TikTok is the one platform that hands over real view counts for the
 // connected account: video.list returns the user's own videos with views,
@@ -397,15 +581,29 @@ export const tiktokAdapter: PlatformAdapter = {
     const token = tokens.accessToken;
     const video = media.find((m) => m.type === "video");
     const options = parseTikTokOptions(rawOptions);
+    const inbox = options.post_mode === "inbox";
+
+    // A connection authorized between 2026-09-08 and the day video.upload
+    // came back holds a token without it. Say so plainly rather than pass on
+    // TikTok's scope_not_authorized.
+    if (inbox && tokens.scopes && tokens.scopes.length > 0 && !tokens.scopes.includes("video.upload")) {
+      throw new PlatformApiError(
+        "tiktok",
+        "This TikTok connection cannot save drafts yet. Reconnect TikTok, then try again.",
+      );
+    }
 
     // creator_info again, at publish time: the user chose a privacy level in
     // the composer against that moment's options; TikTok requires the choice
     // to still be allowed now (403 privacy_level_option_mismatch otherwise),
-    // and a scheduled post may be hours or days old.
-    const creator = await queryCreatorInfo(token);
-    const problems = validateTikTokOptions(options, creator, { hasVideo: Boolean(video) });
-    if (problems.length > 0) {
-      throw new PlatformApiError("tiktok", problems.join(" "));
+    // and a scheduled post may be hours or days old. A draft sent to the
+    // inbox carries no privacy level, so it has nothing to re-check.
+    const creator = inbox ? null : await queryCreatorInfo(token);
+    if (creator) {
+      const problems = validateTikTokOptions(options, creator, { hasVideo: Boolean(video) });
+      if (problems.length > 0) {
+        throw new PlatformApiError("tiktok", problems.join(" "));
+      }
     }
     const privacy = options.privacy_level as string;
 
@@ -421,26 +619,48 @@ export const tiktokAdapter: PlatformAdapter = {
     let publishId: string;
 
     if (video) {
-      const init = await tiktok<{ data?: { publish_id?: string } }>(
-        "/post/publish/video/init/",
-        {
-          token,
-          headers: { "Content-Type": "application/json; charset=UTF-8" },
-          body: JSON.stringify({
-            post_info: {
-              title: caption,
-              privacy_level: privacy,
-              disable_comment: !options.allow_comment,
-              disable_duet: !options.allow_duet,
-              disable_stitch: !options.allow_stitch,
-              ...commercial,
-              ...(options.is_aigc ? { is_aigc: true } : {}),
-            },
-            source_info: { source: "PULL_FROM_URL", video_url: video.url },
-          }),
-        },
-      );
-      publishId = init.data?.publish_id ?? "";
+      const source = await openVideoSource(video.url);
+      try {
+        const plan = planTikTokChunks(source.size);
+        const sourceInfo = {
+          source: "FILE_UPLOAD",
+          video_size: plan.videoSize,
+          chunk_size: plan.chunkSize,
+          total_chunk_count: plan.totalChunkCount,
+        };
+        const init = await tiktok<{ data?: { publish_id?: string; upload_url?: string } }>(
+          inbox ? "/post/publish/inbox/video/init/" : "/post/publish/video/init/",
+          {
+            token,
+            headers: { "Content-Type": "application/json; charset=UTF-8" },
+            body: JSON.stringify(
+              inbox
+                ? { source_info: sourceInfo }
+                : {
+                    post_info: {
+                      title: caption,
+                      privacy_level: privacy,
+                      disable_comment: !options.allow_comment,
+                      disable_duet: !options.allow_duet,
+                      disable_stitch: !options.allow_stitch,
+                      ...commercial,
+                      ...(options.is_aigc ? { is_aigc: true } : {}),
+                    },
+                    source_info: sourceInfo,
+                  },
+            ),
+          },
+        );
+        publishId = init.data?.publish_id ?? "";
+        const uploadUrl = init.data?.upload_url;
+        if (!publishId || !uploadUrl) {
+          throw new PlatformApiError("tiktok", "TikTok returned no upload URL for the video");
+        }
+        await pushTikTokChunks(source.body, plan, uploadUrl, tiktokVideoContentType(video));
+      } catch (error) {
+        source.abort();
+        throw error;
+      }
     } else {
       const init = await tiktok<{ data?: { publish_id?: string } }>(
         "/post/publish/content/init/",
@@ -449,13 +669,15 @@ export const tiktokAdapter: PlatformAdapter = {
           headers: { "Content-Type": "application/json; charset=UTF-8" },
           body: JSON.stringify({
             media_type: "PHOTO",
-            post_mode: "DIRECT_POST",
-            post_info: {
-              description: caption,
-              privacy_level: privacy,
-              disable_comment: !options.allow_comment,
-              ...commercial,
-            },
+            post_mode: inbox ? "MEDIA_UPLOAD" : "DIRECT_POST",
+            post_info: inbox
+              ? { description: caption }
+              : {
+                  description: caption,
+                  privacy_level: privacy,
+                  disable_comment: !options.allow_comment,
+                  ...commercial,
+                },
             source_info: {
               source: "PULL_FROM_URL", // the only source photos support
               photo_images: media.slice(0, 35).map((m) => m.url),
@@ -471,8 +693,8 @@ export const tiktokAdapter: PlatformAdapter = {
       throw new PlatformApiError("tiktok", "TikTok accepted the post but returned no publish id");
     }
 
-    // TikTok downloads the media itself, then posts — poll until it settles.
-    // The video budget applies to photos too; downloads are the slow part.
+    // TikTok processes the media, then posts or delivers the draft — poll
+    // until it settles. The video budget applies to photos too.
     for (const delay of pollDelays(VIDEO_POLL_TOTAL_MS)) {
       const check = await tiktok<{
         data?: {
@@ -487,9 +709,14 @@ export const tiktokAdapter: PlatformAdapter = {
       });
 
       const status = check.data?.status;
+      // The draft is in the creator's inbox. That is the end of our part:
+      // they post it from the TikTok app, and there is no post id until then.
+      if (inbox && status === "SEND_TO_USER_INBOX") {
+        return { platformPostId: publishId };
+      }
       if (status === "PUBLISH_COMPLETE") {
         const postId = check.data?.publicaly_available_post_id?.[0];
-        const username = creator.creatorUsername;
+        const username = creator?.creatorUsername;
         return {
           // Public posts carry TikTok's own id; SELF_ONLY ones (pre-audit)
           // do not, so the publish_id is the trace we keep instead.

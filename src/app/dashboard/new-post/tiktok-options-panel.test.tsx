@@ -100,4 +100,20 @@ describe("TikTokOptionsPanel", () => {
     expect(render()).toContain("Music Usage Confirmation");
     expect(render()).toContain("By posting, you agree to TikTok");
   });
+
+  it("offers sending a draft to the TikTok inbox, and drops the Direct Post controls when chosen", () => {
+    const direct = render();
+    expect(direct).toContain("Post to TikTok");
+    expect(direct).toContain("Send to TikTok drafts");
+    expect(direct).toMatch(/<button[^>]*aria-checked="true"[^>]*>Post to TikTok<\/button>/);
+
+    const inbox = render({ options: { post_mode: "inbox" } });
+    expect(inbox).toMatch(/<button[^>]*aria-checked="true"[^>]*>Send to TikTok drafts<\/button>/);
+    expect(inbox).toContain("Sending a draft to");
+    expect(inbox).toContain("Open TikTok to edit it and post it.");
+    expect(inbox).not.toContain("tiktok-privacy");
+    expect(inbox).not.toContain("Allow comments");
+    expect(inbox).not.toContain("Music Usage Confirmation");
+  });
 });
+

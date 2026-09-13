@@ -106,14 +106,15 @@ describe("tiktok adapter", () => {
     expect(url.searchParams.get("client_id")).toBeNull();
     expect(url.searchParams.get("scope")).toBe(
       // The read scopes (profile, stats, video.list) ride along with the
-      // publish one: the home screen needs the account's own videos and
+      // publish ones: the home screen needs the account's own videos and
       // follower count.
       //
-      // video.upload is deliberately absent. It is the inbox-draft half of
-      // Content Posting and this adapter has never called it, which is the
-      // "Scopes mismatch" TikTok refused the 2026-09-08 submission for.
+      // video.upload is here because "Send to TikTok drafts" calls the inbox
+      // endpoint. It was dropped on 2026-09-08 while nothing called it — the
+      // "Scopes mismatch" TikTok refused that submission for — and the portal
+      // cannot remove it, so it came back with the call that uses it.
       "user.info.basic,user.info.profile,user.info.stats,video.list," +
-        "video.publish",
+        "video.publish,video.upload",
     );
   });
 

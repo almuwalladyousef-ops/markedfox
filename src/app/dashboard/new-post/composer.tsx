@@ -1931,7 +1931,13 @@ export function Composer({
                   : `Posts today: ${usage.postsToday}${usage.postsPerDay === null ? "" : ` / ${usage.postsPerDay}`}`}
               </p>
 
-              {outcome ? <OutcomePanel outcome={outcome} labels={labels} /> : null}
+              {outcome ? (
+                <OutcomePanel
+                  outcome={outcome}
+                  labels={labels}
+                  tiktokInbox={tiktokOptions.post_mode === "inbox"}
+                />
+              ) : null}
 
               {issuePanel}
             </div>
@@ -2157,9 +2163,12 @@ export function Composer({
 function OutcomePanel({
   outcome,
   labels,
+  tiktokInbox,
 }: {
   outcome: Outcome;
   labels: Record<Platform, string>;
+  /** The TikTok video went to the creator's inbox as a draft, not the profile. */
+  tiktokInbox: boolean;
 }) {
   if (outcome.kind === "scheduled") {
     return (
@@ -2248,9 +2257,9 @@ function OutcomePanel({
               // TikTok's guidelines: tell the user the post is processing and
               // may take a moment to show on their profile.
               <span className="text-xs opacity-80">
-                {" "}
-                — TikTok is processing it; it may take a few minutes to appear
-                on the profile.
+                {tiktokInbox
+                  ? " — sent to your TikTok inbox. Open TikTok to edit it and post it."
+                  : " — TikTok is processing it; it may take a few minutes to appear on the profile."}
               </span>
             ) : null}
           </li>

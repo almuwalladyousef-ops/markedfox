@@ -100,3 +100,19 @@ describe("tiktokConsentText", () => {
     ]);
   });
 });
+
+describe("post_mode", () => {
+  it("keeps only the two known modes", () => {
+    expect(parseTikTokOptions({ post_mode: "inbox" })).toEqual({ post_mode: "inbox" });
+    expect(parseTikTokOptions({ post_mode: "direct" })).toEqual({ post_mode: "direct" });
+    expect(parseTikTokOptions({ post_mode: "story" })).toEqual({});
+  });
+
+  it("asks nothing of a draft sent to the TikTok inbox", () => {
+    expect(validateTikTokOptions({ post_mode: "inbox" }, context)).toEqual([]);
+    // A direct post still has to choose who can see it.
+    expect(validateTikTokOptions({ post_mode: "direct" }, context)).toContain(
+      "Choose who can see this TikTok post.",
+    );
+  });
+});
