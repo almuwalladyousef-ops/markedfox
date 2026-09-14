@@ -116,8 +116,11 @@ refactor, or preserve.
       shown) or TikTok asked directly. **Owner chose to demonstrate it
       (2026-09-12): "Send to TikTok drafts" built and deployed `4752a61`,
       videos now upload by FILE_UPLOAD, sandbox keys live on the droplet.**
-      Waiting on the owner to add @markedfox as sandbox target user and
-      record the demo; then resubmit. See `sessions/2026-09-13-tiktok-drafts.md`.
+      **Resubmitted 2026-09-14 08:42, status In review**, with a new
+      3:20 sandbox demo covering all six scopes (including Send to TikTok
+      drafts) and a timestamped scope explanation. See
+      `sessions/2026-09-14-tiktok-resubmission.md`. The droplet still runs the
+      sandbox key pair — leave it until approval, then swap back by hand.
 - [ ] Separately, check whether the old personal TikTok app has a completed
       Content Posting API audit worth preserving. This requires signing into
       that other TikTok account. If it has no audit, ignore it entirely —
@@ -2143,3 +2146,19 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   after the first publish. It now forgets uploaded URLs after a published
   outcome (`63844c7`).
 
+
+- **2026-09-14 — TikTok resubmitted with a demo that shows every scope.** See
+  `sessions/2026-09-14-tiktok-resubmission.md`. The owner's own 5-minute screen
+  recording had the consent screen, profile, Direct Post form and a real
+  publish, but never used *Send to TikTok drafts* (`video.upload`, the scope
+  the 2026-09-08 rejection named) or the commercial-content disclosure, and it
+  showed this chat window and a System Settings password prompt. It was cut to
+  its usable parts and joined with a new recording of the missing half:
+  Refresh on the TikTok grid, disclosure on with *Your brand*, drafts mode, and
+  "sent to your TikTok inbox". 3:20, 5.4MB, copy at
+  `~/Downloads/markedfox-tiktok-demo.mp4`. The explanation now maps each scope
+  to timestamps. **Returning an app to Draft blanks its icon**; save fails on
+  `icon_url` until it is re-uploaded (`src/app/icon.png` scaled to 1024).
+  `video.list` shows an empty grid in the demo because sandbox posts are
+  private and the endpoint returns public videos only — stated in the text,
+  and the owner chose to accept that risk over posting a public video first.
