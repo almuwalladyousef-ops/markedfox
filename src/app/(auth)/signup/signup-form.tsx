@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { Field, FormMessage, SubmitButton } from "../_components/form-parts";
-import { signUp, type AuthFormState } from "@/lib/auth/actions";
+import {
+  resendConfirmation,
+  signUp,
+  type AuthFormState,
+} from "@/lib/auth/actions";
 import {
   INTENDED_PLAN_NAMES,
   MIN_PASSWORD_LENGTH,
@@ -16,6 +20,7 @@ const INITIAL: AuthFormState = {};
 
 export function SignupForm({ plan }: { plan?: IntendedPlan }) {
   const [state, formAction, pending] = useActionState(signUp, INITIAL);
+  const [email, setEmail] = useState("");
 
   // On success the form is replaced by the confirmation notice: leaving the
   // fields visible invites a second submit that would only produce a second
@@ -27,6 +32,7 @@ export function SignupForm({ plan }: { plan?: IntendedPlan }) {
           Check your email
         </h1>
         <FormMessage state={state} />
+        <ResendConfirmation email={email} />
         <Link
           href="/login"
           className={textButtonClass}
@@ -65,6 +71,8 @@ export function SignupForm({ plan }: { plan?: IntendedPlan }) {
         type="email"
         autoComplete="email"
         error={state.errors?.email}
+        defaultValue={email}
+        onValueChange={setEmail}
       />
       <Field
         label="Password"
@@ -88,6 +96,32 @@ export function SignupForm({ plan }: { plan?: IntendedPlan }) {
 
       <p className="text-center text-[11.5px] text-faint">
         No card required · 2 posts a day and 1 DM rule on Free
+      </p>
+    </form>
+  );
+}
+
+/**
+ * The way out of a confirmation email that never arrived.
+ *
+ * It is on this screen rather than behind a page of its own because this is
+ * where somebody is sitting when the email does not come. The address is the
+ * one they just typed, so there is nothing to fill in again.
+ */
+function ResendConfirmation({ email }: { email: string }) {
+  const [state, action, pending] = useActionState(resendConfirmation, INITIAL);
+
+  if (state.message) return <FormMessage state={state} />;
+
+  return (
+    <form action={action} className="flex flex-col gap-1">
+      <input type="hidden" name="email" value={email} />
+      <p className="text-[13px] text-muted">
+        Nothing in your inbox after a minute? Check spam, then{" "}
+        <button type="submit" disabled={pending} className={textButtonClass}>
+          {pending ? "Sending…" : "send it again"}
+        </button>
+        .
       </p>
     </form>
   );

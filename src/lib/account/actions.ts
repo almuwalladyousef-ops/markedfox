@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { authErrorMessage, logAuthError } from "@/lib/auth/errors";
 import { requireUser } from "@/lib/auth/session";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/validation";
 import { createClient } from "@/lib/supabase/server";
@@ -73,7 +74,13 @@ export async function updateProfileAction(
 
   if (email && email !== (user.email ?? "").toLowerCase()) {
     const { error: authError } = await supabase.auth.updateUser({ email });
-    if (authError) return { message: authError.message };
+    if (authError) {
+      // The provider's wording never reaches the screen — a spent project
+      // email quota says "email rate limit exceeded", which names nothing the
+      // person can act on. See lib/auth/errors.ts.
+      logAuthError("email change", authError);
+      return { message: authErrorMessage(authError) };
+    }
     revalidatePath("/dashboard/settings/email");
     return {
       ok: true,
@@ -169,6 +176,9 @@ export async function changePasswordAction(
 
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password });
-  if (error) return { message: error.message };
+  if (error) {
+    logAuthError("password change", error);
+    return { message: authErrorMessage(error) };
+  }
   return { ok: true, message: "Password changed. Other sessions stay signed in." };
 }

@@ -51,6 +51,19 @@ export const RATE_LIMITS = {
     windowSeconds: 3600,
     message: "Too many reset requests from this network. Try again later.",
   },
+  /** Resending a confirmation link mails an address the caller named, on the
+   *  same project quota the signup itself spends — so it is limited like the
+   *  password reset rather than like the signup. */
+  confirmationResendEmail: {
+    limit: 4,
+    windowSeconds: 3600,
+    message: "A confirmation link was already sent. Check your inbox, or try again later.",
+  },
+  confirmationResendIp: {
+    limit: 12,
+    windowSeconds: 3600,
+    message: "Too many confirmation emails from this network. Try again later.",
+  },
   /** Each presigned PUT is an object somebody can push bytes into, billed to
    *  our R2 account. Generous enough for a carousel of ten plus retries. */
   mediaUpload: {

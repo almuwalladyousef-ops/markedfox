@@ -7,6 +7,7 @@ import { consumeAll, resetRateLimit } from "@/lib/rate-limit/limit";
 import { clientIpFrom } from "@/lib/rate-limit/policy";
 import { createClient } from "@/lib/supabase/server";
 
+import { authErrorMessage, isEmailSendRateLimit, logAuthError } from "./errors";
 import { getSiteUrl } from "./site-url";
 import {
   INTENDED_PLAN_NAMES,
@@ -71,7 +72,19 @@ export async function signUp(
   });
 
   if (error) {
-    return { message: error.message };
+    // Never `error.message`. The provider's own wording for a project-wide
+    // email cap is "email rate limit exceeded", which is what a person trying
+    // to register actually saw, and it reads as the site being broken.
+    logAuthError("sign up", error);
+    // The mail cap is the one failure where saying what did NOT happen is the
+    // useful part: no account exists, so trying again later is safe and will
+    // not collide with a half-made one.
+    const line = authErrorMessage(error);
+    return {
+      message: isEmailSendRateLimit(error)
+        ? `${line} No account was created.`
+        : line,
+    };
   }
 
   const planNote = intendedPlan
@@ -91,6 +104,63 @@ export async function signUp(
     message:
       "Check your email for a confirmation link to finish signing up. No email after a few minutes? This address may already have an account — sign in, or reset your password." +
       planNote,
+  };
+}
+
+/**
+ * Send the confirmation link again.
+ *
+ * The recovery path for the case this whole file now guards against: the
+ * account exists but its email never arrived, because the project's mail
+ * quota was spent at the moment it was created. Without this, that account is
+ * unreachable — sign-in refuses an unconfirmed user and the signup form has
+ * already been replaced by its own confirmation notice.
+ *
+ * Answers identically whether or not the address has an account, for the same
+ * reason the password reset does.
+ */
+export async function resendConfirmation(
+  _previous: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const email = validateEmail(formData.get("email"));
+  if (!email.ok) return { errors: email.errors };
+
+  const limited = await consumeAll([
+    { name: "confirmationResendEmail", subject: email.value },
+    { name: "confirmationResendIp", subject: await callerIp() },
+  ]);
+  if (!limited.allowed) {
+    return { success: true, message: limited.message ?? undefined };
+  }
+
+  const supabase = await createClient();
+  const siteUrl = await getSiteUrl();
+
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: email.value,
+    // Same `flow=signup` marker the signup itself sets, so a confirmed link
+    // that cannot hand this browser a session still says "confirmed" rather
+    // than "invalid". See app/auth/confirm/route.ts.
+    options: { emailRedirectTo: `${siteUrl}/auth/confirm?flow=signup` },
+  });
+
+  if (error) {
+    logAuthError("confirmation resend", error);
+    // A spent mail quota is the one failure worth admitting to, because it is
+    // ours and waiting genuinely fixes it. Every other error keeps the
+    // generic line, which must not differ between a registered address and an
+    // unregistered one.
+    if (isEmailSendRateLimit(error)) {
+      return { message: authErrorMessage(error) };
+    }
+  }
+
+  return {
+    success: true,
+    message:
+      "If that address has an account waiting to be confirmed, a new link is on its way.",
   };
 }
 
@@ -118,7 +188,15 @@ export async function signIn(
     // One message for wrong password, unknown address, and unconfirmed email.
     // Distinguishing them would turn this form into an account-existence
     // oracle, and the user's next step is the same in all three cases.
-    return { message: "That email and password combination did not work." };
+    // The hint is appended for every failure, never only for an unconfirmed
+    // account, so it stays generic and tells a stranger nothing. It is here
+    // because an unconfirmed account fails exactly like a wrong password, and
+    // without it the person hunts for a typo that is not there.
+    return {
+      message:
+        "That email and password combination did not work. If you just signed " +
+        "up, open the confirmation link we emailed you first.",
+    };
   }
 
   // A correct password proves this caller was not guessing, so the attempts
@@ -191,7 +269,8 @@ export async function updatePassword(
   // that stops anyone reaching this action directly.
   const { error } = await supabase.auth.updateUser({ password: password.value });
   if (error) {
-    return { message: error.message };
+    logAuthError("password update", error);
+    return { message: authErrorMessage(error) };
   }
 
   redirect("/dashboard");

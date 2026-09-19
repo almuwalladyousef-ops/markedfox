@@ -14,6 +14,7 @@ export function Field({
   error,
   defaultValue,
   hint,
+  onValueChange,
 }: {
   label: string;
   name: string;
@@ -22,6 +23,10 @@ export function Field({
   error?: string;
   defaultValue?: string;
   hint?: string;
+  /** Optional: lets a parent keep the typed value for a follow-up action —
+   *  the signup screen resends the confirmation email to it. Uncontrolled
+   *  either way, so nothing about the existing forms changes. */
+  onValueChange?: (value: string) => void;
 }) {
   const errorId = `${name}-error`;
   const hintId = `${name}-hint`;
@@ -37,6 +42,9 @@ export function Field({
         type={type}
         autoComplete={autoComplete}
         defaultValue={defaultValue}
+        onChange={
+          onValueChange ? (event) => onValueChange(event.target.value) : undefined
+        }
         required
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : hint ? hintId : undefined}

@@ -16,6 +16,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const signInWithPassword = vi.fn();
 const signUpMock = vi.fn();
 const resetPasswordForEmail = vi.fn();
+const resendMock = vi.fn();
 const consumeAll = vi.fn();
 const resetRateLimit = vi.fn();
 
@@ -38,6 +39,7 @@ vi.mock("@/lib/supabase/server", () => ({
     auth: {
       signInWithPassword,
       signUp: signUpMock,
+      resend: resendMock,
       resetPasswordForEmail,
     },
   }),
@@ -75,6 +77,7 @@ beforeEach(() => {
   signInWithPassword.mockResolvedValue({ error: null });
   signUpMock.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
   resetPasswordForEmail.mockResolvedValue({ error: null });
+  resendMock.mockResolvedValue({ error: null });
 });
 
 describe("signIn", () => {
@@ -117,7 +120,9 @@ describe("signIn", () => {
     expect(resetRateLimit).not.toHaveBeenCalled();
     // Still the one generic message — the limiter must not have turned this
     // into an oracle that distinguishes wrong password from unknown account.
-    expect(state.message).toBe("That email and password combination did not work.");
+    expect(state.message).toMatch(
+      /^That email and password combination did not work\./,
+    );
   });
 });
 
@@ -169,5 +174,97 @@ describe("requestPasswordReset", () => {
     expect(resetPasswordForEmail).not.toHaveBeenCalled();
     expect(state.success).toBe(true);
     expect(state.message).toMatch(/check your inbox|try again later/i);
+  });
+});
+
+// The failure that started this: the project's shared mail quota is spent, so
+// GoTrue refuses the signup with "email rate limit exceeded" and no account is
+// created. The person on the form must not be shown that line, and must be
+// told that waiting is the fix.
+describe("signUp when the project cannot send mail", () => {
+  const RATE_LIMITED = {
+    code: "over_email_send_rate_limit",
+    status: 429,
+    message: "email rate limit exceeded",
+  };
+
+  it("never shows the provider's wording", async () => {
+    signUpMock.mockResolvedValue({ data: { user: null }, error: RATE_LIMITED });
+    const { signUp } = await import("./actions");
+
+    const state = await signUp({}, form(CREDENTIALS));
+
+    expect(state.success).toBeUndefined();
+    expect(state.message).not.toMatch(/email rate limit exceeded/i);
+    expect(state.message).toMatch(/try again/i);
+  });
+
+  // A generic "something went wrong" would send them hunting for a typo.
+  it("says nothing was created and that waiting fixes it", async () => {
+    signUpMock.mockResolvedValue({ data: { user: null }, error: RATE_LIMITED });
+    const { signUp } = await import("./actions");
+
+    const state = await signUp({}, form(CREDENTIALS));
+
+    expect(state.message).toMatch(/no account was created/i);
+  });
+});
+
+describe("resendConfirmation", () => {
+  it("limits by address and by network before mailing anything", async () => {
+    const { resendConfirmation } = await import("./actions");
+    await resendConfirmation({}, form({ email: CREDENTIALS.email }));
+
+    expect(consumeAll.mock.calls[0][0]).toEqual([
+      { name: "confirmationResendEmail", subject: CREDENTIALS.email },
+      { name: "confirmationResendIp", subject: "203.0.113.7" },
+    ]);
+    expect(resendMock).toHaveBeenCalledWith({
+      type: "signup",
+      email: CREDENTIALS.email,
+      options: { emailRedirectTo: "https://markedfox.com/auth/confirm?flow=signup" },
+    });
+  });
+
+  // Same rule as the password reset: the answer may not differ between an
+  // address that has an account and one that does not.
+  it("answers a refusal exactly like a success, and sends nothing", async () => {
+    consumeAll.mockResolvedValue({
+      ...REFUSE,
+      message: "A confirmation link was already sent. Check your inbox, or try again later.",
+    });
+    const { resendConfirmation } = await import("./actions");
+
+    const state = await resendConfirmation({}, form({ email: CREDENTIALS.email }));
+
+    expect(resendMock).not.toHaveBeenCalled();
+    expect(state.success).toBe(true);
+  });
+
+  it("hides an unknown-address error behind the generic line", async () => {
+    resendMock.mockResolvedValue({
+      error: { code: "user_not_found", status: 404, message: "User not found" },
+    });
+    const { resendConfirmation } = await import("./actions");
+
+    const state = await resendConfirmation({}, form({ email: CREDENTIALS.email }));
+
+    expect(state.success).toBe(true);
+    expect(state.message).toMatch(/if that address has an account/i);
+  });
+
+  // The one error worth admitting to: it is ours, and waiting really does fix
+  // it. Reporting success there would send somebody to an inbox nothing was
+  // sent to.
+  it("admits a spent mail quota", async () => {
+    resendMock.mockResolvedValue({
+      error: { code: "over_email_send_rate_limit", status: 429 },
+    });
+    const { resendConfirmation } = await import("./actions");
+
+    const state = await resendConfirmation({}, form({ email: CREDENTIALS.email }));
+
+    expect(state.success).toBeUndefined();
+    expect(state.message).toMatch(/could not send/i);
   });
 });
