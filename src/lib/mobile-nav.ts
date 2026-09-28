@@ -66,11 +66,13 @@ export const MOBILE_TABS: MobileTab[] = [
   },
   {
     id: "feed",
-    // Straight to Channels, not the feed (owner decision, 2026-09-06). The
-    // feed is empty until channels are being watched, so landing there first
-    // showed a new person a blank screen and no way to read what to do about
-    // it. Channels is where the work starts; the feed is what it produces.
-    href: "/dashboard/research/channels",
+    // The feed, not Channels (owner decision, 2026-09-07, reversing 09-06).
+    // It briefly landed on Channels on the argument that a new account's feed
+    // is empty — but that is one day of one person's use, and every day after
+    // it the feed is the reason to open this tab at all. Channels is setup,
+    // and setup does not get the front door. It is one row down in the section
+    // menu, which is where the rest of Research already lives.
+    href: "/dashboard/research",
     label: "Research",
     icon: "search",
     tip: "Research — the channels you watch and what they publish",
