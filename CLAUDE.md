@@ -589,10 +589,16 @@ not out-featuring either incumbent at its own game.
 
    > **Since ~2026-10-16 the `ssh deploy@markedfox.com … deploy.sh` step below
    > no longer applies** — production is on the Mac mini (see Stack). The
-   > deploy is pulling `main` on the mini and running `deploy/mac/install.sh`
-   > there. The mini has Screen Sharing on and Remote Login (SSH) off, so a
-   > session on another machine cannot do that step itself until SSH is
-   > enabled.
+   > deploy step is now:
+   >
+   > ```
+   > ssh yousef@yousefs-Mac-mini.local 'cd "/Volumes/Yousef Disk/MarkedFox" && git pull && bash deploy/mac/install.sh'
+   > ```
+   >
+   > Remote Login is on (2026-10-25) and the owner's MacBook key is
+   > authorized. `install.sh` builds first, swaps, health-checks
+   > `127.0.0.1:3000`, and puts `app.old` back if the new build does not
+   > answer. Downtime is a ~2s boot. There is no snapshot.
 
    The full sequence, every time:
 
@@ -2184,9 +2190,24 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - **~2026-10-16 — production moved from the droplet to the owner's Mac
   mini.** Recorded 2026-10-25; see `sessions/2026-10-25-mac-mini-hosting.md`.
   launchd runs the standalone build and the scheduler; Cloudflare Tunnel
-  carries `markedfox.com` to `127.0.0.1:3000`. Verified from outside only: the
-  site, `/login` and `security.txt` answer 200 through Cloudflare, and the
-  droplet (`159.203.32.105`) no longer accepts SSH. **Accepted trade:** home
+  (`~/.cloudflared/config.yml` on the mini) carries `markedfox.com`,
+  `www.` and `mac.markedfox.com` to `127.0.0.1:3000`. The repo the mini builds
+  from is `/Volumes/Yousef Disk/MarkedFox`. The droplet (`159.203.32.105`) no
+  longer accepts SSH. In its first nine days the scheduler failed 23 of ~13,000
+  ticks, every one a connect timeout to Supabase — home-internet blips, which
+  the next tick absorbs.
+
+  *First deploy over SSH, 2026-10-25, took the site down for about a minute.*
+  `install.sh` ran `launchctl bootstrap` straight after `bootout`, which
+  returns before the job is gone; the bootstrap failed with "5: Input/output
+  error" and `set -e` stopped the script with the old app stopped and the new
+  one never loaded. Fixed in `b5cefc9` — wait, retry, health-check, roll back
+  — and the redeploy with it was a 2-second blip. Live: `b5cefc9`, which also
+  carries `0b97161` (sign-up survives a spent email quota), not live before
+  today. **That commit's other half is still open:** Supabase's built-in
+  sender allows a handful of auth emails an hour for the whole project, so
+  custom SMTP must be configured in the Supabase dashboard before launch, or
+  the launch burst cannot sign up. **Accepted trade:** home
   internet and power are now product dependencies, exactly what the brief
   warned against, and Rule 5's snapshot rollback is replaced by the single
   `app.old` build that `install.sh` keeps. Caddy's two outer guards are gone
