@@ -2214,3 +2214,36 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   with it — `/api/internal/*` is now publicly reachable (it still answers 403
   without `SCHEDULER_SECRET`) and TRACE is now refused by Cloudflare (405)
   rather than by Caddy.
+
+- **2026-10-25 — auth email moved off Supabase's built-in sender, onto
+  Resend.** Closes the code-half-only fix of `0b97161`: Supabase's built-in
+  sender allowed a handful of auth emails an hour for the whole project.
+  Resend account on the role account (`markedfox.usa`), domain
+  `markedfox.com` verified 11:05 (us-east-1, click/open tracking **off** —
+  tracking would rewrite the confirmation links). DNS added by hand in
+  Cloudflare, all DNS-only: `resend._domainkey` TXT (DKIM), `send` and
+  `rsend` CNAMEs to `*.forge.rmta.net`, and `_dmarc` TXT `v=DMARC1; p=none;`
+  — none collide with Email Routing's root MX/SPF. SMTP was written into
+  Supabase by Resend's own Supabase integration, so no key was ever typed:
+  sender `MarkedFox <no-reply@markedfox.com>`, host `smtp.resend.com`, API
+  key "Supabase Integration". Supabase's email rate limit 25 → **100/h**.
+  Proven: an admin-API invite to `markedfox.usa+smtptest@gmail.com` showed
+  **Delivered** in Resend's log; the test user was then deleted.
+
+  *Three things to know before launch:*
+  - **Resend's free plan caps at 100 emails/day and 3,000/month.** The
+    ~100-person burst alone reaches the daily cap. Upgrade Resend (Pro, $20)
+    before launch, then raise Supabase's emails/h to match.
+  - **Every sign-up comes from one IP.** `signUp`/`signInWithPassword` run as
+    server actions on the Mac mini without forwarding the caller's IP, so
+    Supabase's per-IP auth limits (sign-ups+sign-ins **30 / 5 min**, token
+    verifications 30 / 5 min, refreshes 150 / 5 min) are shared by every user
+    combined. Our own `rate_limits` table already limits per real caller IP,
+    so raising Supabase's numbers (or turning on its IP forwarding, which
+    needs the secret key and a code change) is what keeps the burst out of a
+    shared wall.
+  - **Resend holds read+write on the Supabase organization** "Yousef
+    almuwallad" (Auth, Projects) from the integration's OAuth grant, which
+    also covers the unrelated Traceback CRM project in that org. The SMTP
+    settings do not need it after setup; revoke under the org's OAuth Apps if
+    standing access is unwanted.
