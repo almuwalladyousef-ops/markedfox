@@ -187,6 +187,17 @@ fixes that by construction.
 
 ## Stack
 
+> **Production moved to the owner's Mac mini (owner decision, ~2026-10-16).**
+> This overrides the VPS, Caddy, snapshot and "nothing runs on a Mac mini"
+> lines below, which are kept as the record of the earlier setup. The app runs
+> as launchd jobs from `deploy/mac/` (`com.markedfox.web` serves the standalone
+> build on `127.0.0.1:3000`, `com.markedfox.tick` runs the scheduler every 60s)
+> and Cloudflare Tunnel (`cloudflared`, `com.markedfox.tunnel`) carries
+> `markedfox.com` to it. Deploy is `deploy/mac/install.sh` run on the mini; its
+> rollback is the previous build kept at `~/.markedfox/app.old`. See
+> `sessions/2026-10-25-mac-mini-hosting.md` for what this changed and what is
+> still unverified.
+
 - **Next.js + TypeScript + Tailwind**
 - **Supabase** — Postgres and Auth. Row Level Security is the tenant-isolation
   mechanism: the database refuses other users' rows, so a route that forgets to
@@ -575,6 +586,13 @@ not out-featuring either incumbent at its own game.
 8. **Every code change ends deployed** (owner standing instruction,
    2026-08-22). Work is not finished on a branch; it is finished on
    `markedfox.com`. Do not stop to ask — merge to `main`, push, and deploy.
+
+   > **Since ~2026-10-16 the `ssh deploy@markedfox.com … deploy.sh` step below
+   > no longer applies** — production is on the Mac mini (see Stack). The
+   > deploy is pulling `main` on the mini and running `deploy/mac/install.sh`
+   > there. The mini has Screen Sharing on and Remote Login (SSH) off, so a
+   > session on another machine cannot do that step itself until SSH is
+   > enabled.
 
    The full sequence, every time:
 
@@ -2162,3 +2180,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   `video.list` shows an empty grid in the demo because sandbox posts are
   private and the endpoint returns public videos only — stated in the text,
   and the owner chose to accept that risk over posting a public video first.
+
+- **~2026-10-16 — production moved from the droplet to the owner's Mac
+  mini.** Recorded 2026-10-25; see `sessions/2026-10-25-mac-mini-hosting.md`.
+  launchd runs the standalone build and the scheduler; Cloudflare Tunnel
+  carries `markedfox.com` to `127.0.0.1:3000`. Verified from outside only: the
+  site, `/login` and `security.txt` answer 200 through Cloudflare, and the
+  droplet (`159.203.32.105`) no longer accepts SSH. **Accepted trade:** home
+  internet and power are now product dependencies, exactly what the brief
+  warned against, and Rule 5's snapshot rollback is replaced by the single
+  `app.old` build that `install.sh` keeps. Caddy's two outer guards are gone
+  with it — `/api/internal/*` is now publicly reachable (it still answers 403
+  without `SCHEDULER_SECRET`) and TRACE is now refused by Cloudflare (405)
+  rather than by Caddy.
