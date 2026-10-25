@@ -17,6 +17,7 @@ import { parseRuleRow } from "@/lib/dm/rules";
 import type { DmRule } from "@/lib/dm/types";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
+import { shownCap } from "@/lib/entitlements/types";
 import { PLATFORM_LABELS } from "@/lib/platforms/labels";
 import { getPlatform, listRegisteredPlatforms } from "@/lib/platforms/registry";
 import { createClient } from "@/lib/supabase/server";
@@ -250,8 +251,11 @@ export default async function AutomationsPage({
           {snapshot.limits.dmRulesMax === null
             ? ""
             : ` / ${snapshot.limits.dmRulesMax}`}{" "}
-          rules across your workspaces · {snapshot.usage.dmSendsThisMonth} /{" "}
-          {snapshot.limits.dmSendsPerMonth} DMs sent this month (pooled).
+          rules across your workspaces · {snapshot.usage.dmSendsThisMonth}
+          {shownCap(snapshot.limits.dmSendsPerMonth) === null
+            ? ""
+            : ` / ${snapshot.limits.dmSendsPerMonth}`}{" "}
+          DMs sent this month (pooled).
         </p>
       </div>
 

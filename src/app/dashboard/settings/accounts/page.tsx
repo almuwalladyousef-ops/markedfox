@@ -14,7 +14,11 @@ import { requireUser } from "@/lib/auth/session";
 import { listConnections } from "@/lib/connections/store";
 import { canUserDo } from "@/lib/entitlements/can-user-do";
 import { getEntitlementSnapshot } from "@/lib/entitlements/snapshot";
-import { parsePlanLimits, type PlanLimits } from "@/lib/entitlements/types";
+import {
+  parsePlanLimits,
+  shownCap,
+  type PlanLimits,
+} from "@/lib/entitlements/types";
 import { PLATFORM_LABELS as LABELS } from "@/lib/platforms/labels";
 import { listRegisteredPlatforms } from "@/lib/platforms/registry";
 import { PLATFORMS, type Platform } from "@/lib/platforms/types";
@@ -218,7 +222,14 @@ export default async function AccountsPage({
       // rather than in fine print somewhere else.
       note:
         platform === "x" && included
-          ? `${snapshot.limits.xPostsPerMonth}/mo · no links in the caption`
+          ? [
+              shownCap(snapshot.limits.xPostsPerMonth) === null
+                ? null
+                : `${snapshot.limits.xPostsPerMonth}/mo`,
+              snapshot.limits.xLinksAllowed ? null : "no links in the caption",
+            ]
+              .filter(Boolean)
+              .join(" · ") || undefined
           : undefined,
     };
   });
@@ -305,13 +316,13 @@ export default async function AccountsPage({
           <Meter
             label="X posts this month"
             used={snapshot.usage.xPostsThisMonth}
-            limit={snapshot.limits.xPostsPerMonth}
+            limit={shownCap(snapshot.limits.xPostsPerMonth)}
             note="Capped on every plan, pooled across your workspaces"
           />
           <Meter
             label="DM sends this month"
             used={snapshot.usage.dmSendsThisMonth}
-            limit={snapshot.limits.dmSendsPerMonth}
+            limit={shownCap(snapshot.limits.dmSendsPerMonth)}
             note="Pooled across your workspaces"
           />
           <Meter

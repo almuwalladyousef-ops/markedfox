@@ -144,6 +144,16 @@ export type Decision =
   | { allowed: true }
   | { allowed: false; code: DenialCode; reason: string };
 
+/** A monthly cap at or above this is "no limit". A few caps cannot be null
+ *  (parsePlanLimits requires a number), so the owner plan sets them here
+ *  instead; screens show such a cap as unlimited rather than printing it. */
+export const UNREACHABLE_CAP = 1_000_000_000;
+
+/** The cap to show on screen: null when it can never be reached. */
+export function shownCap(cap: number): number | null {
+  return cap >= UNREACHABLE_CAP ? null : cap;
+}
+
 export class PlanLimitsParseError extends Error {
   constructor(message: string) {
     super(message);
