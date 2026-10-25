@@ -2247,3 +2247,21 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
     also covers the unrelated Traceback CRM project in that org. The SMTP
     settings do not need it after setup; revoke under the org's OAuth Apps if
     standing access is unwanted.
+
+- **2026-10-25 — the owner's account has no reachable limit.** The owner
+  account (`youseftestingproducts@gmail.com`, plan `owner`, processor
+  `manual`) already had every nullable limit null; migration
+  `20261025000000_owner_plan_unlimited.sql` lifts the four that cannot be null
+  — X posts (was 100,000, the deliberate runaway-cost bound, lifted on the
+  owner's call), DM sends, research credits and video minutes (were
+  1,000,000) — to 1,000,000,000 a month. `UNREACHABLE_CAP`/`shownCap` in
+  `src/lib/entitlements/types.ts` make screens show such a cap as unlimited
+  (Connected accounts' X row and meters, the Automations DM line), and the X
+  row no longer says "no links" on a plan that allows them. Proven: the live
+  row through `parsePlanLimits` + `canUserDo` allows all 13 action kinds at 50
+  million of every usage. Paid plans are untouched. `research_refresh_hours`
+  stays 1 (a refresh interval, not a cap). Pushed with
+  `npx supabase@2 db push --db-url` using `SUPABASE_DB_PASSWORD` and the
+  pooler address in `supabase/.temp/pooler-url` — this MacBook has no logged-in
+  Supabase CLI. Deployed `a5d6d2a`. Not seen on screen: nobody signed in as
+  the owner.
