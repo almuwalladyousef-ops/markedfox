@@ -2292,3 +2292,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   Return to Draft (re-upload the icon — Draft blanks it), replace the video,
   resubmit. The droplet note about sandbox keys is stale: production is the
   Mac mini, whose `~/.markedfox/env` holds whichever TikTok pair is live.
+
+- **2026-10-26 — TikTok sandbox keys are live on the Mac mini** (for the
+  owner's hand-recorded demo). Production had been running the *production*
+  TikTok pair since the move, which TikTok refuses on an unapproved app
+  ("couldn't log in … client_key"). The sandbox pair came from the portal's
+  Sandbox tab via the clipboard; the production pair is saved in
+  `~/.markedfox/env.tiktok-production-keys` (600) and the whole previous env in
+  `~/.markedfox/env.before-tiktok-sandbox-20261026`. Sandbox target user:
+  `markedfoxapp`. **After TikTok approves:** put the two lines from
+  `env.tiktok-production-keys` back into `~/.markedfox/env`, then
+  `launchctl kickstart -k gui/$(id -u)/com.markedfox.web` on the mini.
