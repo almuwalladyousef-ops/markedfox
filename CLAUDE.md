@@ -75,8 +75,9 @@ refactor, or preserve.
 - [x] **MarkedFox Business portfolio exists** (`business_id 1350181790431899`),
       audited 2026-08-13. Sole admin is the Facebook profile "Mark Snow" on the
       role account.
-- [ ] **UNBLOCK THE META DEVELOPER ACCOUNT FIRST — everything at Meta is stuck
-      behind it.** As of 2026-08-13 `developers.facebook.com` refuses all
+- [x] **Meta developer account unblocked** — confirmed 2026-10-26: the
+      dashboard opens normally. (Was: **UNBLOCK THE META DEVELOPER ACCOUNT FIRST — everything at Meta is stuck
+      behind it.**) As of 2026-08-13 `developers.facebook.com` refuses all
       access with *"Account confirmation needed — We've noticed unusual
       activity on this developer account. Please complete the confirmation
       steps to regain access."* and a **Confirm Account** button. The page
@@ -94,10 +95,15 @@ refactor, or preserve.
       `META_APP_ID` is in `.env.local`; `META_APP_SECRET` still needs pasting
       from Settings → Basic.
 - [ ] **Verify the app's contact email** — `contact_email_verified` is false.
-- [ ] **Add products and request permissions** — `privileges` is empty, so
-      nothing has been requested yet. Instagram Graph API and Facebook Login
-      first.
-- [ ] **Add a second admin to the Business portfolio.** Meta's own Security
+- [x] **Permissions added** — checked 2026-10-26: all nine the code requests
+      (`instagram_basic`, `instagram_content_publish`, `instagram_manage_comments`,
+      `instagram_manage_messages`, `pages_show_list`, `pages_read_engagement`,
+      `business_management`, `pages_messaging`, `pages_manage_metadata`) plus
+      `pages_manage_posts` are in the app's use cases, all "Ready for testing".
+      The dashboard now says the app must **Become a Tech Provider** before App
+      Review can be submitted.
+- [x] **Second admin on the Business portfolio** — Security Center shows
+      "Backup admin added" (2026-10-26). (Was: **Add a second admin to the Business portfolio.**) Meta's own Security
       Center flags it: one admin means one lockout away from losing the
       portfolio that Business Verification and every Instagram permission
       attach to. There is no appeal path. A second admin on an account the
@@ -129,8 +135,8 @@ refactor, or preserve.
       the two linked — the Instagram Graph API does not work without this
 - [x] Cloudflare Email Routing for `admin@` / `hello@` / `support@markedfox.com`
       → `markedfox.usa@gmail.com`, configured 2026-09-11 with MX/DKIM/SPF
-      added. **Destination is Pending until the owner clicks Cloudflare's
-      verification email.**
+      added. **Destination verified** (checked 2026-10-26); `hello@`, `admin@`,
+      `support@` all Active.
 - [x] Cloudflare: `markedfox.usa@gmail.com` added as Super Administrator on the
       owner's personal Cloudflare account. Note that Super Admin covers the **whole
       account**, not just `markedfox.com` — Cloudflare's per-domain scoped roles are
@@ -2265,3 +2271,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   pooler address in `supabase/.temp/pooler-url` — this MacBook has no logged-in
   Supabase CLI. Deployed `a5d6d2a`. Not seen on screen: nobody signed in as
   the owner.
+
+- **2026-10-26 — Meta, checked from the owner's Chrome.** Developer account
+  unblocked; every permission the code requests is in the app's use cases and
+  "Ready for testing"; a backup admin is on the portfolio; Cloudflare Email
+  Routing is verified and live. **Business Verification was started 2026-08-15
+  and never submitted** — Security Center shows "Pending submission" under
+  "App requires access to permissions on Meta for Developers". Its three steps:
+  business details (legal name, address, phone, email, website), confirm the
+  connection (a code to an `@markedfox.com` address works now that routing is
+  live), and documents if Meta cannot find the business in public records.
+  Needs the owner: the LLC's exact legal name and address as on its documents.
+  After it: **Become a Tech Provider**, which the dashboard now names as the
+  gate in front of App Review.
