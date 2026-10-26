@@ -122,7 +122,7 @@ refactor, or preserve.
       shown) or TikTok asked directly. **Owner chose to demonstrate it
       (2026-09-12): "Send to TikTok drafts" built and deployed `4752a61`,
       videos now upload by FILE_UPLOAD, sandbox keys live on the droplet.**
-      **Resubmitted 2026-09-14 08:42, status In review**, with a new
+      **Resubmitted 2026-09-14 08:42 — REJECTED again 2026-09-22** (found 2026-10-26): *"demo videos submitted for review must not be recorded using AI agents, automated tools, or screen simulation software. You are required to manually navigate and walk through the entire flow yourself."* Half of that demo was driven by Claude in Chrome. **Every future demo is recorded by the owner's own hands — never by an agent.** Was: **Resubmitted 2026-09-14 08:42, status In review**, with a new
       3:20 sandbox demo covering all six scopes (including Send to TikTok
       drafts) and a timestamped scope explanation. See
       `sessions/2026-09-14-tiktok-resubmission.md`. The droplet still runs the
@@ -2284,3 +2284,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   Needs the owner: the LLC's exact legal name and address as on its documents.
   After it: **Become a Tech Provider**, which the dashboard now names as the
   gate in front of App Review.
+
+- **2026-10-26 — TikTok was rejected a second time, on 2026-09-22, unnoticed
+  for a month.** Reason: the demo video was partly recorded with an AI agent
+  driving the browser, which TikTok forbids. The app itself was not faulted.
+  Next: the owner records a new demo by hand covering all six scopes, then
+  Return to Draft (re-upload the icon — Draft blanks it), replace the video,
+  resubmit. The droplet note about sandbox keys is stale: production is the
+  Mac mini, whose `~/.markedfox/env` holds whichever TikTok pair is live.
